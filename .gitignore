@@ -1,0 +1,56 @@
+# ── Environment / Secrets ──
+.env
+!.env.example
+*.env.local
+*.env.*.local
+
+# ── .NET ──
+bin/
+obj/
+*.exe
+*.dll
+*.pdb
+*.runtimeconfig.json
+*.deps.json
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.nupkg
+packages/
+.vs/
+
+# ── Node / Frontend ──
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+.next/
+
+# ── IDE ──
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+*.log
+
+# ── Build artifacts ──
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+*.egg
+*.whl
+*.zip
+*.tar.gz
+
+# ── Coverage / Reports ──
+coverage/
+*.coverage
+*.trx
+*.htmlcov
+
+# ── SpecFlow generated files ──
+*.feature.cs
