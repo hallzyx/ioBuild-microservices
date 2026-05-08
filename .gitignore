@@ -54,3 +54,6 @@ coverage/
 
 # ── SpecFlow generated files ──
 *.feature.cs
+
+context.md
+5.1_instructions
