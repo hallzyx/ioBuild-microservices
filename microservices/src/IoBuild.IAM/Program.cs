@@ -6,7 +6,6 @@ using IoBuild.IAM.Domain.Services;
 using IoBuild.IAM.Infrastructure.Hashing.BCrypt.Services;
 using IoBuild.IAM.Infrastructure.Persistence.EFC.Repositories;
 using IoBuild.IAM.Infrastructure.Pipeline.Middleware.Extensions;
-using IoBuild.IAM.Infrastructure.Tokens.JWT.Configuration;
 using IoBuild.IAM.Infrastructure.Tokens.JWT.Services;
 using IoBuild.Shared.Domain.Repositories;
 using IoBuild.Shared.Infrastructure.ASP.Configuration;

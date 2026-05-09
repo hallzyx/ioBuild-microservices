@@ -3,12 +3,14 @@ using IoBuild.Projects.Domain.Services.Commands.Units;
 using IoBuild.Projects.Domain.Services.Queries.Units;
 using IoBuild.Projects.Interfaces.Resources;
 using IoBuild.Projects.Interfaces.Transform;
+using IoBuild.Shared.Infrastructure.ASP.Configuration;
 using Microsoft.AspNetCore.Mvc;
 
 namespace IoBuild.Projects.Interfaces.REST;
 
 [ApiController]
 [Route("api/v1/units")]
+[Authorize]
 public class UnitsController : ControllerBase
 {
     private readonly IUnitCommandService _commandService;

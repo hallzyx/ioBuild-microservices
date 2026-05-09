@@ -1,11 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 
-namespace IoBuild.IAM.Infrastructure.Pipeline.Middleware.Attributes;
+namespace IoBuild.Shared.Infrastructure.ASP.Configuration;
 
 /// <summary>
 /// Custom Authorize attribute.
-/// Checks if HttpContext.Items["User"] was set by RequestAuthorizationMiddleware.
+/// Checks if HttpContext.Items["User"] was set by JwtAuthenticationMiddleware.
 /// </summary>
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
 public class AuthorizeAttribute : Attribute, IAuthorizationFilter

@@ -3,12 +3,14 @@ using IoBuild.Projects.Domain.Services.Commands.Clients;
 using IoBuild.Projects.Domain.Services.Queries.Clients;
 using IoBuild.Projects.Interfaces.Resources;
 using IoBuild.Projects.Interfaces.Transform;
+using IoBuild.Shared.Infrastructure.ASP.Configuration;
 using Microsoft.AspNetCore.Mvc;
 
 namespace IoBuild.Projects.Interfaces.REST;
 
 [ApiController]
 [Route("api/v1/clients")]
+[Authorize]
 public class ClientsController : ControllerBase
 {
     private readonly IClientCommandService _commandService;

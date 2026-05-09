@@ -1,3 +1,4 @@
+using IoBuild.Shared.Infrastructure.Tokens;
 using Microsoft.EntityFrameworkCore;
 using IoBuild.Devices.Application.Internal.CommandServices;
 using IoBuild.Devices.Application.Internal.QueryServices;
@@ -19,6 +20,16 @@ var dbPassword = Environment.GetEnvironmentVariable("DB_PASSWORD") ?? "";
 var dbName = Environment.GetEnvironmentVariable("DB_NAME") ?? "iobuild_devices";
 var connectionString = $"Server={dbHost};Port={dbPort};Database={dbName};User={dbUser};Password={dbPassword};";
 
+// ── JWT Secret: env var override > appsettings.json fallback ──
+var jwtSecret = Environment.GetEnvironmentVariable("JWT_SECRET")
+    ?? builder.Configuration.GetValue<string>("TokenSettings:Secret")
+    ?? "dev-fallback-key-minimum-32-characters!!";
+
+builder.Services.Configure<TokenSettings>(options =>
+{
+    options.Secret = jwtSecret;
+});
+
 builder.Services.AddHealthChecks();
 builder.Services.AddControllers(options =>
 {
@@ -26,7 +37,25 @@ builder.Services.AddControllers(options =>
 });
 
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new() { Title = "IoBuild.Devices", Version = "v1" });
+    c.AddSecurityDefinition("Bearer", new()
+    {
+        Description = "JWT Authorization header using the Bearer scheme.",
+        Name = "Authorization",
+        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+        Type = Microsoft.OpenApi.Models.SecuritySchemeType.Http,
+        Scheme = "bearer"
+    });
+    c.AddSecurityRequirement(new()
+    {
+        {
+            new() { Reference = new() { Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme, Id = "Bearer" } },
+            Array.Empty<string>()
+        }
+    });
+});
 
 builder.Services.AddDbContext<DevicesDbContext>(options =>
     options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
@@ -55,6 +84,7 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
+app.UseJwtAuthentication();
 
 if (app.Environment.IsDevelopment())
 {

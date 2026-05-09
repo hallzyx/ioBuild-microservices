@@ -1,3 +1,4 @@
+using IoBuild.Shared.Infrastructure.ASP.Configuration;
 using Microsoft.AspNetCore.Mvc;
 using IoBuild.Devices.Domain.Model.Queries;
 using IoBuild.Devices.Domain.Services;
@@ -8,6 +9,7 @@ namespace IoBuild.Devices.Interfaces.REST;
 
 [ApiController]
 [Route("api/v1/devices")]
+[Authorize]
 public class DevicesController(IDeviceCommandService commandService, IDeviceQueryService queryService) : ControllerBase
 {
     [HttpGet]

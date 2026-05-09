@@ -5,7 +5,7 @@
 | Driver | Estado Anterior | Estado Final | Evidencia |
 |--------|----------------|--------------|-----------|
 | **CRN-1** (Greenfield) | Addressed | **✅ Complete** | `IoBuild.sln` con 7 proyectos: IoBuild.Shared, IAM, Devices, Projects, Subscriptions, Analytics, Gateway |
-| **QA-1** (Seguridad) | Partially Addressed | **✅ Complete** | JWT HMAC-SHA256, BCrypt, Middleware de Autorización con blacklist, Endpoint `/logout`, `ITokenBlacklistService` con `IMemoryCache` |
+| **QA-1** (Seguridad) | Partially Addressed | **✅ Complete** | JWT HMAC-SHA256, BCrypt, Middleware de Autorización con blacklist, Endpoint `/logout`, `ITokenBlacklistService` con `IMemoryCache`. **Auth extendido a todos los microservicios:** `JwtAuthenticationMiddleware` compartido, `[Authorize]` en Projects/Devices/Units/Clients controllers. `GlobalExceptionHandlerMiddleware` mapea excepciones a códigos HTTP correctos (401, 404, 409, 400, 500). |
 | **CON-1** (Microservicios) | Addressed | **✅ Complete** | 5 microservicios independientes (5001-5005) + API Gateway YARP en puerto 8080 |
 | **CON-2** (Vue Frontend) | Addressed | **✅ Complete** | CORS configurado para `localhost:5173`, Kebab-case routing en todos los servicios |
 
@@ -15,6 +15,8 @@
 |----------------|-------------------------|--------|
 | API Gateway como *Single Point of Failure* | Health checks activos cada 10s con política `ConsecutiveFailures`, RoundRobin load balancing preparado para múltiples réplicas | Mitigado |
 | JWT comprometido sin revocación | `ITokenBlacklistService` con `IMemoryCache`, endpoint `POST /authentication/logout`, middleware valida blacklist en cada request | Mitigado |
+| Endpoints no protegidos (Projects, Devices) | `JwtAuthenticationMiddleware` compartido desde `IoBuild.Shared`, atributo `[Authorize]` en todos los controladores | Mitigado |
+| Excepciones sin distinción HTTP | `GlobalExceptionHandlerMiddleware` traduce `UnauthorizedAccessException → 401`, `ArgumentException → 400`, `KeyNotFoundException → 404` | Mitigado |
 
 ## Arquitectura Final — Iteración 1
 
@@ -36,7 +38,10 @@ IoBuild.Gateway (:8080) ──── Health Checks (/health)
 
 Compartido: IoBuild.Shared.dll
   ├── IBaseRepository<T>, IUnitOfWork
-  ├── GlobalExceptionHandlerMiddleware
+  ├── GlobalExceptionHandlerMiddleware (401/404/409/400/500)
+  ├── JwtAuthenticationMiddleware (Auth compartido para Projects, Devices)
+  ├── AuthorizeAttribute, AllowAnonymousAttribute
+  ├── TokenSettings (Configuración JWT unificada)
   ├── KebabCaseRouteNamingConvention
   ├── ModelBuilderExtensions (SnakeCase)
   ├── ITokenBlacklistService (Revocación JWT)

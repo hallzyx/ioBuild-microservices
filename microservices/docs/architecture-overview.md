@@ -267,7 +267,20 @@ IoBuild.Subscriptions.Tests/
 
 > **Nota:** Todos los Step Definitions fueron implementados en `tests/*/Steps/*.cs` permitiendo que los tests pasen (16/16 passing).
 
-### 5.3 Herramientas de Testing
+### 5.3 Integration Tests (Runtime)
+
+Además de los tests BDD, se implementaron **integration tests runtime** que prueban las APIs reales:
+
+| Script | Propósito |
+|--------|-----------|
+| `run_integration_tests.sh` | Levanta servicios, ejecuta 10 tests HTTP reales, los detiene. Cross-platform (Windows/macOS/Linux) |
+| `run_integration_tests.ps1` | Versión PowerShell para Windows |
+
+**Tests cubiertos:** Health check, Sign Up, Sign In, Login fallido (401), CRUD proyectos con/sin auth, auth en Devices, Planes públicos, Health checks individuales (5 servicios).
+
+**Resultado:** 10/10 passing ✅
+
+### 5.4 Herramientas de Testing
 
 | Herramienta | Propósito |
 |------------|-----------|
@@ -275,6 +288,7 @@ IoBuild.Subscriptions.Tests/
 | **Moq** | Mocking de dependencias |
 | **FluentAssertions** | Aserciones legibles |
 | **SpecFlow** | Pruebas BDD con Gherkin |
+| **Curl / Bash** | Integration tests contra APIs reales |
 
 ---
 
@@ -298,12 +312,13 @@ IoBuild.Subscriptions.Tests/
 ```
 ✅ 6 deploys independientes
 ✅ GET /health en cada servicio
-✅ 12 escenarios BDD
+✅ 16 escenarios BDD + 10 integration tests
 ✅ 4 capas: Interfaces → Application → Domain → Infrastructure
 ✅ JWT stateless con HMAC-SHA256
 ✅ Gateway YARP centralizado
 ✅ CORS configurado para :5173
-✅ GlobalExceptionHandler en todos
+✅ GlobalExceptionHandler con códigos HTTP correctos (401/404/409/400/500)
+✅ [Authorize] en todos los controladores (IAM + Projects + Devices)
 ```
 
 ### Beneficios Clave
@@ -313,7 +328,7 @@ IoBuild.Subscriptions.Tests/
 | **Escalabilidad independiente** | Si Devices tiene mucha carga, escalás solo Devices |
 | **Aislamiento de fallos** | Si Subscriptions se cae, los proyectos siguen funcionando |
 | **Bases de datos separadas** | Cada servicio tiene su propia BD, sin contención |
-| **Seguridad mejorada** | JWT validado en cada request + blacklist de revocación |
+| **Seguridad mejorada** | JWT validado en cada request + blacklist de revocación + Auth en todos los servicios (Projects, Devices) |
 | **Testeabilidad** | Capas desacopladas via interfaces, mockeables |
 | **Despliegue independiente** | Cada microservicio se deploya sin afectar a los demás |
 | **Observabilidad** | Health checks en todos los servicios + Gateway |
@@ -341,11 +356,28 @@ IoBuild.Subscriptions.Tests/
 | Hashing | BCrypt |
 | Pagos | Stripe |
 | API Docs | Swagger / OpenAPI |
-| Testing | xUnit + Moq + FluentAssertions + SpecFlow |
+| Testing | xUnit + Moq + FluentAssertions + SpecFlow + Integration Tests (Bash/curl) |
 
 ---
 
 ## 9. ¿Cómo correrlo?
+
+### Scripts automáticos (recomendado)
+
+```bash
+# Requisitos: .NET 9 SDK, MySQL en :33065
+
+# Iniciar todos los microservicios
+./start_all.sh
+
+# Ejecutar integration tests
+./run_integration_tests.sh
+
+# Detener todos los microservicios
+./kill_all.sh
+```
+
+### Comandos manuales
 
 ```bash
 # Requisitos: .NET 9 SDK, MySQL en :33065
@@ -387,7 +419,14 @@ curl -X POST http://localhost:8080/api/v1/authentication/sign-in \
 microservices/
 ├── IoBuild.sln                          # Solución .NET
 ├── README.md                            # (este archivo)
-├── start_services.ps1                   # Script para iniciar todo
+├── run_integration_tests.sh             # Integration tests (Bash, cross-platform)
+├── run_integration_tests.ps1            # Integration tests (PowerShell)
+├── start_all.sh                         # Iniciar todos los servicios (Bash)
+├── start_all.bat                        # Iniciar todos los servicios (CMD)
+├── kill_all.sh                          # Detener todos los servicios (Bash)
+├── kill_all.bat                         # Detener todos los servicios (CMD)
+├── start_services.ps1                   # Iniciar todos los servicios (PowerShell)
+├── kill_services.ps1                    # Detener todos los servicios (PowerShell)
 ├── docs/
 │   ├── architecture-overview.md         # ⬅️ Este documento
 │   ├── api-gateway-routes.md            # Mapeo detallado de rutas

@@ -3,12 +3,14 @@ using IoBuild.Projects.Domain.Services.Commands.Projects;
 using IoBuild.Projects.Domain.Services.Queries.Projects;
 using IoBuild.Projects.Interfaces.Resources;
 using IoBuild.Projects.Interfaces.Transform;
+using IoBuild.Shared.Infrastructure.ASP.Configuration;
 using Microsoft.AspNetCore.Mvc;
 
 namespace IoBuild.Projects.Interfaces.REST;
 
 [ApiController]
 [Route("api/v1/projects")]
+[Authorize]
 public class ProjectsController : ControllerBase
 {
     private readonly IProjectCommandService _commandService;

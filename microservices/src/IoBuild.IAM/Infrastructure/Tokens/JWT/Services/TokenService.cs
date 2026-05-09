@@ -3,7 +3,7 @@ using System.Security.Claims;
 using System.Text;
 using IoBuild.IAM.Application.Internal.OutboundServices;
 using IoBuild.IAM.Domain.Model.Aggregates;
-using IoBuild.IAM.Infrastructure.Tokens.JWT.Configuration;
+using IoBuild.Shared.Infrastructure.Tokens;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 

@@ -465,13 +465,14 @@ curl -X POST http://localhost:8080/api/v1/authentication/sign-in \
 | Métrica | Valor |
 |---------|-------|
 | Proyectos totales | 7 (src) + 4 (tests) |
-| Archivos `.cs` fuente | ~170 |
+| Archivos `.cs` fuente | ~185 |
 | Features Gherkin | 4 (16 escenarios) |
 | Step Definitions implementados | 4 archivos en `tests/*/Steps/*.cs` |
 | Tests BDD pasando | 16/16 ✅ |
+| Integration Tests runtime | 10/10 ✅ |
 | Paquetes NuGet | YARP, Stripe.net, BCrypt, EF Core MySQL, Cortex.Mediator, Swashbuckle, AspNetCore.HealthChecks.Uris |
 | Puertos en uso | 8080 (Gateway), 5001-5005 (microservicios) |
-| Patrones GoF implementados | 9 (DI, Facade, Adapter, Chain of Resp., Proxy, Strategy, Mediator, Decorator, Aggregate) |
+| Patrones GoF implementados | 10 (DI, Facade, Adapter, Chain of Resp., Proxy, Strategy, Mediator, Decorator, Aggregate, **Middleware**) |
 | Drivers ADD cubiertos | 4 (CRN-1, QA-1, CON-1, CON-2) |
 | ADRs implementados | 2 de 2 |
 
@@ -490,3 +491,12 @@ curl -X POST http://localhost:8080/api/v1/authentication/sign-in \
 | 7 | 2026-05-07 | Eliminar `UseHttpsRedirection` redundante en IAM | `IoBuild.IAM/Program.cs` | 🟢 Medio |
 | 8 | 2026-05-07 | Agregar `[HttpDelete]` a UnitsController | `IoBuild.Projects/UnitsController.cs` | 🟢 Medio |
 | 9 | 2026-05-07 | Agregar BDD Feature file a Projects.Tests | `IoBuild.Projects.Tests/Features/ProjectsManagement.feature` | 🟢 Medio |
+| 10 | 2026-05-08 | Implementar Step Definitions BDD en los 4 proyectos de test | 4 × `Steps/*.cs` | 🔴 Crítico |
+| 11 | 2026-05-08 | Fix `GlobalExceptionHandlerMiddleware` — mapea excepciones a códigos HTTP correctos | `IoBuild.Shared/Infrastructure/Middleware/GlobalExceptionHandlerMiddleware.cs` | 🔴 Crítico |
+| 12 | 2026-05-08 | Agregar `[Authorize]` a Projects/Devices/Units/Clients controllers | 4 controladores | 🔴 Crítico |
+| 13 | 2026-05-08 | Crear `JwtAuthenticationMiddleware` compartido en IoBuild.Shared | `IoBuild.Shared/Infrastructure/Middleware/JwtAuthenticationMiddleware.cs` | 🔴 Crítico |
+| 14 | 2026-05-08 | Registrar JWT auth en Projects y Devices Program.cs | 2 × `Program.cs`, `appsettings.json` | 🔴 Crítico |
+| 15 | 2026-05-08 | Unificar `TokenSettings` en IoBuild.Shared (eliminar duplicado de IAM) | `IoBuild.Shared/Infrastructure/Tokens/TokenSettings.cs` | 🟡 Alto |
+| 16 | 2026-05-08 | Crear scripts bash cross-platform (start_all.sh, kill_all.sh) | `microservices/start_all.sh`, `kill_all.sh` | 🟢 Medio |
+| 17 | 2026-05-08 | Crear Integration Tests runtime (10 escenarios, 10/10 passing) | `microservices/run_integration_tests.sh`, `.ps1` | 🟢 Medio |
+| 18 | 2026-05-08 | Actualizar documentación: stats, tests, arquitectura | `docs/*.md` | 🟢 Medio |
