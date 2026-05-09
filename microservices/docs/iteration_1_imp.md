@@ -30,7 +30,7 @@
 |---|----------|-----------|-----|
 | 1 | **IoBuild.IAM.Tests** | xUnit + Moq + FluentAssertions | SpecFlow — `Authentication.feature` (3 escenarios) |
 | 2 | **IoBuild.Devices.Tests** | xUnit + Moq + FluentAssertions | SpecFlow — `DeviceManagement.feature` (3 escenarios) |
-| 3 | **IoBuild.Projects.Tests** | xUnit + Moq + FluentAssertions | — |
+| 3 | **IoBuild.Projects.Tests** | xUnit + Moq + FluentAssertions | SpecFlow — `ProjectsManagement.feature` (4 escenarios) |
 | 4 | **IoBuild.Subscriptions.Tests** | xUnit + Moq + FluentAssertions | SpecFlow — `SubscriptionRenewal.feature` (3 escenarios) |
 
 ---
@@ -417,7 +417,21 @@ Feature: Renovacion de Plan de Suscripcion
   - `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` (por microservicio)
 - Stripe API Key (para Subscriptions)
 
-### 14.2 Comandos
+### 14.2 Scripts Automatizados (Recomendado)
+
+Se incluyen scripts bash cross-platform en `microservices/`:
+
+```bash
+# Iniciar todos los microservicios
+./start_all.sh
+
+# Detener todos los microservicios
+./kill_all.sh
+```
+
+> **Nota:** Los scripts detectan el sistema operativo (Windows/macOS/Linux) y usan el comando apropiado para matar procesos.
+
+### 14.3 Comandos Manuales
 
 ```bash
 # 1. Gateway (único punto de entrada)
@@ -452,7 +466,9 @@ curl -X POST http://localhost:8080/api/v1/authentication/sign-in \
 |---------|-------|
 | Proyectos totales | 7 (src) + 4 (tests) |
 | Archivos `.cs` fuente | ~170 |
-| Features Gherkin | 4 (12 escenarios) |
+| Features Gherkin | 4 (16 escenarios) |
+| Step Definitions implementados | 4 archivos en `tests/*/Steps/*.cs` |
+| Tests BDD pasando | 16/16 ✅ |
 | Paquetes NuGet | YARP, Stripe.net, BCrypt, EF Core MySQL, Cortex.Mediator, Swashbuckle, AspNetCore.HealthChecks.Uris |
 | Puertos en uso | 8080 (Gateway), 5001-5005 (microservicios) |
 | Patrones GoF implementados | 9 (DI, Facade, Adapter, Chain of Resp., Proxy, Strategy, Mediator, Decorator, Aggregate) |

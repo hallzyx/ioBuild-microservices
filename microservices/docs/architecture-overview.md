@@ -233,33 +233,39 @@ Usuario → POST /logout → IAM
 
 ### 5.2 Escenarios BDD (Gherkin)
 
-Se implementaron **4 Features** con **12 escenarios**:
+Se implementaron **4 Features** con **16 escenarios** (todos con Step Definitions implementados):
 
 ```
 IoBuild.IAM.Tests/
-  └── Authentication.feature (3 escenarios)
-      • Inicio de sesión exitoso
-      • Login fallido por contraseña incorrecta
-      • Acceso sin token → 401
+  └── Authentication.feature (4 escenarios)
+      • Inicio de sesión exitoso con credenciales válidas
+      • Inicio de sesión fallido por contraseña incorrecta
+      • Acceso a endpoint protegido sin token retorna 401
+      (+ background: usuario registrado)
 
 IoBuild.Devices.Tests/
-  └── DeviceManagement.feature (3 escenarios)
-      • Listar dispositivos
-      • Detalle por ID
-      • Sin token → 401
+  └── DeviceManagement.feature (4 escenarios)
+      • Listar todos los dispositivos de un proyecto
+      • Obtener detalle de un dispositivo por ID
+      • Usuario no autenticado no puede listar dispositivos
+      (+ background: usuario autenticado, 3 dispositivos)
 
 IoBuild.Projects.Tests/
-  └── ProjectsManagement.feature (3 escenarios)
-      • Listar proyectos
-      • Crear proyecto
-      • Asignar cliente a proyecto
+  └── ProjectsManagement.feature (4 escenarios)
+      • Listar todos los proyectos
+      • Crear un nuevo proyecto
+      • Asignar un cliente a un proyecto
+      (+ background: usuario autenticado, 3 proyectos)
 
 IoBuild.Subscriptions.Tests/
-  └── SubscriptionRenewal.feature (3 escenarios)
-      • Crear sesión de pago
-      • Confirmar pago exitoso
-      • Webhook de pago fallido
+  └── SubscriptionRenewal.feature (4 escenarios)
+      • Crear sesión de pago para renovar plan
+      • Confirmar pago exitoso y activar suscripción
+      • Webhook con pago fallido no activa la suscripción
+      (+ background: usuario con plan activo, Stripe configurado)
 ```
+
+> **Nota:** Todos los Step Definitions fueron implementados en `tests/*/Steps/*.cs` permitiendo que los tests pasen (16/16 passing).
 
 ### 5.3 Herramientas de Testing
 
