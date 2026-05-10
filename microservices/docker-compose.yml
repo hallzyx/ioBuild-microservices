@@ -237,8 +237,9 @@ services:
     restart: unless-stopped
     depends_on:
       - gateway
-    ports:
-      - "80:80" # ÚNICO puerto público hacia el exterior
+    # Traefik/Dokploy maneja el enrutamiento externo
+    expose:
+      - "80"
     networks:
       - iobuild-network
     healthcheck:
