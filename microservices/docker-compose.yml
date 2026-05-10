@@ -18,7 +18,7 @@ services:
     container_name: iobuild-mysql
     restart: unless-stopped
     environment:
-      - MYSQL_ROOT_PASSWORD=iobuild123
+      - MYSQL_ROOT_PASSWORD=${DB_PASSWORD:-iobuild123}
     ports:
       - "3306:3306"
     volumes:
@@ -51,9 +51,9 @@ services:
       - DB_HOST=mysql
       - DB_PORT=3306
       - DB_USER=root
-      - DB_PASSWORD=iobuild123
+      - DB_PASSWORD=${DB_PASSWORD:-iobuild123}
       - DB_NAME=iobuild_iam
-      - JWT_SECRET=iobuild-super-secret-key-minimum-32-chars!!-dev
+      - JWT_SECRET=${JWT_SECRET:-dev-fallback-key-minimum-32-characters!!}
     networks:
       - iobuild-network
     healthcheck:
@@ -81,9 +81,9 @@ services:
       - DB_HOST=mysql
       - DB_PORT=3306
       - DB_USER=root
-      - DB_PASSWORD=iobuild123
+      - DB_PASSWORD=${DB_PASSWORD:-iobuild123}
       - DB_NAME=iobuild_devices
-      - JWT_SECRET=iobuild-super-secret-key-minimum-32-chars!!-dev
+      - JWT_SECRET=${JWT_SECRET:-dev-fallback-key-minimum-32-characters!!}
     networks:
       - iobuild-network
     healthcheck:
@@ -111,9 +111,9 @@ services:
       - DB_HOST=mysql
       - DB_PORT=3306
       - DB_USER=root
-      - DB_PASSWORD=iobuild123
+      - DB_PASSWORD=${DB_PASSWORD:-iobuild123}
       - DB_NAME=iobuild_projects
-      - JWT_SECRET=iobuild-super-secret-key-minimum-32-chars!!-dev
+      - JWT_SECRET=${JWT_SECRET:-dev-fallback-key-minimum-32-characters!!}
     networks:
       - iobuild-network
     healthcheck:
@@ -141,10 +141,10 @@ services:
       - DB_HOST=mysql
       - DB_PORT=3306
       - DB_USER=root
-      - DB_PASSWORD=iobuild123
+      - DB_PASSWORD=${DB_PASSWORD:-iobuild123}
       - DB_NAME=iobuild_subscriptions
-      - JWT_SECRET=iobuild-super-secret-key-minimum-32-chars!!-dev
-      - STRIPE_SECRET_KEY=
+      - JWT_SECRET=${JWT_SECRET:-dev-fallback-key-minimum-32-characters!!}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}
     networks:
       - iobuild-network
     healthcheck:
@@ -172,7 +172,7 @@ services:
       - DB_HOST=mysql
       - DB_PORT=3306
       - DB_USER=root
-      - DB_PASSWORD=iobuild123
+      - DB_PASSWORD=${DB_PASSWORD:-iobuild123}
       - DB_NAME=iobuild_analytics
     networks:
       - iobuild-network
