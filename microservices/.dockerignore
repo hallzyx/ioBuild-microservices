@@ -1,0 +1,39 @@
+# IoBuild — .dockerignore
+# Evita copiar archivos innecesarios al contexto de build de Docker
+
+# Git
+.git/
+.gitignore
+
+# Node (si hubiera frontend)
+node_modules/
+npm-debug.log
+
+# Build output
+**/bin/
+**/obj/
+
+# Environment files (las variables se pasan via docker-compose)
+.env
+.env.*
+
+# Docker
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# Documentation
+docs/
+*.md
+
+# Tests (no se incluyen en la imagen de producción)
+tests/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Scripts
+*.bat
+*.ps1
+*.sh

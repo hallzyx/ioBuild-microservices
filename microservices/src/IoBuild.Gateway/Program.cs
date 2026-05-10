@@ -23,12 +23,32 @@ builder.Services.AddCors(options =>
 });
 
 // ── Health Checks with downstream health probes ──
-builder.Services.AddHealthChecks()
-    .AddUrlGroup(new Uri("http://localhost:5001/health"), "IoBuild.IAM", tags: ["core"])
-    .AddUrlGroup(new Uri("http://localhost:5002/health"), "IoBuild.Devices", tags: ["core"])
-    .AddUrlGroup(new Uri("http://localhost:5003/health"), "IoBuild.Projects", tags: ["core"])
-    .AddUrlGroup(new Uri("http://localhost:5004/health"), "IoBuild.Subscriptions", tags: ["core"])
-    .AddUrlGroup(new Uri("http://localhost:5005/health"), "IoBuild.Analytics", tags: ["optional"]);
+// Resolver URLs desde configuración YARP para compatibilidad con Docker
+var clusters = builder.Configuration.GetSection("ReverseProxy:Clusters").GetChildren();
+var healthChecks = builder.Services.AddHealthChecks();
+
+foreach (var cluster in clusters)
+{
+    var clusterName = cluster.Key;
+    var address = cluster.GetSection("Destinations").GetChildren()
+        .FirstOrDefault()?.GetValue<string>("Address")?.TrimEnd('/');
+    
+    if (!string.IsNullOrEmpty(address))
+    {
+        var tags = clusterName switch
+        {
+            "iam-cluster" => new[] { "core" },
+            "devices-cluster" => new[] { "core" },
+            "projects-cluster" => new[] { "core" },
+            "subscriptions-cluster" => new[] { "core" },
+            _ => new[] { "optional" }
+        };
+        
+        var healthUrl = $"{address}/health";
+        var displayName = clusterName.Replace("-cluster", "").ToUpper();
+        healthChecks.AddUrlGroup(new Uri(healthUrl), $"IoBuild.{displayName}", tags: tags);
+    }
+}
 
 // ── HTTP Client Factory for downstream calls ──
 builder.Services.AddHttpClient("InternalServices", client =>
@@ -49,20 +69,19 @@ app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
 app.UseCors("GatewayCorsPolicy");
 
 // 3. Gateway Status
-app.MapGet("/", () => Results.Ok(new
+var gatewayInfo = new
 {
     gateway = "IoBuild API Gateway",
     version = "1.0.0",
     status = "running",
-    microservices = new
-    {
-        iam = "http://localhost:5001",
-        devices = "http://localhost:5002",
-        projects = "http://localhost:5003",
-        subscriptions = "http://localhost:5004",
-        analytics = "http://localhost:5005"
-    }
-}));
+    microservices = clusters.ToDictionary(
+        c => c.Key.Replace("-cluster", ""),
+        c => c.GetSection("Destinations").GetChildren()
+            .FirstOrDefault()?.GetValue<string>("Address")?.TrimEnd('/') ?? "unknown"
+    )
+};
+
+app.MapGet("/", () => Results.Ok(gatewayInfo));
 
 // 4. Health Check Endpoint
 app.MapHealthChecks("/health", new HealthCheckOptions

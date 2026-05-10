@@ -1,0 +1,229 @@
+# ============================================================
+# IoBuild Microservices — Docker Compose
+# ============================================================
+# Uso:
+#   docker compose up -d          # Iniciar todo
+#   docker compose ps              # Ver estado
+#   docker compose logs -f <svc>   # Logs de un servicio
+#   docker compose down            # Detener y limpiar
+#   docker compose down -v         # Detener + borrar datos MySQL
+# ============================================================
+
+services:
+  # ──────────────────────────────────────────
+  # MySQL 8 — Base de datos compartida
+  # ──────────────────────────────────────────
+  mysql:
+    image: mysql:8.0
+    container_name: iobuild-mysql
+    restart: unless-stopped
+    environment:
+      - MYSQL_ROOT_PASSWORD=iobuild123
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - iobuild-network
+
+  # ──────────────────────────────────────────
+  # IoBuild.IAM — Auth & Identity (5001)
+  # ──────────────────────────────────────────
+  iam:
+    build:
+      context: .
+      dockerfile: src/IoBuild.IAM/Dockerfile
+    container_name: iobuild-iam
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      - ASPNETCORE_URLS=http://+:5001
+      - ASPNETCORE_ENVIRONMENT=Production
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USER=root
+      - DB_PASSWORD=iobuild123
+      - DB_NAME=iobuild_iam
+      - JWT_SECRET=iobuild-super-secret-key-minimum-32-chars!!-dev
+    networks:
+      - iobuild-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # ──────────────────────────────────────────
+  # IoBuild.Devices — Gestión IoT (5002)
+  # ──────────────────────────────────────────
+  devices:
+    build:
+      context: .
+      dockerfile: src/IoBuild.Devices/Dockerfile
+    container_name: iobuild-devices
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      - ASPNETCORE_URLS=http://+:5002
+      - ASPNETCORE_ENVIRONMENT=Production
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USER=root
+      - DB_PASSWORD=iobuild123
+      - DB_NAME=iobuild_devices
+      - JWT_SECRET=iobuild-super-secret-key-minimum-32-chars!!-dev
+    networks:
+      - iobuild-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5002/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # ──────────────────────────────────────────
+  # IoBuild.Projects — Proyectos (5003)
+  # ──────────────────────────────────────────
+  projects:
+    build:
+      context: .
+      dockerfile: src/IoBuild.Projects/Dockerfile
+    container_name: iobuild-projects
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      - ASPNETCORE_URLS=http://+:5003
+      - ASPNETCORE_ENVIRONMENT=Production
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USER=root
+      - DB_PASSWORD=iobuild123
+      - DB_NAME=iobuild_projects
+      - JWT_SECRET=iobuild-super-secret-key-minimum-32-chars!!-dev
+    networks:
+      - iobuild-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5003/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # ──────────────────────────────────────────
+  # IoBuild.Subscriptions — Pagos (5004)
+  # ──────────────────────────────────────────
+  subscriptions:
+    build:
+      context: .
+      dockerfile: src/IoBuild.Subscriptions/Dockerfile
+    container_name: iobuild-subscriptions
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      - ASPNETCORE_URLS=http://+:5004
+      - ASPNETCORE_ENVIRONMENT=Production
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USER=root
+      - DB_PASSWORD=iobuild123
+      - DB_NAME=iobuild_subscriptions
+      - JWT_SECRET=iobuild-super-secret-key-minimum-32-chars!!-dev
+      - STRIPE_SECRET_KEY=
+    networks:
+      - iobuild-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5004/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # ──────────────────────────────────────────
+  # IoBuild.Analytics — Dashboards (5005)
+  # ──────────────────────────────────────────
+  analytics:
+    build:
+      context: .
+      dockerfile: src/IoBuild.Analytics/Dockerfile
+    container_name: iobuild-analytics
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      - ASPNETCORE_URLS=http://+:5005
+      - ASPNETCORE_ENVIRONMENT=Production
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USER=root
+      - DB_PASSWORD=iobuild123
+      - DB_NAME=iobuild_analytics
+    networks:
+      - iobuild-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5005/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # ──────────────────────────────────────────
+  # IoBuild.Gateway — API Gateway (8080)
+  # ──────────────────────────────────────────
+  gateway:
+    build:
+      context: .
+      dockerfile: src/IoBuild.Gateway/Dockerfile
+    container_name: iobuild-gateway
+    restart: unless-stopped
+    depends_on:
+      iam:
+        condition: service_healthy
+      devices:
+        condition: service_healthy
+      projects:
+        condition: service_healthy
+      subscriptions:
+        condition: service_healthy
+      analytics:
+        condition: service_healthy
+    environment:
+      - ASPNETCORE_URLS=http://+:8080
+      - ASPNETCORE_ENVIRONMENT=Docker
+    ports:
+      - "8080:8080"
+    networks:
+      - iobuild-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+# ──────────────────────────────────────────
+# Redes y Volúmenes
+# ──────────────────────────────────────────
+networks:
+  iobuild-network:
+    driver: bridge
+
+volumes:
+  mysql_data:
+    driver: local
