@@ -1,0 +1,507 @@
+{
+  "header": {
+    "welcome": "Welcome"
+  },
+  "option": {
+    "dashboard": "Dashboard",
+    "home": "Home",
+    "device-management": "Device Management",
+    "profile": "Profile",
+    "projects": "Projects",
+    "projects-management": "Projects",
+    "clients": "Clients",
+    "subscription": "Subscription",
+    "payments": "Payments",
+    "configuration": "Configuration"
+  },
+  "projects": {
+    "title": "Projects",
+    "add": "Add Project",
+    "edit-title": "Edit Project",
+    "new-title": "Create New Project",
+    "details-title": "Project Details",
+    "delete-header": "Delete Project",
+    "confirm-delete": "Are you sure you want to delete project '{name}'?",
+    "fields": {
+      "name": "Project Name",
+      "name-placeholder": "Enter project name",
+      "description": "Description",
+      "description-placeholder": "Enter project description",
+      "location": "Location",
+      "location-placeholder": "Enter project location",
+      "total-units": "Total Units",
+      "occupied-units": "Occupied Units",
+      "occupancy-rate": "Occupancy Rate",
+      "status": "Status",
+      "created-date": "Created Date",
+      "image-url": "Image link",
+      "image-url-placeholder": "https://example.com/image.jpg"
+    },
+    "status": {
+      "planned": "Planned",
+      "in_progress": "In Progress",
+      "completed": "Completed",
+      "halted": "Halted"
+    },
+    "actions": {
+      "view-details": "View Details",
+      "edit": "Edit",
+      "delete": "Delete",
+      "save": "Save",
+      "cancel": "Cancel",
+      "upload-image": "Upload Image",
+      "go-back": "Go Back"
+    },
+    "messages": {
+      "no-projects": "No projects found.",
+      "saved": "Project saved successfully.",
+      "deleted": "Project deleted successfully."
+    },
+    "labels": {
+      "progress-display": "{progress}% Completed",
+      "last-update-display": "Last Update: {date}",
+      "in-progress-display": "In Progress ({progress}%)"
+    }
+  },
+
+  "profile": {
+    "title": "Profile",
+    "edit": "Edit Profile",
+    "accountInformation": "Account Information",
+    "fullName": "Full Name",
+    "email": "Email",
+    "phoneNumber": "Phone Number",
+    "address": "Address",
+    "appLanguage": "App Language",
+    "languageEnglish": "English",
+    "languageSpanish": "Spanish",
+    "scenes": "Scenes",
+    "loadingScenes": "Loading scenes...",
+    "noScenes": "No scenes available.",
+    "toggleOn": "Enabled",
+    "toggleOff": "Disabled",
+    "ownerRole": "Owner",
+    "builderRole": "Builder",
+    "save": "Save Changes",
+    "cancel": "Cancel editing",
+
+    "sceneNames": {
+      "401": "Cinema mode",
+      "405": "Energy Saving Mode",
+      "406": "Away",
+      "407": "Dinner",
+      "408": "Sunrise",
+      "Modo Cine": "Movie Time",
+      "Ahorro de energía": "Energy Saving Mode",
+      "Fuera de casa": "Away",
+      "Cena": "Dinner",
+      "Amanecer": "Sunrise"
+    }
+  },
+
+  "dashboard": {
+    "title": "IoBuilt Dashboard",
+    "loading": "Loading dashboard data...",
+    "error_header": "Error loading data",
+    "retry": "Retry",
+    "role": {
+      "builder": "Builder",
+      "owner": "Owner"
+    },
+    "owner": {
+      "stats": {
+        "active_devices": {
+          "title": "Active Devices",
+          "subtitle": "{count} offline"
+        },
+        "avg_temperature": {
+          "title": "Average Temperature",
+          "subtitle": "Last 24 hours"
+        },
+        "energy_consumption": {
+          "title": "Energy Consumption",
+          "subtitle": "Today"
+        }
+      }
+    },
+    "stats": {
+      "active_projects": {
+        "title": "Active Projects",
+        "subtitle": "{count} total"
+      },
+      "connected_devices": {
+        "title": "Connected Devices",
+        "subtitle": "{count} total"
+      },
+      "occupied_units": {
+        "title": "Occupied Units",
+        "subtitle": "{percentage}% occupancy"
+      }
+    },
+    "sections": {
+      "projects_overview": "Projects Overview",
+      "device_distribution": "Devices Distribution by Type",
+      "charts": {
+        "energy_hourly": "Hourly Energy Consumption (kWh)",
+        "occupancy_monthly": "Monthly Occupancy Rate (%)",
+        "temperature_24h": "Temperature History (24h)",
+        "energy_weekly": "Weekly Energy Consumption"
+      }
+    }
+    ,
+    "chart_labels": {
+      "consumption_kwh": "Consumption (kWh)",
+      "occupancy_pct": "Occupancy (%)",
+      "temperature_c": "Temperature (°C)"
+    },
+    "quick_actions": {
+      "title": "Quick Actions",
+      "energy_saving": "Energy Saving Mode",
+      "security": "Activate Security",
+      "climate": "Climate Control",
+      "lighting": "Lighting Control"
+    }
+    ,
+    "chart_loading": "Loading chart..."
+  },
+  "clients": {
+    "title": "My Clients",
+    "profile": {
+      "title": "Client Profile",
+      "personalInfo": "Personal Information",
+      "projectInfo": "Project Information"
+    },
+    "fields": {
+      "fullName": "Full Name",
+      "project": "Associated Project",
+      "accountStatement": "Account Statement",
+      "email": "Email",
+      "phoneNumber": "Phone Number",
+      "address": "Address"
+    },
+    "status": {
+      "active": "Active",
+      "standBy": "Stand by",
+      "suspended": "Suspended"
+    },
+    "actions": {
+      "title": "Actions",
+      "add": "Add Client",
+      "edit": "Edit",
+      "delete": "Delete",
+      "save": "Save",
+      "cancel": "Cancel",
+      "viewProfile": "View Profile",
+      "goBack": "Back to Clients",
+      "editClient": "Edit Client",
+      "deleteClient": "Delete Client"
+    },
+    "messages": {
+      "noClients": "No clients found",
+      "noClientsDescription": "Start by adding your first client to the system",
+      "clientNotFound": "Client not found",
+      "noProject": "No Project",
+      "addClientPlaceholder": "Add client functionality coming soon",
+      "addSuccess": "Client added successfully",
+      "addError": "Failed to add client",
+      "updateSuccess": "Client updated successfully",
+      "updateError": "Failed to update client",
+      "deleteSuccess": "Client deleted successfully",
+      "deleteError": "Failed to delete client",
+      "deleteConfirmTitle": "Delete Confirmation",
+      "deleteConfirmMessage": "Are you sure you want to delete {name}?",
+      "paginationSummary": "{first} to {last} of {totalRecords}"
+    }
+  },
+  "configuration": {
+    "title": "Configuration",
+    "notifications": {
+      "title": "Notifications",
+      "expiration": "Expiration Alerts",
+      "system": "System Updates",
+      "customer": "Customer Notifications",
+      "push": "Push Notifications"
+    },
+    "security": {
+      "title": "Security and Privacy",
+      "password": "Change Password",
+      "2fa": "Two-Factor Authentication",
+      "sessions": "Session Management",
+      "alternate": "Add Alternate mail address"
+    },
+    "support": {
+      "title": "Support and Help",
+      "faqs": "FAQs",
+      "contact": "Contact Support",
+      "tutorials": "Tutorials and Guides"
+    },
+    "email-form": {
+      "title": "Add Alternate mail address",
+      "description": "Add an alternate email address so you can recover your account if you lose access to your primary one.",
+      "placeholder": "example@domain.com",
+      "emailRequired": "Email is required",
+      "emailInvalid": "Please enter a valid email",
+      "cancel": "Cancel",
+      "save": "Save",
+      "errorSaving": "Failed to save. Please try again."
+    },
+    "password-form": {
+      "title": "Change password",
+      "description": "Update your password to keep your account secure.",
+      "current": "Current password",
+      "new": "New password",
+      "confirm": "Confirm new password",
+      "cancel": "Cancel",
+      "save": "Save"
+    }
+  },
+  "subscriptions": {
+    "title": "My Subscription",
+    "current-plan": "Current Plan",
+    "change-plan": "Change Plan",
+    "month": "month",
+    "status": "Status",
+    "status-active": "Active",
+    "status-cancelled": "Cancelled",
+    "status-expired": "Expired",
+    "renew-plan": "Renew Plan",
+    "cancel-plan": "Cancel Plan",
+    "no-subscription": "You don't have an active subscription",
+    "confirm-renew": "Are you sure you want to renew your current plan?",
+    "renew-header": "Renew Subscription",
+    "confirm-cancel": "Are you sure you want to cancel your current subscription?",
+    "cancel-header": "Cancel Subscription",
+    "confirm-change": "Are you sure you want to change to the {planName} plan?",
+    "change-header": "Change Plan",
+    "success": "Success",
+    "error": "Error",
+    "renewed-successfully": "Your plan has been renewed successfully",
+    "cancelled-successfully": "Your subscription has been cancelled",
+    "plan-changed": "You have successfully changed to the {planName} plan",
+    "renew-failed": "Failed to renew plan",
+    "cancel-failed": "Failed to cancel subscription",
+    "change-failed": "Failed to change plan",
+    "previous-invoices": "Previous invoices",
+    "previous-invoices-button": "Previous invoices",
+    "invoice-due-date-label": "Due Date",
+    "invoice-billing-period-label": "Billing Period",
+    "invoice-view-details": "View Details",
+    "invoice-status-paid": "Paid",
+    "invoice-status-pending": "Pending",
+    "no-invoices": "No previous invoices"
+  },
+  "devices": {
+    "title": "Device Management",
+    "loading": "Loading devices...",
+    "refresh": "Refresh",
+    "table": {
+      "name": "Name",
+      "type": "Type",
+      "category": "Category",
+      "location": "Location",
+      "realtimeStatus": "Real-time Status",
+      "actions": "Actions",
+      "empty": "No devices available"
+    },
+    "edit": { "title": "Edit Device" },
+    "fields": {
+      "name": "Name",
+      "type": "Type",
+      "location": "Location",
+      "status": "Status",
+      "macAddress": "MAC Address"
+    },
+    "actions": {
+      "add": "Add Device",
+      "save": "Save",
+      "cancel": "Cancel",
+      "delete": "Delete"
+    },
+    "add": { "title": "Add Device" },
+    "messages": {
+      "createSuccess": "Device created successfully",
+      "createError": "Failed to create device",
+      "updateSuccess": "Device updated successfully",
+      "updateError": "Failed to update device",
+      "deleteSuccess": "Device deleted successfully",
+      "deleteError": "Failed to delete device",
+      "deleteConfirmTitle": "Delete Device",
+      "deleteConfirmMessage": "Are you sure you want to delete '{name}'?"
+    },
+    "status": { "online": "Online", "offline": "Offline" },
+    "types": {
+      "temperature": "Temperature Sensor",
+      "energy": "Energy Meter",
+      "humidity": "Humidity Sensor",
+      "door": "Access Control",
+      "water": "Water Sensor",
+      "security": "Security System",
+      "lighting": "Lighting Control",
+      "hvac": "HVAC System"
+    }
+  },
+  "iam": {
+    "logout": "Log Out",
+    "login": {
+      "title": "Sign In",
+      "subtitle": "Welcome back! Please login to your account.",
+      "email": "Email",
+      "emailPlaceholder": "Enter your email",
+      "password": "Password",
+      "passwordPlaceholder": "Enter your password",
+      "submitButton": "Sign In",
+      "noAccount": "Don't have an account?",
+      "registerBuilder": "Register as Builder",
+      "registerOwner": "Register as Owner"
+    },
+    "registerBuilder": {
+      "title": "Register as Builder",
+      "subtitle": "Create your builder account to start managing projects.",
+      "userInfoSection": "Account Information",
+      "profileInfoSection": "Company Information",
+      "email": "Email",
+      "emailPlaceholder": "Enter your email",
+      "password": "Password",
+      "passwordPlaceholder": "Enter your password",
+      "confirmPassword": "Confirm Password",
+      "confirmPasswordPlaceholder": "Confirm your password",
+      "photoUrl": "Photo URL",
+      "photoUrlPlaceholder": "Enter photo URL (optional)",
+      "name": "Company Name",
+      "namePlaceholder": "Enter company name",
+      "username": "Username",
+      "usernamePlaceholder": "Enter username",
+      "address": "Address",
+      "addressPlaceholder": "Enter company address",
+      "age": "Years in Business",
+      "agePlaceholder": "Enter years in business",
+      "phoneNumber": "Phone Number",
+      "phoneNumberPlaceholder": "Enter phone number",
+      "submitButton": "Register",
+      "cancelButton": "Cancel"
+    },
+    "registerOwner": {
+      "title": "Register as Owner",
+      "subtitle": "Create your owner account to manage your properties.",
+      "userInfoSection": "Account Information",
+      "profileInfoSection": "Personal Information",
+      "email": "Email",
+      "emailPlaceholder": "Enter your email",
+      "password": "Password",
+      "passwordPlaceholder": "Enter your password",
+      "confirmPassword": "Confirm Password",
+      "confirmPasswordPlaceholder": "Confirm your password",
+      "photoUrl": "Profile Photo",
+      "photoUrlPlaceholder": "Enter photo URL (optional)",
+      "uploadPhoto": "Upload Photo",
+      "name": "Full Name",
+      "namePlaceholder": "Enter your full name",
+      "username": "Username",
+      "usernamePlaceholder": "Enter username",
+      "address": "Address",
+      "addressPlaceholder": "Enter your address",
+      "age": "Age",
+      "agePlaceholder": "Enter your age",
+      "phoneNumber": "Phone Number",
+      "phoneNumberPlaceholder": "Enter phone number",
+      "submitButton": "Register",
+      "cancelButton": "Cancel"
+    }
+  },
+  "analytics": {
+    "deviceTypes": {
+      "Temperature": "Temperature",
+      "Humidity": "Humidity",
+      "Energy": "Energy",
+      "Water": "Water",
+      "Lighting": "Lighting",
+      "Access Control": "Access Control",
+      "HVAC": "HVAC",
+      "Construction": "Construction",
+      "Security": "Security"
+    },
+    "projectStatus": {
+      "OnGoing": "Ongoing",
+      "Active": "Active",
+      "Construction": "Construction",
+      "Planned": "Planned",
+      "Completed": "Completed"
+    },
+    "common": {
+      "occupancy": "Occupancy",
+      "units": "Units",
+      "devices": "Devices"
+    },
+    "builder": {
+      "title": "Builder Dashboard",
+      "subtitle": "Comprehensive overview of your construction projects",
+      "stats": {
+        "activeProjects": "Active Projects",
+        "connectedDevices": "Connected Devices",
+        "occupiedUnits": "Occupied Units",
+        "totalUnits": "Total Units",
+        "alerts": "Alerts",
+        "energyEfficiency": "Energy Efficiency",
+        "averageConsumption": "Average consumption",
+        "online": "online",
+        "occupancy": "occupancy"
+      },
+      "charts": {
+        "hourlyEnergy": "Hourly Energy Consumption (Last 24h)",
+        "monthlyOccupancy": "Monthly Occupancy Rate",
+        "temperatureTrends": "Temperature Trends (Last 7 Days)",
+        "deviceDistribution": "Device Distribution by Type",
+        "energyLabel": "Energy (kWh)",
+        "occupancyLabel": "Occupancy Rate (%)",
+        "temperatureLabel": "Temperature (°C)"
+      },
+      "sections": {
+        "devicesDistribution": "Devices Distribution by Type",
+        "projectsOverview": "Projects Overview",
+        "devices": "devices"
+      },
+      "noData": {
+        "hourlyEnergy": "No hourly energy data available",
+        "occupancy": "No occupancy data available",
+        "temperature": "No temperature data available",
+        "device": "No device data available",
+        "projects": "No projects available"
+      }
+    },
+    "owner": {
+      "title": "My Unit Dashboard",
+      "subtitle": "Personal overview of your smart home",
+      "stats": {
+        "myUnits": "My Units",
+        "myDevices": "My Devices",
+        "energyThisMonth": "Energy This Month",
+        "temperatureAvg": "Temperature Avg",
+        "alerts": "Alerts",
+        "online": "online"
+      },
+      "charts": {
+        "energyConsumption": "My Energy Consumption (Last 30 Days)",
+        "temperatureComfort": "Temperature Comfort (Last 7 Days)",
+        "waterUsage": "Water Usage (This Week)",
+        "dailyEnergyLabel": "Daily Energy (kWh)",
+        "temperatureLabel": "Temperature (°C)",
+        "waterLabel": "Water Usage (L)"
+      },
+      "sections": {
+        "deviceHealth": "Device Health Status",
+        "myUnitsOverview": "My Units Overview"
+      },
+      "device": {
+        "online": "Online",
+        "offline": "Offline"
+      },
+      "noData": {
+        "energyConsumption": "No energy consumption data available",
+        "temperature": "No temperature data available",
+        "waterUsage": "No water usage data available",
+        "deviceHealth": "No device health data available",
+        "units": "No units available"
+      }
+    }
+  }
+}

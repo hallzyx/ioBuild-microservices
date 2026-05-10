@@ -1,0 +1,38 @@
+# ============================================================
+# IoBuild — Docker Compose Override (Desarrollo Local)
+# ============================================================
+# Este archivo se mergea automáticamente con docker-compose.yml
+# cuando ejecutás "docker compose up -d" en local.
+#
+# En producción (Dokploy), no se usa — solo se despliega
+# docker-compose.yml directamente.
+
+services:
+  # ── Exponer puertos para debugging local ──
+  gateway:
+    ports:
+      - "8080:8080" # Acceso directo al Gateway para testing
+
+  iam:
+    ports:
+      - "5001:5001" # Debug individual del servicio
+
+  devices:
+    ports:
+      - "5002:5002"
+
+  projects:
+    ports:
+      - "5003:5003"
+
+  subscriptions:
+    ports:
+      - "5004:5004"
+
+  analytics:
+    ports:
+      - "5005:5005"
+
+  mysql:
+    ports:
+      - "3306:3306" # Acceso con MySQL Workbench/DBeaver

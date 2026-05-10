@@ -1,0 +1,507 @@
+{
+  "header": {
+    "welcome": "Bienvenido"
+  },
+  "option": {
+    "dashboard": "Panel",
+    "home": "Inicio",
+    "device-management": "Gestión de dispositivos",
+    "profile": "Perfil",
+    "projects": "Proyectos",
+    "projects-management": "Proyectos",
+    "clients": "Clientes",
+    "subscription": "Suscripción",
+    "payments": "Pagos",
+    "configuration": "Configuración"
+  },
+  "projects": {
+    "title": "Proyectos",
+    "add": "Nuevo Proyecto",
+    "edit-title": "Editar Proyecto",
+    "new-title": "Crear Nuevo Proyecto",
+    "details-title": "Detalles del Proyecto",
+    "delete-header": "Eliminar Proyecto",
+    "confirm-delete": "¿Está seguro de que desea eliminar el proyecto '{name}'?",
+    "fields": {
+      "name": "Nombre del Proyecto",
+      "name-placeholder": "Ingrese el nombre del proyecto",
+      "description": "Descripción",
+      "description-placeholder": "Ingrese una breve descripción del proyecto",
+      "location": "Ubicación",
+      "location-placeholder": "Ingrese la ubicación del proyecto",
+      "total-units": "Unidades Totales",
+      "occupied-units": "Units Ocupadas",
+      "occupancy-rate": "Tasa de Ocupación",
+      "status": "Estado",
+      "created-date": "Fecha de creación",
+      "image-url": "Link de Imagen",
+      "image-url-placeholder": "https://ejemplo.com/imagen.jpg"
+    },
+    "status": {
+      "planned": "Planeado",
+      "in_progress": "En Progreso",
+      "completed": "Completado",
+      "halted": "En Pausa"
+    },
+    "actions": {
+      "view-details": "Ver Detalles",
+      "edit": "Editar",
+      "delete": "Eliminar",
+      "save": "Guardar",
+      "cancel": "Cancelar",
+      "upload-image": "Subir Imagen",
+      "go-back": "Regresar"
+    },
+    "messages": {
+      "no-projects": "No se encontraron proyectos.",
+      "saved": "Proyecto guardado exitosamente.",
+      "deleted": "Proyecto eliminado exitosamente."
+    },
+    "labels": {
+      "progress-display": "{progress}% Completado",
+      "last-update-display": "Última Actualización: {date}",
+      "in-progress-display": "En Progreso ({progress}%)"
+    }
+  },
+
+  "profile": {
+    "title": "Perfil",
+    "edit": "Editar perfil",
+    "accountInformation": "Información de la cuenta",
+    "fullName": "Nombre completo",
+    "email": "Correo electrónico",
+    "phoneNumber": "Número de teléfono",
+    "address": "Dirección",
+    "appLanguage": "Idioma de la aplicación",
+    "languageEnglish": "Inglés",
+    "languageSpanish": "Español",
+    "scenes": "Escenas",
+    "loadingScenes": "Cargando escenas...",
+    "noScenes": "No hay escenas disponibles.",
+    "toggleOn": "Activado",
+    "toggleOff": "Desactivado",
+    "ownerRole": "Propietario",
+    "builderRole": "Constructor",
+    "save": "Guardar Cambios",
+    "cancel": "Cancelar Edición",
+
+    "sceneNames": {
+      "401": "Modo Cine",
+      "405": "Ahorro de energía",
+      "406": "Fuera de casa",
+      "407": "Cena",
+      "408": "Amanecer",
+      "Movie Time": "Modo Cine",
+      "Energy Saving Mode": "Ahorro de energía",
+      "Away": "Fuera de casa",
+      "Dinner": "Cena",
+      "Sunrise": "Amanecer"
+    }
+  },
+
+  "dashboard": {
+    "title": "Dashboard IoBuilt",
+    "loading": "Cargando datos del dashboard...",
+    "error_header": "Error al cargar los datos",
+    "retry": "Reintentar",
+    "role": {
+      "builder": "Constructora",
+      "owner": "Propietario"
+    },
+    "owner": {
+      "stats": {
+        "active_devices": {
+          "title": "Dispositivos Activos",
+          "subtitle": "{count} desconectados"
+        },
+        "avg_temperature": {
+          "title": "Temperatura Promedio",
+          "subtitle": "Últimas 24 horas"
+        },
+        "energy_consumption": {
+          "title": "Consumo Energético",
+          "subtitle": "Hoy"
+        }
+      }
+    },
+    "stats": {
+      "active_projects": {
+        "title": "Proyectos Activos",
+        "subtitle": "{count} en total"
+      },
+      "connected_devices": {
+        "title": "Dispositivos Conectados",
+        "subtitle": "{count} en total"
+      },
+      "occupied_units": {
+        "title": "Unidades Ocupadas",
+        "subtitle": "{percentage}% de ocupación"
+      }
+    },
+    "sections": {
+      "projects_overview": "Resumen de Proyectos",
+      "device_distribution": "Distribución de Dispositivos por Tipo",
+      "charts": {
+        "energy_hourly": "Consumo Energético por Hora (kWh)",
+        "occupancy_monthly": "Tasa de Ocupación Mensual (%)",
+          "temperature_24h": "Historial de Temperatura (24h)",
+          "energy_weekly": "Consumo Energético Semanal"
+      }
+    }
+    ,
+    "chart_labels": {
+      "consumption_kwh": "Consumo (kWh)",
+      "occupancy_pct": "Ocupación (%)",
+      "temperature_c": "Temperatura (°C)"
+    },
+    "quick_actions": {
+      "title": "Acciones Rápidas",
+      "energy_saving": "Modo Ahorro de Energía",
+      "security": "Activar Seguridad",
+      "climate": "Control Climático",
+      "lighting": "Control de Iluminación"
+    }
+    ,
+    "chart_loading": "Cargando gráfico..."
+  },
+  "clients": {
+    "title": "Mis Clientes",
+    "profile": {
+      "title": "Perfil del Cliente",
+      "personalInfo": "Información Personal",
+      "projectInfo": "Información del Proyecto"
+    },
+    "fields": {
+      "fullName": "Nombre Completo",
+      "project": "Proyecto Asociado",
+      "accountStatement": "Estado de Cuenta",
+      "email": "Correo Electrónico",
+      "phoneNumber": "Número de Teléfono",
+      "address": "Dirección"
+    },
+    "status": {
+      "active": "Activo",
+      "standBy": "En Espera",
+      "suspended": "Suspendido"
+    },
+    "actions": {
+      "title": "Acciones",
+      "add": "Agregar Cliente",
+      "edit": "Editar",
+      "delete": "Eliminar",
+      "save": "Guardar",
+      "cancel": "Cancelar",
+      "viewProfile": "Ver Perfil",
+      "goBack": "Volver a Clientes",
+      "editClient": "Editar Cliente",
+      "deleteClient": "Eliminar Cliente"
+    },
+    "messages": {
+      "noClients": "No se encontraron clientes",
+      "noClientsDescription": "Comienza agregando tu primer cliente al sistema",
+      "clientNotFound": "Cliente no encontrado",
+      "noProject": "Sin Proyecto",
+      "addClientPlaceholder": "Funcionalidad para agregar cliente próximamente",
+      "addSuccess": "Cliente agregado exitosamente",
+      "addError": "Error al agregar cliente",
+      "updateSuccess": "Cliente actualizado exitosamente",
+      "updateError": "Error al actualizar cliente",
+      "deleteSuccess": "Cliente eliminado exitosamente",
+      "deleteError": "Error al eliminar cliente",
+      "deleteConfirmTitle": "Confirmar Eliminación",
+      "deleteConfirmMessage": "¿Estás seguro de que deseas eliminar a {name}?",
+      "paginationSummary": "{first} a {last} de {totalRecords}"
+    }
+  },
+  "configuration": {
+    "title": "Configuración",
+    "notifications": {
+      "title": "Notificaciones",
+      "expiration": "Alertas de Vencimiento",
+      "system": "Actualizaciones del Sistema",
+      "customer": "Notificaciones del Cliente",
+      "push": "Push Notifications"
+    },
+    "security": {
+      "title": "Seguridad y Privacidad",
+      "password": "Cambiar Contraseña",
+      "2fa": "Autenticación en dos pasos",
+      "sessions": "Gestión de Sesiones",
+      "alternate": "Agregar dirección de correo alternativa"
+    },
+    "support": {
+      "title": "Soporte y Ayuda",
+      "faqs": "FAQs",
+      "contact": "Contactar con Soporte",
+      "tutorials": "Tutoriales y Guías"
+    },
+    "email-form": {
+      "title": "Agregar dirección de correo alternativa",
+      "description": "Agrega un correo alternativo para poder recuperar tu cuenta si pierdes acceso al principal.",
+      "placeholder": "ejemplo@dominio.com",
+      "emailRequired": "El correo es obligatorio",
+      "emailInvalid": "Por favor ingresa un correo válido",
+      "cancel": "Cancelar",
+      "save": "Guardar",
+      "errorSaving": "Error al guardar. Por favor intenta de nuevo."
+    },
+    "password-form": {
+      "title": "Cambiar Contraseña",
+      "description": "Actualice su contraseña para mantener su cuenta segura.",
+      "current": "Contraseña actual",
+      "new": "Nueva contraseña",
+      "confirm": "Confirmar nueva contraseña",
+      "cancel": "Cancelar",
+      "save": "Guardar"
+    }
+  },
+  "subscriptions": {
+    "title": "Mi Suscripción",
+    "current-plan": "Plan Actual",
+    "change-plan": "Cambiar Plan",
+    "month": "mes",
+    "status": "Estado",
+    "status-active": "Activo",
+    "status-cancelled": "Cancelado",
+    "status-expired": "Expirado",
+    "renew-plan": "Renovar Plan",
+    "cancel-plan": "Cancelar Plan",
+    "no-subscription": "No tienes una suscripción activa",
+    "confirm-renew": "¿Está seguro de que desea renovar su plan actual?",
+    "renew-header": "Renovar Suscripción",
+    "confirm-cancel": "¿Está seguro de que desea cancelar su suscripción actual?",
+    "cancel-header": "Cancelar Suscripción",
+    "confirm-change": "¿Está seguro de que desea cambiar al plan {planName}?",
+    "change-header": "Cambiar Plan",
+    "success": "Éxito",
+    "error": "Error",
+    "renewed-successfully": "Su plan ha sido renovado exitosamente",
+    "cancelled-successfully": "Su suscripción ha sido cancelada",
+    "plan-changed": "Ha cambiado exitosamente al plan {planName}",
+    "renew-failed": "Error al renovar el plan",
+    "cancel-failed": "Error al cancelar la suscripción",
+    "change-failed": "Error al cambiar el plan",
+    "previous-invoices": "Facturas anteriores",
+    "previous-invoices-button": "Facturas anteriores",
+    "invoice-due-date-label": "Fecha de vencimiento",
+    "invoice-billing-period-label": "Periodo de facturación",
+    "invoice-view-details": "Ver detalles",
+    "invoice-status-paid": "Pagada",
+    "invoice-status-pending": "Pendiente",
+    "no-invoices": "Sin facturas anteriores"
+  },
+  "devices": {
+    "title": "Gestión de dispositivos",
+    "loading": "Cargando dispositivos...",
+    "refresh": "Actualizar",
+    "edit": { "title": "Editar Dispositivo" },
+    "fields": {
+      "name": "Nombre",
+      "type": "Tipo",
+      "location": "Ubicación",
+      "status": "Estado",
+      "macAddress": "Dirección MAC"
+    },
+    "actions": {
+      "add": "Agregar Dispositivo",
+      "save": "Guardar",
+      "cancel": "Cancelar",
+      "delete": "Eliminar"
+    },
+    "add": { "title": "Agregar Dispositivo" },
+    "status": { "online": "Online", "offline": "Offline" },
+    "types": {
+      "temperature": "Sensor de Temperatura",
+      "energy": "Medidor Energético",
+      "humidity": "Sensor de Humedad",
+      "door": "Control de Acceso",
+      "water": "Sensor de Agua",
+      "security": "Sistema de Seguridad",
+      "lighting": "Control de Iluminación",
+      "hvac": "Sistema HVAC"
+    },
+    "messages": {
+      "createSuccess": "Dispositivo creado correctamente",
+      "createError": "No se pudo crear el dispositivo",
+      "updateSuccess": "Dispositivo actualizado correctamente",
+      "updateError": "No se pudo actualizar el dispositivo",
+      "deleteSuccess": "Dispositivo eliminado correctamente",
+      "deleteError": "No se pudo eliminar el dispositivo",
+      "deleteConfirmTitle": "Eliminar Dispositivo",
+      "deleteConfirmMessage": "¿Está seguro de que desea eliminar '{name}'?"
+    },
+    "table": {
+      "name": "Nombre",
+      "type": "Tipo",
+      "category": "Categoría",
+      "location": "Ubicación",
+      "realtimeStatus": "Estado en tiempo real",
+      "actions": "Acciones",
+      "empty": "No hay dispositivos disponibles"
+    }
+  },
+  "iam": {
+    "logout": "Cerrar Sesión",
+    "login": {
+      "title": "Iniciar Sesión",
+      "subtitle": "¡Bienvenido de nuevo! Ingrese a su cuenta.",
+      "email": "Correo Electrónico",
+      "emailPlaceholder": "Ingrese su correo electrónico",
+      "password": "Contraseña",
+      "passwordPlaceholder": "Ingrese su contraseña",
+      "submitButton": "Iniciar Sesión",
+      "noAccount": "¿No tienes una cuenta?",
+      "registerBuilder": "Registrarse como Constructor",
+      "registerOwner": "Registrarse como Propietario"
+    },
+    "registerBuilder": {
+      "title": "Registro como Constructor",
+      "subtitle": "Cree su cuenta de constructor para empezar a gestionar proyectos.",
+      "userInfoSection": "Información de Cuenta",
+      "profileInfoSection": "Información de la Empresa",
+      "email": "Correo Electrónico",
+      "emailPlaceholder": "Ingrese su correo electrónico",
+      "password": "Contraseña",
+      "passwordPlaceholder": "Ingrese su contraseña",
+      "confirmPassword": "Confirmar Contraseña",
+      "confirmPasswordPlaceholder": "Confirme su contraseña",
+      "photoUrl": "URL de Foto",
+      "photoUrlPlaceholder": "Ingrese URL de foto (opcional)",
+      "name": "Nombre de la Empresa",
+      "namePlaceholder": "Ingrese el nombre de la empresa",
+      "username": "Nombre de Usuario",
+      "usernamePlaceholder": "Ingrese nombre de usuario",
+      "address": "Dirección",
+      "addressPlaceholder": "Ingrese la dirección de la empresa",
+      "age": "Años en el Negocio",
+      "agePlaceholder": "Ingrese años en el negocio",
+      "phoneNumber": "Número de Teléfono",
+      "phoneNumberPlaceholder": "Ingrese número de teléfono",
+      "submitButton": "Registrarse",
+      "cancelButton": "Cancelar"
+    },
+    "registerOwner": {
+      "title": "Registro como Propietario",
+      "subtitle": "Cree su cuenta de propietario para gestionar sus propiedades.",
+      "userInfoSection": "Información de Cuenta",
+      "profileInfoSection": "Información Personal",
+      "email": "Correo Electrónico",
+      "emailPlaceholder": "Ingrese su correo electrónico",
+      "password": "Contraseña",
+      "passwordPlaceholder": "Ingrese su contraseña",
+      "confirmPassword": "Confirmar Contraseña",
+      "confirmPasswordPlaceholder": "Confirme su contraseña",
+      "photoUrl": "Foto de Perfil",
+      "photoUrlPlaceholder": "Ingrese URL de foto (opcional)",
+      "uploadPhoto": "Subir Foto",
+      "name": "Nombre Completo",
+      "namePlaceholder": "Ingrese su nombre completo",
+      "username": "Nombre de Usuario",
+      "usernamePlaceholder": "Ingrese nombre de usuario",
+      "address": "Dirección",
+      "addressPlaceholder": "Ingrese su dirección",
+      "age": "Edad",
+      "agePlaceholder": "Ingrese su edad",
+      "phoneNumber": "Número de Teléfono",
+      "phoneNumberPlaceholder": "Ingrese número de teléfono",
+      "submitButton": "Registrarse",
+      "cancelButton": "Cancelar"
+    }
+  },
+  "analytics": {
+    "deviceTypes": {
+      "Temperature": "Temperatura",
+      "Humidity": "Humedad",
+      "Energy": "Energía",
+      "Water": "Agua",
+      "Lighting": "Iluminación",
+      "Access Control": "Control de Acceso",
+      "HVAC": "HVAC",
+      "Construction": "Construcción",
+      "Security": "Seguridad"
+    },
+    "projectStatus": {
+      "OnGoing": "En Curso",
+      "Active": "Activo",
+      "Construction": "En Construcción",
+      "Planned": "Planeado",
+      "Completed": "Completado"
+    },
+    "common": {
+      "occupancy": "Ocupación",
+      "units": "Unidades",
+      "devices": "Dispositivos"
+    },
+    "builder": {
+      "title": "Panel del Constructor",
+      "subtitle": "Vista general completa de tus proyectos de construcción",
+      "stats": {
+        "activeProjects": "Proyectos Activos",
+        "connectedDevices": "Dispositivos Conectados",
+        "occupiedUnits": "Unidades Ocupadas",
+        "totalUnits": "Unidades Totales",
+        "alerts": "Alertas",
+        "energyEfficiency": "Eficiencia Energética",
+        "averageConsumption": "Consumo promedio",
+        "online": "en línea",
+        "occupancy": "ocupación"
+      },
+      "charts": {
+        "hourlyEnergy": "Consumo de Energía por Hora (Últimas 24h)",
+        "monthlyOccupancy": "Tasa de Ocupación Mensual",
+        "temperatureTrends": "Tendencias de Temperatura (Últimos 7 Días)",
+        "deviceDistribution": "Distribución de Dispositivos por Tipo",
+        "energyLabel": "Energía (kWh)",
+        "occupancyLabel": "Tasa de Ocupación (%)",
+        "temperatureLabel": "Temperatura (°C)"
+      },
+      "sections": {
+        "devicesDistribution": "Distribución de Dispositivos por Tipo",
+        "projectsOverview": "Resumen de Proyectos",
+        "devices": "dispositivos"
+      },
+      "noData": {
+        "hourlyEnergy": "No hay datos de energía por hora disponibles",
+        "occupancy": "No hay datos de ocupación disponibles",
+        "temperature": "No hay datos de temperatura disponibles",
+        "device": "No hay datos de dispositivos disponibles",
+        "projects": "No hay proyectos disponibles"
+      }
+    },
+    "owner": {
+      "title": "Mi Panel de Unidad",
+      "subtitle": "Vista general personal de tu hogar inteligente",
+      "stats": {
+        "myUnits": "Mis Unidades",
+        "myDevices": "Mis Dispositivos",
+        "energyThisMonth": "Energía Este Mes",
+        "temperatureAvg": "Temperatura Promedio",
+        "alerts": "Alertas",
+        "online": "en línea"
+      },
+      "charts": {
+        "energyConsumption": "Mi Consumo de Energía (Últimos 30 Días)",
+        "temperatureComfort": "Confort de Temperatura (Últimos 7 Días)",
+        "waterUsage": "Consumo de Agua (Esta Semana)",
+        "dailyEnergyLabel": "Energía Diaria (kWh)",
+        "temperatureLabel": "Temperatura (°C)",
+        "waterLabel": "Consumo de Agua (L)"
+      },
+      "sections": {
+        "deviceHealth": "Estado de Salud de Dispositivos",
+        "myUnitsOverview": "Resumen de Mis Unidades"
+      },
+      "device": {
+        "online": "En Línea",
+        "offline": "Desconectado"
+      },
+      "noData": {
+        "energyConsumption": "No hay datos de consumo de energía disponibles",
+        "temperature": "No hay datos de temperatura disponibles",
+        "waterUsage": "No hay datos de consumo de agua disponibles",
+        "deviceHealth": "No hay datos de salud de dispositivos disponibles",
+        "units": "No hay unidades disponibles"
+      }
+    }
+  }
+}
