@@ -17,6 +17,7 @@ services:
     image: mysql:8.0
     container_name: iobuild-mysql
     restart: unless-stopped
+    mem_limit: 384m
     environment:
       - MYSQL_ROOT_PASSWORD=${DB_PASSWORD:-iobuild123}
     ports:
@@ -42,6 +43,7 @@ services:
       dockerfile: src/IoBuild.IAM/Dockerfile
     container_name: iobuild-iam
     restart: unless-stopped
+    mem_limit: 256m
     depends_on:
       mysql:
         condition: service_healthy
@@ -72,8 +74,9 @@ services:
       dockerfile: src/IoBuild.Devices/Dockerfile
     container_name: iobuild-devices
     restart: unless-stopped
+    mem_limit: 256m
     depends_on:
-      mysql:
+      iam:
         condition: service_healthy
     environment:
       - ASPNETCORE_URLS=http://+:5002
@@ -102,8 +105,9 @@ services:
       dockerfile: src/IoBuild.Projects/Dockerfile
     container_name: iobuild-projects
     restart: unless-stopped
+    mem_limit: 256m
     depends_on:
-      mysql:
+      iam:
         condition: service_healthy
     environment:
       - ASPNETCORE_URLS=http://+:5003
@@ -132,8 +136,9 @@ services:
       dockerfile: src/IoBuild.Subscriptions/Dockerfile
     container_name: iobuild-subscriptions
     restart: unless-stopped
+    mem_limit: 256m
     depends_on:
-      mysql:
+      iam:
         condition: service_healthy
     environment:
       - ASPNETCORE_URLS=http://+:5004
@@ -163,8 +168,9 @@ services:
       dockerfile: src/IoBuild.Analytics/Dockerfile
     container_name: iobuild-analytics
     restart: unless-stopped
+    mem_limit: 256m
     depends_on:
-      mysql:
+      iam:
         condition: service_healthy
     environment:
       - ASPNETCORE_URLS=http://+:5005
@@ -192,6 +198,7 @@ services:
       dockerfile: src/IoBuild.Gateway/Dockerfile
     container_name: iobuild-gateway
     restart: unless-stopped
+    mem_limit: 128m
     depends_on:
       iam:
         condition: service_healthy
