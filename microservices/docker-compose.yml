@@ -206,8 +206,9 @@ services:
     environment:
       - ASPNETCORE_URLS=http://+:8080
       - ASPNETCORE_ENVIRONMENT=Docker
-    ports:
-      - "8080:8080"
+    # Puerto interno (no expuesto al host — solo Nginx accede)
+    expose:
+      - "8080"
     networks:
       - iobuild-network
     healthcheck:
@@ -216,6 +217,29 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+
+  # ──────────────────────────────────────────
+  # Frontend — Vue 3 + Nginx (80)
+  # Build auto-contenido (copia independiente del monolite)
+  # ──────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend-docker
+      dockerfile: Dockerfile
+    container_name: iobuild-frontend
+    restart: unless-stopped
+    depends_on:
+      - gateway
+    ports:
+      - "80:80" # ÚNICO puerto público hacia el exterior
+    networks:
+      - iobuild-network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "http://localhost:80/"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
 # ──────────────────────────────────────────
 # Redes y Volúmenes
