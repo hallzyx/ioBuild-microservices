@@ -55,5 +55,12 @@ coverage/
 # ── SpecFlow generated files ──
 *.feature.cs
 
+# ── IDE / Editor specific ──
+.atl/
+.windsurf/
+
+# ── Crash dumps ──
+*.stackdump
+
 context.md
 5.1_instructions.md
