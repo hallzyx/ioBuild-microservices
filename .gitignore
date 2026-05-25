@@ -62,5 +62,8 @@ coverage/
 # ── Crash dumps ──
 *.stackdump
 
+# ── Split roles (guías locales para repo colaborativo - NO comitear) ──
+split-roles/
+
 context.md
 5.1_instructions.md

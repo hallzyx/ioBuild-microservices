@@ -4,8 +4,11 @@ using IoBuild.Devices.Application.Internal.CommandServices;
 using IoBuild.Devices.Application.Internal.QueryServices;
 using IoBuild.Devices.Domain.Repositories;
 using IoBuild.Devices.Domain.Services;
+using IoBuild.Devices.Infrastructure.InfluxDB;
+using IoBuild.Devices.Infrastructure.Mqtt;
 using IoBuild.Devices.Infrastructure.Persistence.EFC.DbContext;
 using IoBuild.Devices.Infrastructure.Persistence.EFC.Repositories;
+using IoBuild.Devices.Workers;
 using IoBuild.Shared.Infrastructure.ASP.Configuration;
 using IoBuild.Shared.Infrastructure.Middleware;
 
@@ -29,6 +32,25 @@ builder.Services.Configure<TokenSettings>(options =>
 {
     options.Secret = jwtSecret;
 });
+
+// ── InfluxDB Token: env var override > appsettings.json fallback ──
+var influxDbToken = Environment.GetEnvironmentVariable("INFLUXDB_TOKEN")
+    ?? builder.Configuration.GetValue<string>("InfluxDb:Token")
+    ?? "iobuild-telemetry-token-dev";
+
+// ── InfluxDB ──
+builder.Services.Configure<InfluxDbOptions>(builder.Configuration.GetSection(InfluxDbOptions.SectionName));
+builder.Services.PostConfigure<InfluxDbOptions>(options =>
+{
+    options.Token = influxDbToken;
+});
+builder.Services.AddSingleton<ITelemetryWriteService, TelemetryWriteService>();
+// ── MQTT ──
+builder.Services.Configure<MqttOptions>(builder.Configuration.GetSection(MqttOptions.SectionName));
+// ── Telemetry Query ──
+builder.Services.AddScoped<ITelemetryQueryService, TelemetryQueryService>();
+// ── Telemetry Worker ──
+builder.Services.AddHostedService<TelemetryWorker>();
 
 builder.Services.AddHealthChecks();
 builder.Services.AddControllers(options =>

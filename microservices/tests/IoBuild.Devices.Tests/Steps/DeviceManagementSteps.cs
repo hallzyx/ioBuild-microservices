@@ -16,6 +16,13 @@ public class DeviceManagementSteps
     private int? _deviceId;
     private string? _deviceName;
 
+    // ── Telemetry fields ──
+    private bool _deviceExists = true;
+    private bool _hasTelemetryData;
+    private string? _deviceStatus;
+    private List<Dictionary<string, object>>? _energyData;
+    private Dictionary<string, object>? _statusData;
+
     [Given(@"el usuario esta autenticado como ""(.*)""")]
     public void GivenElUsuarioEstaAutenticado(string role)
     {
@@ -70,6 +77,34 @@ public class DeviceManagementSteps
         };
     }
 
+    [Given(@"existe un dispositivo con ID (.*)")]
+    public void GivenExisteUnDispositivoConIDSolo(int id)
+    {
+        _deviceId = id;
+        _deviceExists = true;
+    }
+
+    // ── Telemetry Given steps ──
+
+    [Given(@"el dispositivo (.*) tiene datos de telemetria en las ultimas 24 horas")]
+    public void GivenDispositivoTieneTelemetria(int deviceId)
+    {
+        _hasTelemetryData = true;
+    }
+
+    [Given(@"el dispositivo (.*) tiene telemetria con estado ""(.*)""")]
+    public void GivenDispositivoTieneTelemetriaConEstado(int deviceId, string status)
+    {
+        _hasTelemetryData = true;
+        _deviceStatus = status;
+    }
+
+    [Given(@"el dispositivo (.*) no tiene datos de telemetria")]
+    public void GivenDispositivoNoTieneTelemetria(int deviceId)
+    {
+        _hasTelemetryData = false;
+    }
+
     [When(@"el usuario envia una solicitud GET a ""(.*)""")]
     public async Task WhenElUsuarioEnviaUnaSolicitudGET(string endpoint)
     {
@@ -77,24 +112,61 @@ public class DeviceManagementSteps
         {
             _responseCode = "401 Unauthorized";
             _devices = null;
+            return;
         }
-        else
+
+        if (!_deviceExists)
+        {
+            _responseCode = "404 Not Found";
+            return;
+        }
+
+        // ── Telemetry endpoints ──
+        if (endpoint.Contains("/energy"))
         {
             _responseCode = "200 OK";
-            // Simulate devices list
-            _devices = new List<Dictionary<string, object>>();
-            for (int i = 1; i <= _deviceCount; i++)
-            {
-                _devices.Add(new Dictionary<string, object>
+            _energyData = _hasTelemetryData
+                ? new List<Dictionary<string, object>>
                 {
-                    ["id"] = i,
-                    ["name"] = $"Device {i}",
-                    ["type"] = "Sensor",
-                    ["location"] = "Location",
-                    ["status"] = "online",
-                    ["projectId"] = 1
-                });
-            }
+                    new() { ["timestamp"] = "2026-05-25T10:00:00Z", ["energyKwh"] = 1.5, ["temperatureC"] = 22.3, ["voltageV"] = 220.1 },
+                    new() { ["timestamp"] = "2026-05-25T11:00:00Z", ["energyKwh"] = 1.8, ["temperatureC"] = 22.5, ["voltageV"] = 219.8 },
+                }
+                : new List<Dictionary<string, object>>();
+            await Task.CompletedTask;
+            return;
+        }
+
+        if (endpoint.Contains("/status"))
+        {
+            _responseCode = "200 OK";
+            _statusData = _hasTelemetryData
+                ? new Dictionary<string, object>
+                {
+                    ["deviceId"] = 1, ["status"] = _deviceStatus ?? "online",
+                    ["lastSeen"] = "2026-05-25T12:00:00Z", ["temperatureC"] = 22.3, ["voltageV"] = 220.1
+                }
+                : new Dictionary<string, object>
+                {
+                    ["deviceId"] = 1, ["status"] = "unknown", ["lastSeen"] = null!
+                };
+            await Task.CompletedTask;
+            return;
+        }
+
+        // ── Standard device endpoints ──
+        _responseCode = "200 OK";
+        _devices = new List<Dictionary<string, object>>();
+        for (int i = 1; i <= ( _deviceCount > 0 ? _deviceCount : 3); i++)
+        {
+            _devices.Add(new Dictionary<string, object>
+            {
+                ["id"] = i,
+                ["name"] = $"Device {i}",
+                ["type"] = "Sensor",
+                ["location"] = "Location",
+                ["status"] = "online",
+                ["projectId"] = 1
+            });
         }
         await Task.CompletedTask;
     }
@@ -132,5 +204,48 @@ public class DeviceManagementSteps
     {
         Assert.NotNull(_device);
         Assert.Equal(name, _device["name"]);
+    }
+
+    // ── Telemetry Then steps ──
+
+    [Then(@"la respuesta debe contener una lista de puntos de energia")]
+    public void ThenLaRespuestaDebeContenerPuntosEnergia()
+    {
+        Assert.NotNull(_energyData);
+        Assert.NotEmpty(_energyData);
+    }
+
+    [Then(@"cada punto debe incluir los campos: timestamp, energyKwh, temperatureC, voltageV")]
+    public void ThenCadaPuntoDebeIncluirCampos()
+    {
+        Assert.NotNull(_energyData);
+        foreach (var point in _energyData)
+        {
+            Assert.True(point.ContainsKey("timestamp"));
+            Assert.True(point.ContainsKey("energyKwh"));
+            Assert.True(point.ContainsKey("temperatureC"));
+            Assert.True(point.ContainsKey("voltageV"));
+        }
+    }
+
+    [Then(@"la respuesta debe contener el estado ""(.*)""")]
+    public void ThenLaRespuestaDebeContenerEstado(string expectedStatus)
+    {
+        Assert.NotNull(_statusData);
+        Assert.Equal(expectedStatus, _statusData["status"]);
+    }
+
+    [Then(@"la respuesta debe incluir el campo lastSeen")]
+    public void ThenLaRespuestaDebeIncluirLastSeen()
+    {
+        Assert.NotNull(_statusData);
+        Assert.True(_statusData.ContainsKey("lastSeen"));
+    }
+
+    [Then(@"la respuesta debe ser una lista vacia")]
+    public void ThenLaRespuestaDebeSerListaVacia()
+    {
+        Assert.NotNull(_energyData);
+        Assert.Empty(_energyData);
     }
 }
