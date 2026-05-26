@@ -329,6 +329,17 @@
       "deleteConfirmMessage": "Are you sure you want to delete '{name}'?"
     },
     "status": { "online": "Online", "offline": "Offline" },
+    "telemetry": {
+      "selectDevice": "Select Device",
+      "energyChart": "Energy Consumption (kWh) - Last 24h",
+      "status": "Status",
+      "lastSeen": "Last Seen",
+      "temperature": "Temperature",
+      "voltage": "Voltage",
+      "noData": "No telemetry data available",
+      "loading": "Loading telemetry...",
+      "unknown": "Unknown"
+    },
     "types": {
       "temperature": "Temperature Sensor",
       "energy": "Energy Meter",

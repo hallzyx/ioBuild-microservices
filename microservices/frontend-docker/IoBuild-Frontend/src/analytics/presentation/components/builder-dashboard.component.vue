@@ -1,10 +1,11 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, watch, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { Line, Bar, Doughnut } from 'vue-chartjs';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, Title, Tooltip, Legend, Filler } from 'chart.js';
 import StatCard from './stat-card.component.vue';
 import ProjectCard from './project-card.component.vue';
+import { useAnalyticsStore } from '../../application/analytics.store.js';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, Title, Tooltip, Legend, Filler);
 
@@ -15,6 +16,93 @@ const props = defineProps({
     type: Object,
     required: true
   }
+});
+
+const analyticsStore = useAnalyticsStore();
+
+const deviceOptions = computed(() =>
+  analyticsStore.devices.map(d => ({ label: d.name, value: d.id }))
+);
+
+const selectedDevice = computed({
+  get: () => analyticsStore.selectedDeviceId,
+  set: (val) => analyticsStore.selectDevice(val)
+});
+
+const energyChartData = computed(() => {
+  if (!analyticsStore.deviceEnergyReadings?.length) return null;
+  return {
+    labels: analyticsStore.deviceEnergyReadings.map(r =>
+      new Date(r.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+    ),
+    datasets: [{
+      label: t('devices.telemetry.energyChart'),
+      data: analyticsStore.deviceEnergyReadings.map(r => r.energyKwh),
+      borderColor: '#3B82F6',
+      backgroundColor: 'rgba(59, 130, 246, 0.1)',
+      fill: true,
+      tension: 0.4
+    }]
+  };
+});
+
+const telemetryChartOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: {
+      display: true,
+      position: 'bottom'
+    }
+  },
+  scales: {
+    y: {
+      beginAtZero: true,
+      title: {
+        display: true,
+        text: 'kWh'
+      }
+    }
+  }
+};
+
+const getStatusSeverity = (status) => {
+  if (status === 'Online') return 'success';
+  if (status === 'Offline') return 'danger';
+  return 'info';
+};
+
+const getStatusLabel = (status) => {
+  if (status === 'Online') return t('devices.status.online');
+  if (status === 'Offline') return t('devices.status.offline');
+  return status || t('devices.telemetry.unknown');
+};
+
+const formatLastSeen = (lastSeen) => {
+  if (!lastSeen) return '—';
+  return new Date(lastSeen).toLocaleString();
+};
+
+watch(() => analyticsStore.selectedDeviceId, async (newId) => {
+  if (!newId) {
+    analyticsStore.deviceEnergyReadings = [];
+    analyticsStore.deviceStatus = null;
+    return;
+  }
+  const now = new Date();
+  const from = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  try {
+    await Promise.all([
+      analyticsStore.fetchDeviceEnergy(newId, from.toISOString(), now.toISOString()),
+      analyticsStore.fetchDeviceStatus(newId)
+    ]);
+  } catch (error) {
+    console.error('Error loading telemetry:', error);
+  }
+});
+
+onMounted(() => {
+  analyticsStore.fetchDevices();
 });
 
 // Chart configurations
@@ -218,6 +306,68 @@ const translateDeviceType = (type) => {
       </div>
     </div>
     
+    <!-- Device Telemetry Section -->
+    <div class="section telemetry-section">
+      <h3 class="section-title">{{ $t('devices.telemetry.selectDevice') }}</h3>
+      <div class="telemetry-select-row">
+        <pv-select
+          v-model="selectedDevice"
+          :options="deviceOptions"
+          option-label="label"
+          option-value="value"
+          class="telemetry-select"
+          :placeholder="$t('devices.telemetry.selectDevice')"
+        />
+      </div>
+
+      <div v-if="analyticsStore.selectedDeviceId" class="telemetry-content">
+        <!-- Energy Chart -->
+        <div class="telemetry-chart-container">
+          <h4 class="telemetry-chart-title">{{ $t('devices.telemetry.energyChart') }}</h4>
+          <div class="chart-wrapper">
+            <Line v-if="energyChartData" :data="energyChartData" :options="telemetryChartOptions" />
+            <p v-else-if="analyticsStore.telemetryLoading" class="no-data">{{ $t('devices.telemetry.loading') }}</p>
+            <p v-else class="no-data">{{ $t('devices.telemetry.noData') }}</p>
+          </div>
+        </div>
+
+        <!-- Status Card -->
+        <div class="telemetry-status-card">
+          <h4 class="telemetry-chart-title">{{ $t('devices.telemetry.status') }}</h4>
+          <div v-if="analyticsStore.deviceStatus" class="status-details">
+            <div class="status-field">
+              <span class="status-label">{{ $t('devices.telemetry.status') }}</span>
+              <pv-tag
+                :value="getStatusLabel(analyticsStore.deviceStatus.status)"
+                :severity="getStatusSeverity(analyticsStore.deviceStatus.status)"
+              />
+            </div>
+            <div class="status-field">
+              <span class="status-label">{{ $t('devices.telemetry.lastSeen') }}</span>
+              <span class="status-value">{{ formatLastSeen(analyticsStore.deviceStatus.lastSeen) }}</span>
+            </div>
+            <div class="status-field">
+              <span class="status-label">{{ $t('devices.telemetry.temperature') }}</span>
+              <span class="status-value">{{ analyticsStore.deviceStatus.temperatureC != null ? `${analyticsStore.deviceStatus.temperatureC.toFixed(1)} °C` : '—' }}</span>
+            </div>
+            <div class="status-field">
+              <span class="status-label">{{ $t('devices.telemetry.voltage') }}</span>
+              <span class="status-value">{{ analyticsStore.deviceStatus.voltageV != null ? `${analyticsStore.deviceStatus.voltageV.toFixed(1)} V` : '—' }}</span>
+            </div>
+          </div>
+          <div v-else-if="analyticsStore.telemetryLoading" class="no-data">
+            {{ $t('devices.telemetry.loading') }}
+          </div>
+          <div v-else class="no-data">
+            {{ $t('devices.telemetry.noData') }}
+          </div>
+        </div>
+      </div>
+      <div v-else class="telemetry-empty">
+        <p class="no-data">{{ $t('devices.telemetry.noData') }}</p>
+      </div>
+    </div>
+
     <!-- Devices Distribution -->
     <div class="section">
       <h3 class="section-title">{{ $t('analytics.builder.sections.devicesDistribution') }}</h3>
@@ -385,6 +535,83 @@ const translateDeviceType = (type) => {
   font-size: 0.875rem;
 }
 
+/* Telemetry Section */
+.telemetry-section .telemetry-select-row {
+  margin-bottom: 1.5rem;
+}
+
+.telemetry-select {
+  min-width: 280px;
+  max-width: 400px;
+}
+
+.telemetry-content {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 1.5rem;
+}
+
+.telemetry-chart-container {
+  background: #F9FAFB;
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+  border: 2px solid #F3F4F6;
+}
+
+.telemetry-chart-title {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 1rem;
+}
+
+.telemetry-status-card {
+  background: #F9FAFB;
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+  border: 2px solid #F3F4F6;
+}
+
+.status-details {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.status-field {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #F3F4F6;
+}
+
+.status-field:last-child {
+  border-bottom: none;
+}
+
+.status-label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #6B7280;
+}
+
+.status-value {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.telemetry-empty {
+  padding: 1rem 0;
+}
+
+@media (max-width: 1024px) {
+  .telemetry-content {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 768px) {
   .builder-dashboard {
     padding: 1rem;
@@ -400,6 +627,10 @@ const translateDeviceType = (type) => {
   
   .devices-grid {
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  }
+
+  .telemetry-select {
+    min-width: 100%;
   }
 }
 </style>

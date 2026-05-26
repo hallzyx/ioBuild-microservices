@@ -4,6 +4,7 @@ import { OwnerDashboardAssembler } from "./owner-dashboard.assembler.js";
 import { HistoricalDataAssembler } from "./historical-data.assembler.js";
 
 const analyticsBasePath = import.meta.env.VITE_ANALYTICS_ENDPOINT_PATH;
+const devicesBasePath = import.meta.env.VITE_DEVICES_ENDPOINT_PATH;
 
 /**
  * Analytics API class to interact with analytics endpoints
@@ -97,5 +98,39 @@ export class AnalyticsApi extends BaseApi {
      */
     async getHistoricalData(projectId, dataType, startDate, endDate) {
         return this.getAnalyticalInsights(projectId, dataType, startDate, endDate);
+    }
+
+    /**
+     * Get energy readings for a device within a time range
+     * @param {number|string} deviceId - The device ID
+     * @param {string} from - ISO date string for range start
+     * @param {string} to - ISO date string for range end
+     * @returns {Promise<Array<{timestamp: string, energyKwh: number, temperatureC: number, voltageV: number}>>}
+     */
+    async getDeviceEnergy(deviceId, from, to) {
+        try {
+            const response = await this.http.get(`${devicesBasePath}/${deviceId}/energy`, {
+                params: { from, to }
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching device energy:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get the current status of a device
+     * @param {number|string} deviceId - The device ID
+     * @returns {Promise<{deviceId: string, status: string, lastSeen: string, temperatureC: number, voltageV: number}>}
+     */
+    async getDeviceStatus(deviceId) {
+        try {
+            const response = await this.http.get(`${devicesBasePath}/${deviceId}/status`);
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching device status:', error);
+            throw error;
+        }
     }
 }

@@ -310,6 +310,17 @@
     },
     "add": { "title": "Agregar Dispositivo" },
     "status": { "online": "Online", "offline": "Offline" },
+    "telemetry": {
+      "selectDevice": "Seleccionar Dispositivo",
+      "energyChart": "Consumo de Energía (kWh) - Últimas 24h",
+      "status": "Estado",
+      "lastSeen": "Última Conexión",
+      "temperature": "Temperatura",
+      "voltage": "Voltaje",
+      "noData": "No hay datos de telemetría disponibles",
+      "loading": "Cargando telemetría...",
+      "unknown": "Desconocido"
+    },
     "types": {
       "temperature": "Sensor de Temperatura",
       "energy": "Medidor Energético",
