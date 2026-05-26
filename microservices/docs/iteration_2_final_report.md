@@ -279,6 +279,78 @@ from(bucket: "iobuild-telemetry")
 | **Variación** | energy_kwh: 0.5-3.0, temperature_c: 18-35°C, voltage_v: 215-230V |
 | **Status** | 75% online, 25% idle |
 
+### 5.6 Frontend: Dashboard Telemetry Display
+
+Para cerrar el círculo y cumplir US12 y US33, se integró la telemetría en el **dashboard de analytics** del frontend. El dashboard existente mostraba datos simulados de Analytics API; ahora **también** consume Devices API para mostrar datos reales del pipeline IoT.
+
+#### Cambios realizados (frontend-only)
+
+| Archivo | Cambio |
+|---------|--------|
+| `analytics/infrastructure/analytics-api.js` | + `getDeviceEnergy(id, from, to)` y `getDeviceStatus(id)` apuntando a Devices API |
+| `analytics/application/analytics.store.js` | + estado `deviceEnergyReadings`, `deviceStatus`, `selectedDeviceId`, `devices` + acciones `fetchDeviceEnergy`, `fetchDeviceStatus`, `selectDevice` |
+| `analytics/presentation/components/owner-dashboard.component.vue` | + dropdown de dispositivo + chart energía + status card |
+| `analytics/presentation/components/builder-dashboard.component.vue` | + dropdown + chart + status card |
+| `locales/en.json`, `locales/es.json` | + 9 keys i18n de telemetría |
+
+#### Flujo de datos
+
+```
+Dashboard carga → fetchAnalytics() (stats normales, igual que antes)
+                → fetchDevices() (llena dropdown con nombres)
+                
+Usuario selecciona un dispositivo
+                → GET /devices/{id}/energy?from=-24h&to=now
+                → GET /devices/{id}/status
+                
+Chart: Line chart (vue-chartjs) con energyKwh vs timestamp
+Status: Badge verde/rojo/gris + lastSeen + temperatura + voltaje
+```
+
+#### UI: cómo se ve
+
+```
+┌──────────────────────────────────────────────────┐
+│  Dashboard de Propiedades                        │
+│                                                  │
+│  ┌─────────┐ ┌─────────┐ ┌─────────┐            │
+│  │ Unidades │ │Disposit.│ │Energía  │            │ ← Stats de Analytics (sin cambios)
+│  │    5     │ │   12    │ │ 340 kWh │            │
+│  └─────────┘ └─────────┘ └─────────┘            │
+│                                                  │
+│  ── Telemetría en Vivo ──                        │
+│  Dispositivo: [Termostato Lobby ▼]               │ ← Dropdown con dispositivos reales
+│                                                  │
+│  ┌─────────────────────────┐ ┌───────────────┐  │
+│  │ Consumo Energía (kWh)   │ │ Estado        │  │
+│  │  ┌──────────────────┐   │ │ 🟢 Online     │  │
+│  │  │  ╱╲     ╱╲       │   │ │ Última vez:   │  │
+│  │  │ ╱  ╲   ╱  ╲      │   │ │ 12:30         │  │
+│  │  │╱    ╲ ╱    ╲     │   │ │ Temp: 22.3°C  │  │
+│  │  │      10:00 14:00 │   │ │ Volt: 220V    │  │
+│  │  └──────────────────┘   │ └───────────────┘  │
+│  └─────────────────────────┘                    │
+└──────────────────────────────────────────────────┘
+```
+
+#### Decisiones técnicas
+
+| Decisión | Motivo |
+|----------|--------|
+| Store separado en analytics.store.js | Mantener telemetría separada de CRUD de devices. Cero riesgo de regresión. |
+| Consumir Devices API directo (no Analytics API) | Analytics no tiene acceso a InfluxDB. Devices API ya expone los endpoints. |
+| Dropdown con lista de dispositivos real | Usa `GET /devices/` existente. No requiere nuevo backend. |
+| Chart.js (ya instalado) | Misma librería que los charts existentes de analytics. Sin nuevas dependencias. |
+| Polling cada 30s no implementado (v1) | El status se consulta una vez al seleccionar dispositivo. Suficiente para MVP. |
+| Sin vista detalle separada | El chart y status se integraron dentro del dashboard existente. Menos fricción de navegación. |
+
+#### Cobertura de User Stories
+
+| User Story | Estado | Verificación |
+|:----------:|:------:|-------------|
+| **US12** — Gráfico de consumo de energía por hora | ✅ | Dashboard → dropdown → Line chart con datos de InfluxDB |
+| **US33** — Estado y ubicación de dispositivos en tiempo real | ✅ | Dashboard → dropdown → status card con badge + lastSeen + métricas |
+
 ```python
 # Simulador — lógica principal
 while True:
@@ -448,24 +520,33 @@ Feature: Device Telemetry
 | `Program.cs` | ✏️ Modificado | +15 líneas DI |
 | Tests (6 archivos) | ✅ Nuevos | ~250 |
 
----
+### Cambios en Frontend (analytics dashboard)
+
+| Archivo | Estado | Líneas |
+|---------|:------:|:------:|
+| `analytics/infrastructure/analytics-api.js` | ✏️ Modificado | +35 |
+| `analytics/application/analytics.store.js` | ✏️ Modificado | +53 |
+| `analytics/components/owner-dashboard.component.vue` | ✏️ Modificado | +233 |
+| `analytics/components/builder-dashboard.component.vue` | ✏️ Modificado | +233 |
+| `locales/en.json`, `es.json` | ✏️ Modificado | +11 c/u |
 
 ## 10. Estadísticas de la Iteración
 
 | Métrica | Valor |
 |:-------:|:-----:|
-| **Archivos nuevos** | 24 |
-| **Archivos modificados** | 6 |
-| **Líneas de código nuevas** | ~1,125 |
+| **Archivos nuevos** | 30 (24 backend + 6 frontend) |
+| **Archivos modificados** | 11 (6 backend + 5 frontend) |
+| **Líneas de código nuevas** | ~1,700 (1,125 backend + 574 frontend) |
 | **Líneas eliminadas** | ~61 (stubs UnitTest1.cs) |
-| **Commits** | 1 (acumulado de toda la iteración) |
+| **Commits** | 4 |
 | **Contenedores nuevos** | 3 (mosquitto, influxdb, simulator) |
 | **Tests nuevos** | 22 unit + 4 BDD |
 | **Tests totales** | 48 (100% pasando) |
 | **Patrones nuevos** | Event-Driven Architecture, Message Broker, CQRS parcial, Persistencia Políglota |
 | **ADRs nuevos** | 5 (ADR-03 a ADR-07) |
 | **Bugs resueltos** | 5 |
-| **Horas estimadas** | ~15-20 horas |
+| **User Stories cubiertas** | US12 (energía), US33 (estado) |
+| **Horas estimadas** | ~20-25 horas |
 
 ---
 
