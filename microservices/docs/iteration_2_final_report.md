@@ -473,15 +473,27 @@ $ curl http://localhost:8080/api/v1/devices/1/status \
 
 ## 8. Resultados de Testing
 
-### Tests Realizados
+### Unit Tests — 22 tests nuevos
 
-| Tipo | Cantidad | Resultado |
-|:----:|:--------:|:---------:|
-| Unit Tests (nuevos) | 22 | ✅ 22/22 |
-| BDD Scenarios (nuevos) | 4 | ✅ 4/4 |
-| BDD Scenarios (existentes) | 12 | ✅ 12/12 |
-| Integration Tests (existentes) | 10 | ✅ 10/10 |
-| **Total** | **48** | **48/48 (100%)** ⭐ |
+Se crearon 4 archivos de test unitarios siguiendo el flujo TDD (RED → GREEN → REFACTOR):
+
+| Archivo | Capa | Cantidad | Qué prueba |
+|---------|:----:|:--------:|-----------|
+| `TelemetryInfrastructureTests.cs` | Infrastructure | 9 | Options defaults, TelemetryPoint POCO attributes, WriteService construcción |
+| `TelemetryDomainTests.cs` | Domain | 8 | EnergyDataPoint record, DeviceStatusReport record, queries records |
+| `TelemetryQueryServiceTests.cs` | Application | 2 | Construcción de queries Flux para energía y status |
+| `TelemetryRestApiTests.cs` | REST API | 6 | Controller: energy con datos, status con datos, sin datos (empty), 404, 401, assembler mapping |
+| **Total** | | **22** | **22/22 pasando** |
+
+### BDD Scenarios — 4 nuevos + 12 existentes
+
+Se agregó el feature `DeviceTelemetry.feature` con 4 escenarios Gherkin (US12, US33, empty data, security). Los 12 escenarios existentes de las features anteriores siguen pasando sin modificaciones.
+
+### Integration Tests (existentes) — 10
+
+Los 10 tests del script `run_integration_tests.sh` de la Iteración 1 continúan pasando.
+
+### Tests Realizados — Resumen
 
 ### Cobertura de Escenarios BDD de Telemetría
 
