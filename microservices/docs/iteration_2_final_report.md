@@ -237,6 +237,53 @@ from(bucket: "iobuild-telemetry")
   |> yield(name: "mean")
 ```
 
+#### ¿Por qué InfluxDB y no otra base de datos?
+
+La decisión de usar InfluxDB como Time-Series Database (TSDB) en vez de las alternativas se basó en los siguientes criterios:
+
+| Factor | InfluxDB OSS 2.7 | MySQL (time-series) | MongoDB 7.x (Time Series) |
+|:------:|:----------------:|:-------------------:|:-------------------------:|
+| **Imagen Docker** | ~50 MB (Alpine) | ~500 MB | ~700 MB |
+| **RAM típica** | 50-100 MB | ~300-500 MB (compartida) | ~200-500 MB |
+| **Compresión** | 30-50× nativa para time-series | 1-2× (datos planos sin compresión) | 10-20× (genérica) |
+| **Queries de rango temporal** | `aggregateWindow(every: 1h, fn: mean)` — 1 línea Flux | `GROUP BY HOUR` con tablas enormes, índices pesados | Pipeline de agregación de 15+ líneas con `$match`, `$group`, `$bucket` |
+| **Retención automática** | ✅ Built-in (retention policies) | ❌ Manual (DELETE + cron) | ❌ Manual (TTL index) |
+| **Downsampling automático** | ✅ Continuous Queries nativas | ❌ Manual | ❌ Manual |
+| **Optimizado para telemetría** | ✅ Diseñado exclusivamente para series temporales | ❌ BD transaccional, no optimizada para alta escritura secuencial | 🟡 BD propósito general con feature time-series agregado |
+| **Overhead por inserción** | ~2 bytes por punto (estructura columnar LSM) | ~100+ bytes por fila (row-based B-tree) | ~50+ bytes por documento BSON |
+
+##### ¿Por qué no MySQL?
+
+MySQL es excelente para datos relacionales (inventario, usuarios, proyectos) pero es **pésimo** para time-series por:
+
+1. **Estructura row-based:** Cada inserción de telemetría es una fila completa en una tabla que crece sin control. Con 5 dispositivos publicando cada 5s, son 86,400 filas/día. A los 30 días son 2.5M filas — las queries de agregación se vuelven lentísimas sin índices pesados.
+
+2. **I/O Contention:** Escribir 86,400 filas/día compite con las operaciones CRUD de inventario en el mismo disco y buffer pool. Degrada el rendimiento general del microservicio.
+
+3. **Sin retención automática:** Hay que escribir crons para borrar datos viejos y hacer downsample manual.
+
+4. **CRN-3 explícitamente pide separar telemetría del inventario relacional.**
+
+##### ¿Por qué no MongoDB?
+
+MongoDB 7.x agregó soporte para time-series collections, pero:
+
+1. **Es más pesado** (700 MB imagen vs 50 MB de InfluxDB Alpine, 200-500 MB RAM).
+2. **Query más verbosa:** El endpoint `GET /devices/{id}/energy?range=1h` en InfluxDB requiere 3 líneas de Flux. En MongoDB requiere un pipeline de agregación de 15+ líneas.
+3. **Retención manual:** No tiene políticas de retención automáticas como InfluxDB. Requiere TTL indexes y limpieza programada.
+4. **La compresión time-series de MongoDB** es buena, pero InfluxDB está específicamente optimizado para este patrón de datos (alta escritura, baja cardinalidad de tags).
+
+##### ¿Por qué no otra TSDB?
+
+| Alternativa | Descartada por |
+|------------|---------------|
+| **TimescaleDB (PostgreSQL + extensión)** | Requiere PostgreSQL completo (~300 MB imagen, 200-300 MB RAM). Más pesado que InfluxDB para el mismo propósito. |
+| **VictoriaMetrics** | Excelente performance pero menos conocido. Para un proyecto universitario, InfluxDB tiene más documentación y comunidad. |
+| **QuestDB** | Orientado a alta frecuencia financiera (microsegundos). Overkill para telemetría cada 5s. Menos madurez en ecosistema. |
+| **Prometheus** | Diseñado para monitoreo de infraestructura, no para telemetría de dispositivos IoT. No tiene queries ad-hoc tan flexibles como Flux. |
+
+> **Veredicto:** Para un MVP con 5 dispositivos simulados en un VPS de recursos limitados, InfluxDB OSS 2.7 Alpine ofrece el menor consumo de recursos (50 MB imagen, ~50 MB RAM), la sintaxis más simple para queries de rango temporal, y retención automática sin configuración adicional. Es la herramienta correcta para el problema correcto. En el futuro, si el sistema escala a cientos de miles de dispositivos con requisitos de alta disponibilidad, se podría migrar a una instancia gestionada de InfluxDB Cloud o TimescaleDB.
+
 ---
 
 ### 5.4 Devices API — Nuevos Endpoints
