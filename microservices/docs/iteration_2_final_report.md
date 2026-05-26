@@ -485,6 +485,86 @@ Se crearon 4 archivos de test unitarios siguiendo el flujo TDD (RED → GREEN �
 | `TelemetryRestApiTests.cs` | REST API | 6 | Controller: energy con datos, status con datos, sin datos (empty), 404, 401, assembler mapping |
 | **Total** | | **22** | **22/22 pasando** |
 
+#### Snippets representativos
+
+**Domain — `TelemetryDomainTests.cs`** (test de records y value equality):
+```csharp
+[Fact]
+public void EnergyDataPoint_ShouldBeRecordWithValueEquality()
+{
+    var now = DateTime.UtcNow;
+    var p1 = new EnergyDataPoint(now, 1.5, 22.5, 220.0);
+    var p2 = new EnergyDataPoint(now, 1.5, 22.5, 220.0);
+
+    p1.Should().Be(p2);
+    (p1 == p2).Should().BeTrue();
+}
+
+[Fact]
+public void ITelemetryQueryService_ShouldDefineHandleMethods()
+{
+    var serviceType = typeof(ITelemetryQueryService);
+    var energyMethod = serviceType.GetMethod("Handle",
+        new[] { typeof(GetDeviceEnergyQuery) });
+    energyMethod.Should().NotBeNull();
+    energyMethod!.ReturnType.Should().Be(typeof(Task<IEnumerable<EnergyDataPoint>>));
+}
+```
+
+**Infrastructure — `TelemetryInfrastructureTests.cs`** (test de defaults y atributos):
+```csharp
+[Fact]
+public void MqttOptions_ShouldHaveDefaultValues()
+{
+    var options = new MqttOptions();
+    options.Host.Should().Be("mosquitto");
+    options.Port.Should().Be(1883);
+    options.Topic.Should().Be("telemetry/#");
+    options.ClientId.Should().Be("iobuild-telemetry-worker");
+}
+
+[Fact]
+public void TelemetryPoint_ShouldBeDecoratedWithMeasurementAttribute()
+{
+    var attrs = typeof(TelemetryPoint).GetCustomAttributes(false);
+    attrs.Should().Contain(a => a.GetType().Name == "Measurement");
+}
+```
+
+**Application — `TelemetryQueryServiceTests.cs`** (test de queries):
+```csharp
+[Fact]
+public void GetDeviceEnergyQuery_WithDifferentDates_ShouldReturnCorrectValues()
+{
+    var from = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+    var to = new DateTime(2025, 1, 2, 0, 0, 0, DateTimeKind.Utc);
+    var query = new GetDeviceEnergyQuery(5, from, to);
+    query.DeviceId.Should().Be(5);
+    query.From.Should().Be(from);
+    query.To.Should().Be(to);
+}
+```
+
+**REST API — `TelemetryRestApiTests.cs`** (test de assembler y edge case):
+```csharp
+[Fact]
+public void TelemetryResourceAssembler_ToEnergyResource_ShouldMapCorrectly()
+{
+    var now = DateTime.UtcNow;
+    var point = new EnergyDataPoint(now, 2.5, 30.0, 225.0);
+    var resource = TelemetryResourceAssembler.ToEnergyResource(point);
+    resource.EnergyKwh.Should().Be(2.5);
+    resource.TemperatureC.Should().Be(30.0);
+}
+
+[Fact]
+public void TelemetryResourceAssembler_ToStatusResource_WithNullReport_ShouldThrow()
+{
+    Action act = () => TelemetryResourceAssembler.ToStatusResource(null!);
+    act.Should().Throw<ArgumentNullException>();
+}
+```
+
 ### BDD Scenarios — 4 nuevos + 12 existentes
 
 Se agregó el feature `DeviceTelemetry.feature` con 4 escenarios Gherkin (US12, US33, empty data, security). Los 12 escenarios existentes de las features anteriores siguen pasando sin modificaciones.
