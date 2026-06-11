@@ -33,6 +33,10 @@ services:
     ports:
       - "5005:5005"
 
+  profiles:
+    ports:
+      - "5006:5006"
+
   mysql:
     ports:
       - "3306:3306" # Acceso con MySQL Workbench/DBeaver
