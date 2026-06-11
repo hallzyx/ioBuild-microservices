@@ -44,8 +44,15 @@ public class ProfilesController(
 
     [HttpGet]
     [ProducesResponseType(typeof(IEnumerable<ProfileResource>), 200)]
-    public async Task<IActionResult> GetAllProfiles()
+    public async Task<IActionResult> GetAllProfiles([FromQuery] int? userId)
     {
+        if (userId.HasValue)
+        {
+            var getByUserIdQuery = new GetProfileByUserIdQuery(userId.Value);
+            var profile = await profileQueryService.Handle(getByUserIdQuery);
+            if (profile is null) return Ok(Array.Empty<ProfileResource>());
+            return Ok(new[] { ProfileResourceFromEntityAssembler.ToResourceFromEntity(profile) });
+        }
         var getAllProfilesQuery = new GetAllProfilesQuery();
         var profiles = await profileQueryService.Handle(getAllProfilesQuery);
         var profileResources = profiles.Select(ProfileResourceFromEntityAssembler.ToResourceFromEntity);

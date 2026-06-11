@@ -1,7 +1,6 @@
 import { BaseApi } from "../../shared/infrastructure/base-api.js";
 
 const profilesEndpoint = import.meta.env.VITE_PROFILES_ENDPOINT_PATH;
-const usersEndpoint = import.meta.env.VITE_USERS_ENDPOINT_PATH;
 
 /**
  * Profile API class to interact with profiles endpoints
@@ -22,9 +21,9 @@ export class ProfileApi extends BaseApi {
     if (!userId) throw new Error('User ID is required for fetching profile.');
 
     try {
-      const response = await this.http.get(`${usersEndpoint}/${userId}/profiles`);
+      const response = await this.http.get(profilesEndpoint, { params: { userId } });
       // Backend returns an array of profiles, get the first one
-      return Array.isArray(response.data) ? response.data[0] : response.data;
+      return Array.isArray(response.data) ? response.data[0] : null;
     } catch (error) {
       console.error('Error fetching profile:', error);
       throw error;
