@@ -157,6 +157,7 @@ services:
       - DB_NAME=iobuild_subscriptions
       - JWT_SECRET=${JWT_SECRET:-dev-fallback-key-minimum-32-characters!!}
       - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-whsec_dev_placeholder}
     networks:
       - iobuild-network
     healthcheck:

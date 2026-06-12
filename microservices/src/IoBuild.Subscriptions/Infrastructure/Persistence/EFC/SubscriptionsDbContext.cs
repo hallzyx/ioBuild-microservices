@@ -1,6 +1,7 @@
 using IoBuild.Shared.Domain.Repositories;
 using IoBuild.Shared.Infrastructure.EFC.Extensions;
 using IoBuild.Subscriptions.Domain.Model.Aggregates;
+using IoBuild.Subscriptions.Domain.Model.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace IoBuild.Subscriptions.Infrastructure.Persistence.EFC;
@@ -9,6 +10,8 @@ public class SubscriptionsDbContext : DbContext, IUnitOfWork
 {
     public DbSet<Subscription> Subscriptions { get; set; }
     public DbSet<Plan> Plans { get; set; }
+    public DbSet<OutboxMessage> OutboxMessages { get; set; }
+    public DbSet<IdempotencyKey> IdempotencyKeys { get; set; }
 
     public SubscriptionsDbContext(DbContextOptions<SubscriptionsDbContext> options) : base(options) { }
 
@@ -39,6 +42,23 @@ public class SubscriptionsDbContext : DbContext, IUnitOfWork
             entity.HasOne(s => s.Plan)
                   .WithMany(p => p.Subscriptions)
                   .HasForeignKey(s => s.PlanId);
+        });
+
+        modelBuilder.Entity<OutboxMessage>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.EventType).HasMaxLength(100).IsRequired();
+            entity.Property(e => e.Payload).IsRequired().HasColumnType("longtext");
+            entity.Property(e => e.Status).HasMaxLength(20).HasDefaultValue("Pending");
+            entity.Property(e => e.CreatedAt);
+            entity.HasIndex(e => new { e.Status, e.CreatedAt });
+        });
+
+        modelBuilder.Entity<IdempotencyKey>(entity =>
+        {
+            entity.HasKey(e => e.Key);
+            entity.Property(e => e.Key).HasMaxLength(255);
+            entity.HasIndex(e => e.ExpiresAt);
         });
     }
 

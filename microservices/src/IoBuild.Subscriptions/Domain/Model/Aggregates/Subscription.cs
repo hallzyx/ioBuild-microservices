@@ -43,4 +43,12 @@ public class Subscription
     {
         Status = SubscriptionStatus.Expired;
     }
+
+    public void Update(int? planId = null, SubscriptionStatus? status = null, DateTime? startDate = null, DateTime? endDate = null)
+    {
+        if (planId.HasValue) PlanId = planId.Value;
+        if (status.HasValue) Status = status.Value;
+        if (startDate.HasValue) StartDate = startDate.Value;
+        if (endDate.HasValue) EndDate = endDate.Value;
+    }
 }

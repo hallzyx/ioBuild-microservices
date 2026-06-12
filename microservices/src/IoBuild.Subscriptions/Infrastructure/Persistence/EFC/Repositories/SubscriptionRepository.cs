@@ -56,4 +56,13 @@ public class SubscriptionRepository : ISubscriptionRepository
             .Include(s => s.Plan)
             .FirstOrDefaultAsync(s => s.PlanId == planId);
     }
+
+    public async Task<Subscription?> FindActiveByBuilderIdAsync(int builderId)
+    {
+        return await _context.Subscriptions
+            .Include(s => s.Plan)
+            .Where(s => s.BuilderId == builderId && s.Status == SubscriptionStatus.Active)
+            .OrderByDescending(s => s.EndDate)
+            .FirstOrDefaultAsync();
+    }
 }

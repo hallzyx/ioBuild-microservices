@@ -1,3 +1,4 @@
+using IoBuild.Subscriptions.Domain.Model.Commands;
 using IoBuild.Subscriptions.Domain.Model.Queries;
 using IoBuild.Subscriptions.Domain.Repositories.Services;
 using IoBuild.Subscriptions.Interfaces.REST.Assemblers;
@@ -57,5 +58,28 @@ public class SubscriptionsController : ControllerBase
         var command = SubscriptionAssembler.ToCommand(id, resource);
         var subscription = await _commandService.Handle(command);
         return Ok(SubscriptionAssembler.ToResource(subscription));
+    }
+
+    [HttpGet("current")]
+    public async Task<IActionResult> GetCurrentSubscription([FromQuery] int builderId)
+    {
+        var subscription = await _queryService.GetCurrentSubscriptionAsync(builderId);
+        if (subscription is null)
+            return NotFound(new { message = $"No active subscription found for builder {builderId}" });
+        return Ok(SubscriptionAssembler.ToResource(subscription));
+    }
+
+    [HttpPost("renew")]
+    public async Task<IActionResult> RenewSubscription([FromBody] RenewSubscriptionCommand command)
+    {
+        try
+        {
+            var subscription = await _commandService.RenewAsync(command.BuilderId, command.PlanId, command.SuccessUrl, command.CancelUrl);
+            return Ok(SubscriptionAssembler.ToResource(subscription));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { error = ex.Message });
+        }
     }
 }

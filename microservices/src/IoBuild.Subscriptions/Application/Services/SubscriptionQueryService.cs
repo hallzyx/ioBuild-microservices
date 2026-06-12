@@ -23,4 +23,9 @@ public class SubscriptionQueryService : ISubscriptionQueryService
     {
         return await _subscriptionRepository.FindByIdAsync(query.Id);
     }
+
+    public async Task<Subscription?> GetCurrentSubscriptionAsync(int builderId)
+    {
+        return await _subscriptionRepository.FindActiveByBuilderIdAsync(builderId);
+    }
 }

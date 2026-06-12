@@ -8,6 +8,7 @@ using IoBuild.Subscriptions.Infrastructure.Payment.Stripe.Configuration;
 using IoBuild.Subscriptions.Infrastructure.Payment.Stripe.Services;
 using IoBuild.Subscriptions.Infrastructure.Persistence.EFC;
 using IoBuild.Subscriptions.Infrastructure.Persistence.EFC.Repositories;
+using IoBuild.Subscriptions.Workers;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -38,7 +39,10 @@ var stripeSettings = new StripeSettings
         ?? "sk_test_placeholder",
     PublishableKey = Environment.GetEnvironmentVariable("STRIPE_PUBLISHABLE_KEY")
         ?? builder.Configuration.GetValue<string>("Stripe:PublishableKey")
-        ?? "pk_test_placeholder"
+        ?? "pk_test_placeholder",
+    WebhookSecret = Environment.GetEnvironmentVariable("STRIPE_WEBHOOK_SECRET")
+        ?? builder.Configuration.GetValue<string>("Stripe:WebhookSecret")
+        ?? "whsec_placeholder"
 };
 builder.Services.AddSingleton(stripeSettings);
 builder.Services.AddSingleton<StripePaymentService>();
@@ -46,6 +50,8 @@ builder.Services.AddSingleton<StripePaymentService>();
 // Repositories
 builder.Services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
 builder.Services.AddScoped<IPlanRepository, PlanRepository>();
+builder.Services.AddScoped<IOutboxMessageRepository, OutboxMessageRepository>();
+builder.Services.AddScoped<IIdempotencyKeyRepository, IdempotencyKeyRepository>();
 
 // Services
 builder.Services.AddScoped<ISubscriptionCommandService, SubscriptionCommandService>();
@@ -55,6 +61,9 @@ builder.Services.AddScoped<IPlanQueryService, PlanQueryService>();
 
 // Facades
 builder.Services.AddScoped<ISubscriptionsContextFacade, SubscriptionsContextFacade>();
+
+// Background workers
+builder.Services.AddHostedService<OutboxWorker>();
 
 // Controllers + kebab-case routes
 builder.Services.AddControllers(options =>
