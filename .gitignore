@@ -68,3 +68,11 @@ split-roles/
 context.md
 5.1_instructions.mdsdd/
 sdd/
+
+# Playwright temp files
+.playwright-mcp/
+
+# ── AI Agent / Tool configs — ignorar dotfiles (no compartir configs personales) ──
+.*
+!.gitignore
+!.env.example
