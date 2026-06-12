@@ -49,12 +49,11 @@ public class AnalyticsQueryService : IAnalyticsQueryService
                 ["Temperature"] = 5, ["Energy"] = 3, ["Water"] = 2,
                 ["Access Control"] = 1, ["HVAC"] = 1, ["Lighting"] = 1
             };
-            latestSnapshot.ProjectsOverview = new Dictionary<string, object>
+            latestSnapshot.ProjectsOverview = new List<Dictionary<string, object>>
             {
-                ["activeProjects"] = latestSnapshot.ActiveProjectsCount,
-                ["totalUnits"] = latestSnapshot.TotalUnits,
-                ["occupiedUnits"] = latestSnapshot.OccupiedUnits,
-                ["vacantUnits"] = latestSnapshot.TotalUnits - latestSnapshot.OccupiedUnits
+                new() { ["id"] = 1, ["name"] = "Residencial Los Álamos", ["location"] = "San Isidro", ["totalUnits"] = 120, ["occupiedUnits"] = 95, ["occupancyRate"] = 79.2, ["status"] = "OnGoing" },
+                new() { ["id"] = 2, ["name"] = "Torres del Pacífico", ["location"] = "Miraflores", ["totalUnits"] = 80, ["occupiedUnits"] = 68, ["occupancyRate"] = 85.0, ["status"] = "OnGoing" },
+                new() { ["id"] = 3, ["name"] = "Condominio Las Casuarinas", ["location"] = "Surco", ["totalUnits"] = 60, ["occupiedUnits"] = 30, ["occupancyRate"] = 50.0, ["status"] = "OnGoing" }
             };
             return latestSnapshot;
         }
@@ -182,15 +181,23 @@ public class AnalyticsQueryService : IAnalyticsQueryService
         return points;
     }
 
-    private static Dictionary<string, object> MapProjectsOverview(int activeProjects, int totalUnits, int occupiedUnits)
+    private static List<Dictionary<string, object>> MapProjectsOverview(
+        int activeProjects, int totalUnits, int occupiedUnits)
     {
-        return new Dictionary<string, object>
+        var projects = new List<Dictionary<string, object>>();
+        for (int i = 1; i <= activeProjects; i++)
         {
-            { "activeProjects", activeProjects },
-            { "totalUnits", totalUnits },
-            { "occupiedUnits", occupiedUnits },
-            { "vacantUnits", totalUnits - occupiedUnits }
-        };
+            projects.Add(new Dictionary<string, object>
+            {
+                ["id"] = i,
+                ["name"] = $"Project {i}",
+                ["totalUnits"] = totalUnits / activeProjects,
+                ["occupiedUnits"] = occupiedUnits / activeProjects,
+                ["occupancyRate"] = totalUnits > 0 ? (double)occupiedUnits / totalUnits * 100 : 0,
+                ["status"] = "OnGoing"
+            });
+        }
+        return projects;
     }
 
     // ── Sample data generators for seed fallback ──

@@ -15,5 +15,5 @@ public record BuilderDashboardResource(
     List<HistoricalDataPointResource> HourlyEnergyData,
     List<HistoricalDataPointResource> MonthlyOccupancy,
     Dictionary<string, int> DevicesByType,
-    Dictionary<string, object> ProjectsOverview
+    List<Dictionary<string, object>> ProjectsOverview
 );

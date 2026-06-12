@@ -18,5 +18,5 @@ public class BuilderMetrics
     public List<HistoricalDataPoint> HourlyEnergyData { get; set; } = [];
     public List<HistoricalDataPoint> MonthlyOccupancy { get; set; } = [];
     public Dictionary<string, int> DevicesByType { get; set; } = [];
-    public Dictionary<string, object> ProjectsOverview { get; set; } = [];
+    public List<Dictionary<string, object>> ProjectsOverview { get; set; } = [];
 }
