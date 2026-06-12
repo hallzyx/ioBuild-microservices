@@ -338,7 +338,9 @@
       "voltage": "Voltage",
       "noData": "No telemetry data available",
       "loading": "Loading telemetry...",
-      "unknown": "Unknown"
+      "unknown": "Unknown",
+      "lastHour": "Last Hour",
+      "last24h": "Last 24h"
     },
     "types": {
       "temperature": "Temperature Sensor",

@@ -1,5 +1,5 @@
 <script setup>
-import { computed, watch, onMounted } from 'vue';
+import { computed, ref, watch, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { Line, Bar, Doughnut } from 'vue-chartjs';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, Title, Tooltip, Legend, Filler } from 'chart.js';
@@ -20,6 +20,13 @@ const props = defineProps({
 
 const analyticsStore = useAnalyticsStore();
 
+const timeRange = ref('24h'); // '1h' or '24h'
+
+const timeRangeOptions = [
+  { label: t('devices.telemetry.lastHour'), value: '1h' },
+  { label: t('devices.telemetry.last24h'), value: '24h' }
+];
+
 const deviceOptions = computed(() =>
   analyticsStore.devices.map(d => ({ name: d.name, id: d.id }))
 );
@@ -33,13 +40,38 @@ const selectedDevice = computed({
 
 const energyChartData = computed(() => {
   if (!analyticsStore.deviceEnergyReadings?.length) return null;
+
+  const isHourly = timeRange.value === '24h';
+  const timeFormat = isHourly
+    ? { hour: '2-digit', minute: '2-digit' }
+    : { hour: '2-digit', minute: '2-digit', second: '2-digit' };
+
+  // Aggregate readings — by hour for 24h, by 5min for 1h
+  const bucketMs = isHourly ? 60 * 60 * 1000 : 5 * 60 * 1000;
+  const bucketMap = new Map();
+
+  analyticsStore.deviceEnergyReadings.forEach(r => {
+    const ts = new Date(r.timestamp).getTime();
+    const bucket = Math.floor(ts / bucketMs) * bucketMs;
+    const existing = bucketMap.get(bucket) || { sum: 0, count: 0 };
+    existing.sum += r.energyKwh;
+    existing.count++;
+    bucketMap.set(bucket, existing);
+  });
+
+  const sortedBuckets = [...bucketMap.keys()].sort();
+
   return {
-    labels: analyticsStore.deviceEnergyReadings.map(r =>
-      new Date(r.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
-    ),
+    labels: sortedBuckets.map(b => new Date(b).toLocaleTimeString('en-US', isHourly
+      ? { hour: '2-digit', minute: '2-digit' }
+      : { hour: '2-digit', minute: '2-digit' }
+    )),
     datasets: [{
       label: t('devices.telemetry.energyChart'),
-      data: analyticsStore.deviceEnergyReadings.map(r => r.energyKwh),
+      data: sortedBuckets.map(b => {
+        const { sum, count } = bucketMap.get(b);
+        return count > 0 ? parseFloat((sum / count).toFixed(2)) : 0;
+      }),
       borderColor: '#3B82F6',
       backgroundColor: 'rgba(59, 130, 246, 0.1)',
       fill: true,
@@ -85,21 +117,33 @@ const formatLastSeen = (lastSeen) => {
   return new Date(lastSeen).toLocaleString();
 };
 
-watch(() => analyticsStore.selectedDeviceId, async (newId) => {
-  if (!newId) {
+// Fetch telemetry when device or time range changes
+const fetchTelemetry = async (deviceId) => {
+  if (!deviceId) {
     analyticsStore.deviceEnergyReadings = [];
     analyticsStore.deviceStatus = null;
     return;
   }
   const now = new Date();
-  const from = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const ms = timeRange.value === '1h' ? 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+  const from = new Date(now.getTime() - ms);
   try {
     await Promise.all([
-      analyticsStore.fetchDeviceEnergy(newId, from.toISOString(), now.toISOString()),
-      analyticsStore.fetchDeviceStatus(newId)
+      analyticsStore.fetchDeviceEnergy(deviceId, from.toISOString(), now.toISOString()),
+      analyticsStore.fetchDeviceStatus(deviceId)
     ]);
   } catch (error) {
     console.error('Error loading telemetry:', error);
+  }
+};
+
+watch(() => analyticsStore.selectedDeviceId, async (newId) => {
+  await fetchTelemetry(newId);
+});
+
+watch(timeRange, () => {
+  if (analyticsStore.selectedDeviceId) {
+    fetchTelemetry(analyticsStore.selectedDeviceId);
   }
 });
 
@@ -322,6 +366,14 @@ const translateDeviceType = (type) => {
           option-value="id"
           class="telemetry-select"
           :placeholder="$t('devices.telemetry.selectDevice')"
+        />
+      </div>
+      <div class="telemetry-time-range">
+        <pv-select-button
+          v-model="timeRange"
+          :options="timeRangeOptions"
+          option-label="label"
+          option-value="value"
         />
       </div>
 
@@ -548,6 +600,14 @@ const translateDeviceType = (type) => {
 .telemetry-select {
   min-width: 280px;
   max-width: 400px;
+}
+
+.telemetry-time-range {
+  margin-bottom: 1rem;
+}
+
+.telemetry-time-range .p-selectbutton {
+  --p-selectbutton-color: #111827;
 }
 
 .telemetry-select .p-select-label,
