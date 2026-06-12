@@ -36,7 +36,10 @@ builder.Services.Configure<TokenSettings>(options =>
 builder.Services.AddHealthChecks();
 builder.Services.AddControllers(options =>
 {
-    options.Conventions.Add(new KebabCaseRouteNamingConvention());
+}).AddJsonOptions(options =>
+{
+    options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+    options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
 });
 
 builder.Services.AddEndpointsApiExplorer();
