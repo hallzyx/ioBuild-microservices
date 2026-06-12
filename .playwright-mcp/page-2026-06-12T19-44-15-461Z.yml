@@ -1,0 +1,37 @@
+- generic [ref=e7]:
+  - heading "Register as Builder" [level=2] [ref=e8]
+  - paragraph [ref=e9]: Create your builder account to start managing projects.
+  - tablist [ref=e10]:
+    - generic [ref=e11]:
+      - tab "1 Account Information" [ref=e13]:
+        - generic [ref=e14]: "1"
+        - generic [ref=e15]: Account Information
+      - tab "2 Company Information" [disabled]:
+        - generic: "2"
+        - generic: Company Information
+    - generic [ref=e17]:
+      - tabpanel [ref=e18]:
+        - generic [ref=e19]:
+          - generic [ref=e20]:
+            - generic [ref=e21]: Email *
+            - textbox "Email *" [ref=e22]:
+              - /placeholder: Enter your email
+          - generic [ref=e23]:
+            - generic [ref=e24]: Password *
+            - generic [ref=e25]:
+              - textbox "Enter your password" [ref=e26]
+              - img [ref=e27]
+              - generic: Enter a password
+          - generic [ref=e29]:
+            - generic [ref=e30]: Confirm Password *
+            - generic [ref=e31]:
+              - textbox "Confirm your password" [ref=e32]
+              - img [ref=e33]
+              - generic: Enter a password
+          - generic [ref=e35]:
+            - button "Cancel" [ref=e36] [cursor=pointer]:
+              - generic [ref=e37]: Cancel
+            - button "Next" [ref=e38] [cursor=pointer]:
+              - generic [ref=e39]: 
+              - generic [ref=e40]: Next
+      - text:   

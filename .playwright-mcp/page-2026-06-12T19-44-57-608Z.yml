@@ -1,0 +1,46 @@
+- generic [ref=e7]:
+  - heading "Register as Builder" [level=2] [ref=e8]
+  - paragraph [ref=e9]: Create your builder account to start managing projects.
+  - tablist [ref=e10]:
+    - generic [ref=e11]:
+      - tab "1 Account Information" [disabled]:
+        - generic: "1"
+        - generic: Account Information
+      - tab "2 Company Information" [ref=e47]:
+        - generic [ref=e48]: "2"
+        - generic [ref=e49]: Company Information
+    - generic [ref=e17]:
+      - text: 
+      - tabpanel [ref=e50]:
+        - generic [ref=e51]:
+          - generic [ref=e52]:
+            - generic [ref=e53]: Photo URL
+            - button "iam.registerBuilder.uploadPhoto" [ref=e54] [cursor=pointer]:
+              - generic [ref=e55]: 
+              - generic [ref=e56]: iam.registerBuilder.uploadPhoto
+          - generic [ref=e57]:
+            - generic [ref=e58]: Company Name *
+            - textbox "Company Name *" [ref=e59]:
+              - /placeholder: Enter company name
+          - generic [ref=e60]:
+            - generic [ref=e61]: Username *
+            - textbox "Username *" [ref=e62]:
+              - /placeholder: Enter username
+          - generic [ref=e63]:
+            - generic [ref=e64]: Address *
+            - textbox "Address *" [ref=e65]:
+              - /placeholder: Enter company address
+          - generic [ref=e66]:
+            - generic [ref=e67]: Years in Business *
+            - spinbutton "Enter years in business" [ref=e69]
+          - generic [ref=e70]:
+            - generic [ref=e71]: Phone Number *
+            - textbox "Phone Number *" [ref=e72]:
+              - /placeholder: Enter phone number
+          - generic [ref=e73]:
+            - button "Back" [ref=e74] [cursor=pointer]:
+              - generic [ref=e75]: 
+              - generic [ref=e76]: Back
+            - button "Register" [ref=e77] [cursor=pointer]:
+              - generic [ref=e78]: 
+              - generic [ref=e79]: Register

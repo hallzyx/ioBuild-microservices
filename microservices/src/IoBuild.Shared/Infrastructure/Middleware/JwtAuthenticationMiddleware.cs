@@ -95,10 +95,15 @@ public class JwtAuthenticationMiddleware
             context.Response.StatusCode = 401;
             await context.Response.WriteAsJsonAsync(new { error = "Token has expired." });
         }
-        catch (Exception)
+        catch (SecurityTokenException)
         {
             context.Response.StatusCode = 401;
-            await context.Response.WriteAsJsonAsync(new { error = "Invalid or expired token." });
+            await context.Response.WriteAsJsonAsync(new { error = "Invalid token." });
+        }
+        catch (Exception ex) when (ex is ArgumentException or FormatException or InvalidOperationException)
+        {
+            // Invalid token format, skip to the pipeline (let controller handle auth)
+            await _next(context);
         }
     }
 }
