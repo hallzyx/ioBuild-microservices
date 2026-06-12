@@ -82,8 +82,15 @@ public class SubscriptionCommandService : ISubscriptionCommandService
             sub = new Subscription(builderId, planId, DateTime.UtcNow, DateTime.UtcNow.AddMonths(1));
             await _subscriptionRepository.AddAsync(sub);
         }
+        else if (sub.PlanId != planId)
+        {
+            // Changing to a different plan
+            sub.Update(planId: planId, endDate: DateTime.UtcNow.AddMonths(1));
+            _subscriptionRepository.Update(sub);
+        }
         else
         {
+            // Same plan renewal - extend end date
             var newEndDate = sub.EndDate.HasValue && sub.EndDate > DateTime.UtcNow
                 ? sub.EndDate.Value.AddMonths(1)
                 : DateTime.UtcNow.AddMonths(1);
@@ -97,6 +104,55 @@ public class SubscriptionCommandService : ISubscriptionCommandService
         // 4. Record idempotency key
         await _idempotencyRepo.AddAsync(new IdempotencyKey(idKey));
 
+        await _unitOfWork.CompleteAsync();
+        return sub;
+    }
+
+    public async Task<Subscription> SubscribeAsync(int builderId, int planId, string successUrl, string cancelUrl)
+    {
+        var plan = await _planRepo.FindByIdAsync(planId);
+        if (plan is null) throw new KeyNotFoundException($"Plan {planId} not found");
+
+        // Check if builder already has an active subscription
+        var existing = await _subscriptionRepository.FindActiveByBuilderIdAsync(builderId);
+        if (existing is not null)
+            throw new InvalidOperationException($"Builder {builderId} already has an active subscription. Use renew to extend or change-plan to switch.");
+
+        // Create new subscription
+        var idKey = $"subscribe_{builderId}_{planId}";
+        if (await _idempotencyRepo.ExistsAsync(idKey))
+            throw new InvalidOperationException($"Subscribe already in progress for builder {builderId}");
+
+        var sub = new Subscription(builderId, planId, DateTime.UtcNow, DateTime.UtcNow.AddMonths(1));
+        await _subscriptionRepository.AddAsync(sub);
+
+        await _stripeService.CreateCheckoutSessionAsync(builderId, planId, successUrl, cancelUrl);
+        await _idempotencyRepo.AddAsync(new IdempotencyKey(idKey));
+        await _unitOfWork.CompleteAsync();
+        return sub;
+    }
+
+    public async Task<Subscription> ChangePlanAsync(int builderId, int newPlanId, string successUrl, string cancelUrl)
+    {
+        var plan = await _planRepo.FindByIdAsync(newPlanId);
+        if (plan is null) throw new KeyNotFoundException($"Plan {newPlanId} not found");
+
+        var sub = await _subscriptionRepository.FindActiveByBuilderIdAsync(builderId)
+            ?? throw new InvalidOperationException($"No active subscription found for builder {builderId}. Use subscribe first.");
+
+        if (sub.PlanId == newPlanId)
+            throw new InvalidOperationException($"Builder {builderId} already has plan {newPlanId}. Use renew to extend.");
+
+        var idKey = $"change_{builderId}_{newPlanId}";
+        if (await _idempotencyRepo.ExistsAsync(idKey))
+            throw new InvalidOperationException($"Plan change already in progress for builder {builderId}");
+
+        // Update to new plan, reset end date
+        sub.Update(planId: newPlanId, endDate: DateTime.UtcNow.AddMonths(1));
+        _subscriptionRepository.Update(sub);
+
+        await _stripeService.CreateCheckoutSessionAsync(builderId, newPlanId, successUrl, cancelUrl);
+        await _idempotencyRepo.AddAsync(new IdempotencyKey(idKey));
         await _unitOfWork.CompleteAsync();
         return sub;
     }
