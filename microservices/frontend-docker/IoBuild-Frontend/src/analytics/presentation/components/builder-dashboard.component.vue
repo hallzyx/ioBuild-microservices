@@ -125,12 +125,15 @@ const hourlyEnergyChartData = computed(() => {
 
 const monthlyOccupancyChartData = computed(() => {
   if (!props.dashboard?.monthlyOccupancy?.length) return null;
-  
+
   return {
-    labels: props.dashboard.monthlyOccupancy.map(m => m.month),
+    labels: props.dashboard.monthlyOccupancy.map(m => {
+      const d = new Date(m.timestamp || m.month);
+      return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+    }),
     datasets: [{
       label: t('analytics.builder.charts.occupancyLabel'),
-      data: props.dashboard.monthlyOccupancy.map(m => m.occupancyRate),
+      data: props.dashboard.monthlyOccupancy.map(m => m.value ?? m.occupancyRate),
       backgroundColor: '#10B981',
       borderRadius: 6
     }]
