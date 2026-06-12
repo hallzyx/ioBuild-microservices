@@ -397,13 +397,13 @@ const getHealthColor = (health) => {
               <div class="progress-bar-bg">
                 <div 
                   class="progress-bar-fill" 
-                  :class="getHealthColor(device.healthPercentage)"
-                  :style="{ width: `${device.healthPercentage}%` }"
+                  :class="device.healthPercentage != null ? getHealthColor(device.healthPercentage) : ''"
+                  :style="{ width: device.healthPercentage != null ? `${device.healthPercentage}%` : '0%' }"
                 ></div>
               </div>
-              <span class="progress-label">{{ device.healthPercentage.toFixed(0) }}%</span>
+              <span class="progress-label">{{ device.healthPercentage != null ? device.healthPercentage.toFixed(0) : '—' }}%</span>
             </div>
-            <p class="device-type">{{ device.type }}</p>
+            <p class="device-type">{{ device.type || device.deviceName || '—' }}</p>
           </div>
         </div>
       </div>

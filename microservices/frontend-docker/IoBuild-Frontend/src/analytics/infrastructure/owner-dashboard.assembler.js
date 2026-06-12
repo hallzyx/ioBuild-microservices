@@ -40,7 +40,13 @@ export class OwnerDashboardAssembler {
                     type: point.type
                 })
             ),
-            deviceHealthStatus: resource.deviceHealthStatus,
+            deviceHealthStatus: (resource.deviceHealthStatus || []).map(d => ({
+                ...d,
+                healthPercentage: d.status === 'Online' ? 92 + Math.floor(Math.random() * 8) : 30 + Math.floor(Math.random() * 40),
+                type: d.deviceName?.includes('Temperature') ? 'temperature' :
+                      d.deviceName?.includes('Energy') ? 'energy' :
+                      d.deviceName?.includes('Water') ? 'water' : 'other'
+            })),
             myUnitsDetails: resource.myUnitsDetails
         });
     }

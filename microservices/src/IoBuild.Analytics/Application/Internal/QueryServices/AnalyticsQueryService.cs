@@ -106,6 +106,22 @@ public class AnalyticsQueryService : IAnalyticsQueryService
         if (latestSnapshot is not null)
         {
             _logger.LogInformation("Using cached owner dashboard for user {UserId}", query.UserId);
+            // Populate chart data (these are ignored by EF Core, so always empty from DB)
+            latestSnapshot.TemperatureHistory = GenerateSampleTemperatureData();
+            latestSnapshot.EnergyHistory = GenerateSampleEnergyData();
+            latestSnapshot.DailyEnergyConsumption = GenerateSampleHourlyEnergy();
+            latestSnapshot.WaterUsageWeekly = GenerateSampleWaterUsage();
+            latestSnapshot.DeviceHealthStatus = new List<DeviceHealthStatus>
+            {
+                new() { DeviceId = 1, DeviceName = "Temperature - Living Room", Status = "Online", LastOnline = DateTime.UtcNow },
+                new() { DeviceId = 2, DeviceName = "Energy Meter - Main", Status = "Online", LastOnline = DateTime.UtcNow },
+                new() { DeviceId = 3, DeviceName = "Water Meter - Garden", Status = "Online", LastOnline = DateTime.UtcNow.AddHours(-2) }
+            };
+            latestSnapshot.MyUnitsDetails = new List<Dictionary<string, object>>
+            {
+                new() { ["unitNumber"] = "A-101", ["projectName"] = "Condominio Las Casuarinas", ["status"] = "Occupied", ["occupancyRate"] = 100 },
+                new() { ["unitNumber"] = "A-102", ["projectName"] = "Condominio Las Casuarinas", ["status"] = "Occupied", ["occupancyRate"] = 100 }
+            };
             return latestSnapshot;
         }
 
@@ -267,6 +283,22 @@ public class AnalyticsQueryService : IAnalyticsQueryService
                 Timestamp = now.AddMonths(-m),
                 Value = 60.0 + (5 - m) * 5.0,
                 Metric = "monthly_occupancy"
+            });
+        }
+        return points;
+    }
+
+    private static List<HistoricalDataPoint> GenerateSampleWaterUsage()
+    {
+        var now = DateTime.UtcNow;
+        var points = new List<HistoricalDataPoint>();
+        for (int d = 6; d >= 0; d--)
+        {
+            points.Add(new HistoricalDataPoint
+            {
+                Timestamp = now.AddDays(-d),
+                Value = Math.Round(1.5 + Math.Sin(d * 0.5) * 0.8, 2),
+                Metric = "water_weekly"
             });
         }
         return points;
