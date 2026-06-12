@@ -22,7 +22,7 @@ export const useProfileStore = defineStore('profile', () => {
             const { profileEntity } = ProfileAssembler.toDomainFromResponse(response);
 
             profile.value = profileEntity;
-            viewType.value = profileEntity.role || 'builder';
+            viewType.value = (profileEntity.role || 'builder').toLowerCase();
             profileLoaded.value = true;
 
         } catch (error) {

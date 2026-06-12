@@ -59,8 +59,10 @@ const handleDelete = (device) => {
         style: 'background: #ffffff !important; color-scheme: light !important;'
       }
     }"
-    :emptyMessage="t('devices.table.empty')"
   >
+    <template #empty>
+      <div class="text-center py-4 text-gray-500">{{ t('devices.table.empty') }}</div>
+    </template>
     <template #loading>
       <div class="flex items-center gap-2 py-4">
         <pv-progress-spinner style="width:24px;height:24px" strokeWidth="4" />

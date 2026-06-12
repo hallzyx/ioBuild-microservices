@@ -16,12 +16,10 @@ const routes = [
     },
     {
         path: '/analytics',
-        name: 'analytics',
         children: analyticsRoutes
     },
     {
         path: '/devices',
-        name: 'automation',
         children: automationRoutes
     },
     {
@@ -42,12 +40,12 @@ const routes = [
     },
     {
         path: '/subscriptions',
-        name: 'subscriptions',
         children:  subscriptionsRoutes
     },
     {
         path: '/configuration',
         name: 'configuration',
+        meta: { title: 'Configuration' },
         component: () => import('./shared/presentation/views/configuration.vue'),
     },
 
