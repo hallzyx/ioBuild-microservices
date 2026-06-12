@@ -1,78 +1,161 @@
+using IoBuild.Shared.Domain.Repositories;
+using IoBuild.Subscriptions.Domain.Model.Aggregates;
+using IoBuild.Subscriptions.Domain.Repositories;
 using IoBuild.Subscriptions.Infrastructure.Payment.Stripe.Configuration;
 using Stripe;
 using Stripe.Checkout;
 
 namespace IoBuild.Subscriptions.Infrastructure.Payment.Stripe.Services;
 
+/// <summary>
+/// Service for handling subscription payments through Stripe
+/// Based on the monolith's working StripePaymentService implementation
+/// </summary>
 public class StripePaymentService
 {
-    private readonly StripeSettings _settings;
+    private readonly ISubscriptionRepository _subscriptionRepository;
+    private readonly IPlanRepository _planRepository;
+    private readonly IUnitOfWork _unitOfWork;
+    private readonly StripeSettings _stripeSettings;
 
-    public StripePaymentService(StripeSettings settings)
+    public StripePaymentService(
+        ISubscriptionRepository subscriptionRepository,
+        IPlanRepository planRepository,
+        IUnitOfWork unitOfWork,
+        StripeSettings stripeSettings)
     {
-        _settings = settings;
-        StripeConfiguration.ApiKey = _settings.SecretKey;
+        _subscriptionRepository = subscriptionRepository;
+        _planRepository = planRepository;
+        _unitOfWork = unitOfWork;
+        _stripeSettings = stripeSettings;
+
+        StripeConfiguration.ApiKey = _stripeSettings.SecretKey;
     }
 
+    /// <summary>
+    /// Creates a Stripe checkout session for a subscription plan
+    /// </summary>
     public async Task<(string SessionId, string CheckoutUrl, long AmountInCents)> CreateCheckoutSessionAsync(
         int builderId, int planId, string successUrl, string cancelUrl)
     {
+        // Validate that the plan exists
+        var plan = await _planRepository.FindByIdAsync(planId);
+        if (plan == null)
+            throw new ArgumentException($"Plan with ID {planId} not found");
+
+        // Convert price to cents (Stripe uses smallest currency unit)
+        long amountInCents = (long)(plan.Price * 100);
+
+        // Clean success URL: remove any existing query parameters to ensure clean redirection
+        var baseSuccessUrl = successUrl.Split('?')[0];
+        var fullSuccessUrl = $"{baseSuccessUrl}?session_id={{CHECKOUT_SESSION_ID}}";
+
+        // Clean cancel URL
+        var baseCancelUrl = cancelUrl.Split('?')[0];
+
+        // Create Stripe checkout session parameters (one-time payment, like monolith)
         var options = new SessionCreateOptions
         {
-            Mode = "subscription",
-            Currency = "pen",
-            SuccessUrl = successUrl,
-            CancelUrl = cancelUrl,
-            Metadata = new Dictionary<string, string>
-            {
-                { "builder_id", builderId.ToString() },
-                { "plan_id", planId.ToString() }
-            },
+            Mode = "payment",
+            SuccessUrl = fullSuccessUrl,
+            CancelUrl = baseCancelUrl,
             LineItems =
             [
                 new SessionLineItemOptions
                 {
+                    Quantity = 1,
                     PriceData = new SessionLineItemPriceDataOptions
                     {
                         Currency = "pen",
+                        UnitAmount = amountInCents,
                         ProductData = new SessionLineItemPriceDataProductDataOptions
                         {
-                            Name = $"IoBuild Plan #{planId}",
-                        },
-                        UnitAmount = 0,
-                        Recurring = new SessionLineItemPriceDataRecurringOptions
-                        {
-                            Interval = "month",
-                        },
-                    },
-                    Quantity = 1,
+                            Name = $"Plan {plan.Name}",
+                            Description = plan.Description
+                        }
+                    }
                 }
             ],
+            Metadata = new Dictionary<string, string>
+            {
+                { "builder_id", builderId.ToString() },
+                { "plan_id", planId.ToString() }
+            }
         };
 
         var service = new SessionService();
         var session = await service.CreateAsync(options);
 
-        return (session.Id, session.Url, session.AmountTotal ?? 0);
+        return (session.Id, session.Url, amountInCents);
     }
 
+    /// <summary>
+    /// Confirms a payment and creates or updates the subscription
+    /// </summary>
     public async Task<(string Status, int SubscriptionId, bool IsNewSubscription)> ConfirmPaymentAsync(
         int builderId, string sessionId)
     {
+        // Retrieve the Stripe session
         var service = new SessionService();
         var session = await service.GetAsync(sessionId);
 
-        var status = session.PaymentStatus switch
+        // Validate payment status
+        if (session.PaymentStatus != "paid")
         {
-            "paid" => "completed",
-            "unpaid" => "pending",
-            "no_payment_required" => "completed",
-            _ => "failed"
-        };
+            return ("pending", 0, false);
+        }
 
-        var subscriptionId = int.TryParse(
-            session.Metadata?.GetValueOrDefault("plan_id"), out var id) ? id : 0;
+        // Extract metadata
+        if (!session.Metadata.TryGetValue("plan_id", out var planIdStr) ||
+            !int.TryParse(planIdStr, out var planId))
+        {
+            throw new InvalidOperationException("Plan ID not found in session metadata");
+        }
 
-        return (status, subscriptionId, session.Status == "complete");
+        // Validate plan exists
+        var plan = await _planRepository.FindByIdAsync(planId);
+        if (plan == null)
+            throw new ArgumentException($"Plan with ID {planId} not found");
+
+        // Check if builder already has an active subscription
+        var existingSubscription = await _subscriptionRepository.FindActiveByBuilderIdAsync(builderId);
+
+        bool isNewSubscription = false;
+        int subscriptionId;
+
+        if (existingSubscription != null)
+        {
+            // Update existing subscription
+            var newEndDate = existingSubscription.EndDate.HasValue && existingSubscription.EndDate > DateTime.UtcNow
+                ? existingSubscription.EndDate.Value.AddMonths(1)
+                : DateTime.UtcNow.AddMonths(1);
+            existingSubscription.Update(
+                planId: planId,
+                status: SubscriptionStatus.Active,
+                startDate: DateTime.UtcNow,
+                endDate: newEndDate);
+
+            _subscriptionRepository.Update(existingSubscription);
+            subscriptionId = existingSubscription.Id;
+        }
+        else
+        {
+            // Create new subscription
+            var newSubscription = new Domain.Model.Aggregates.Subscription(
+                builderId: builderId,
+                planId: planId,
+                startDate: DateTime.UtcNow,
+                endDate: DateTime.UtcNow.AddMonths(1));
+            newSubscription.Activate();
+
+            await _subscriptionRepository.AddAsync(newSubscription);
+
+            subscriptionId = newSubscription.Id;
+            isNewSubscription = true;
+        }
+
+        await _unitOfWork.CompleteAsync();
+
+        return ("paid", subscriptionId, isNewSubscription);
     }
 }

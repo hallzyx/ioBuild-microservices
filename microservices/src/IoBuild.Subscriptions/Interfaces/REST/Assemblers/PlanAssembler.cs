@@ -1,3 +1,4 @@
+using System.Text.Json;
 using IoBuild.Subscriptions.Domain.Model.Aggregates;
 using IoBuild.Subscriptions.Domain.Model.Commands;
 using IoBuild.Subscriptions.Interfaces.REST.Resources;
@@ -8,12 +9,23 @@ public static class PlanAssembler
 {
     public static PlanResource ToResource(Plan entity)
     {
+        // Features is stored as a JSON string in the DB; deserialize to List<string> for the API
+        List<string> features;
+        try
+        {
+            features = JsonSerializer.Deserialize<List<string>>(entity.Features) ?? new List<string>();
+        }
+        catch (JsonException)
+        {
+            features = new List<string> { entity.Features };
+        }
+
         return new PlanResource(
             entity.Id,
             entity.Name,
             entity.Price,
             entity.Description,
-            entity.Features,
+            features,
             entity.MaxDevices,
             entity.MaxAdministrators,
             entity.SupportLevel,

@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace IoBuild.Subscriptions.Interfaces.REST.Controllers;
 
 [ApiController]
-[Route("api/v1/[controller]")]
+[Route("api/v1/subscriptions/[controller]")]
 public class PaymentsController : ControllerBase
 {
     private readonly StripePaymentService _stripePaymentService;

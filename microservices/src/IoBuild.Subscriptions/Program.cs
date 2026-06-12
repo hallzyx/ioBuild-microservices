@@ -45,7 +45,7 @@ var stripeSettings = new StripeSettings
         ?? "whsec_placeholder"
 };
 builder.Services.AddSingleton(stripeSettings);
-builder.Services.AddSingleton<StripePaymentService>();
+builder.Services.AddScoped<StripePaymentService>();
 
 // Repositories
 builder.Services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
