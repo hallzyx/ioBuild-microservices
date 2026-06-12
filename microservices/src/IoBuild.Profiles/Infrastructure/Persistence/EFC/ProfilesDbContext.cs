@@ -1,5 +1,6 @@
 using IoBuild.Profiles.Domain.Model.Aggregates;
 using IoBuild.Profiles.Infrastructure.Persistence.EFC.Configuration.Extensions;
+using IoBuild.Profiles.Infrastructure.Persistence.EFC.Configuration.Seed;
 using IoBuild.Shared.Domain.Repositories;
 using IoBuild.Shared.Infrastructure.EFC.Extensions;
 using Microsoft.EntityFrameworkCore;
@@ -21,5 +22,8 @@ public class ProfilesDbContext(DbContextOptions<ProfilesDbContext> options)
         base.OnModelCreating(modelBuilder);
         modelBuilder.UseSnakeCaseNamingConvention();
         modelBuilder.ApplyProfilesConfiguration();
+
+        // Apply seed data AFTER entity configuration and naming conventions
+        modelBuilder.ApplyProfilesSeedData();
     }
 }

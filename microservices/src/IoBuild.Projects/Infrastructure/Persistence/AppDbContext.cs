@@ -1,4 +1,5 @@
 using IoBuild.Projects.Domain.Model.Aggregates;
+using IoBuild.Projects.Infrastructure.Persistence.EFC.Configuration.Seed;
 using IoBuild.Shared.Domain.Repositories;
 using IoBuild.Shared.Infrastructure.EFC.Extensions;
 using Microsoft.EntityFrameworkCore;
@@ -62,5 +63,8 @@ public class AppDbContext : DbContext, IUnitOfWork
                 .WithMany()
                 .HasForeignKey(c => c.ProjectId);
         });
+
+        // Apply seed data AFTER entity configuration and naming conventions
+        modelBuilder.ApplyProjectsSeedData();
     }
 }

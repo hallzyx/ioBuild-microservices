@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using IoBuild.Devices.Domain.Model.Aggregates;
+using IoBuild.Devices.Infrastructure.Persistence.EFC.Configuration.Seed;
 using IoBuild.Shared.Infrastructure.EFC.Extensions;
 
 namespace IoBuild.Devices.Infrastructure.Persistence.EFC.DbContext;
@@ -32,5 +33,8 @@ public class DevicesDbContext(DbContextOptions<DevicesDbContext> options) : Micr
             entity.Property(l => l.Type).IsRequired().HasMaxLength(50);
             entity.Property(l => l.Metadata).HasMaxLength(2000);
         });
+
+        // Apply seed data AFTER entity configuration and naming conventions
+        modelBuilder.ApplyDevicesSeedData();
     }
 }

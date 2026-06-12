@@ -82,6 +82,9 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<SubscriptionsDbContext>();
     db.Database.EnsureCreated();
+
+    // Seed Plans and Subscriptions at runtime (Plan.Features is stored as JSON string)
+    IoBuild.Subscriptions.Infrastructure.Persistence.EFC.Configuration.Seed.SubscriptionsSeedHelper.Seed(db);
 }
 
 // Middleware
