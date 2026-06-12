@@ -39,6 +39,23 @@ public class AnalyticsQueryService : IAnalyticsQueryService
         if (latestSnapshot is not null)
         {
             _logger.LogInformation("Using cached dashboard data for user {UserId}", query.UserId);
+            // Populate chart data from seed (these are ignored by EF Core, so always empty)
+            latestSnapshot.TemperatureHistory = GenerateSampleTemperatureData();
+            latestSnapshot.EnergyHistory = GenerateSampleEnergyData();
+            latestSnapshot.HourlyEnergyData = GenerateSampleHourlyEnergy();
+            latestSnapshot.MonthlyOccupancy = GenerateSampleMonthlyOccupancy();
+            latestSnapshot.DevicesByType = new Dictionary<string, int>
+            {
+                ["Temperature"] = 5, ["Energy"] = 3, ["Water"] = 2,
+                ["Access Control"] = 1, ["HVAC"] = 1, ["Lighting"] = 1
+            };
+            latestSnapshot.ProjectsOverview = new Dictionary<string, object>
+            {
+                ["activeProjects"] = latestSnapshot.ActiveProjectsCount,
+                ["totalUnits"] = latestSnapshot.TotalUnits,
+                ["occupiedUnits"] = latestSnapshot.OccupiedUnits,
+                ["vacantUnits"] = latestSnapshot.TotalUnits - latestSnapshot.OccupiedUnits
+            };
             return latestSnapshot;
         }
 
@@ -174,5 +191,77 @@ public class AnalyticsQueryService : IAnalyticsQueryService
             { "occupiedUnits", occupiedUnits },
             { "vacantUnits", totalUnits - occupiedUnits }
         };
+    }
+
+    // ── Sample data generators for seed fallback ──
+
+    private static List<HistoricalDataPoint> GenerateSampleTemperatureData()
+    {
+        var now = DateTime.UtcNow;
+        var points = new List<HistoricalDataPoint>();
+        for (int i = 6; i >= 0; i--)
+        {
+            for (int h = 0; h < 24; h++)
+            {
+                points.Add(new HistoricalDataPoint
+                {
+                    Timestamp = now.AddDays(-i).AddHours(-h),
+                    Value = 22.0 + Math.Sin((i * 24.0 + h) * 0.1) * 3,
+                    Metric = "temperature"
+                });
+            }
+        }
+        return points;
+    }
+
+    private static List<HistoricalDataPoint> GenerateSampleEnergyData()
+    {
+        var now = DateTime.UtcNow;
+        var points = new List<HistoricalDataPoint>();
+        for (int i = 6; i >= 0; i--)
+        {
+            for (int h = 0; h < 24; h++)
+            {
+                points.Add(new HistoricalDataPoint
+                {
+                    Timestamp = now.AddDays(-i).AddHours(-h),
+                    Value = 40.0 + Math.Sin((i * 24.0 + h) * 0.15) * 5,
+                    Metric = "energy"
+                });
+            }
+        }
+        return points;
+    }
+
+    private static List<HistoricalDataPoint> GenerateSampleHourlyEnergy()
+    {
+        var now = DateTime.UtcNow;
+        var points = new List<HistoricalDataPoint>();
+        for (int h = 23; h >= 0; h--)
+        {
+            points.Add(new HistoricalDataPoint
+            {
+                Timestamp = now.AddHours(-h),
+                Value = 2.0 + Math.Sin(h * 0.3) * 1.0,
+                Metric = "hourly_energy"
+            });
+        }
+        return points;
+    }
+
+    private static List<HistoricalDataPoint> GenerateSampleMonthlyOccupancy()
+    {
+        var now = DateTime.UtcNow;
+        var points = new List<HistoricalDataPoint>();
+        for (int m = 5; m >= 0; m--)
+        {
+            points.Add(new HistoricalDataPoint
+            {
+                Timestamp = now.AddMonths(-m),
+                Value = 60.0 + (5 - m) * 5.0,
+                Metric = "monthly_occupancy"
+            });
+        }
+        return points;
     }
 }
