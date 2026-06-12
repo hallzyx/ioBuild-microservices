@@ -21,12 +21,14 @@ const props = defineProps({
 const analyticsStore = useAnalyticsStore();
 
 const deviceOptions = computed(() =>
-  analyticsStore.devices.map(d => ({ label: d.name, value: d.id }))
+  analyticsStore.devices.map(d => ({ name: d.name, id: d.id }))
 );
 
 const selectedDevice = computed({
   get: () => analyticsStore.selectedDeviceId,
-  set: (val) => analyticsStore.selectDevice(val)
+  set: (val) => {
+    analyticsStore.selectDevice(typeof val === 'object' ? val?.id : val);
+  }
 });
 
 const energyChartData = computed(() => {
@@ -102,7 +104,11 @@ watch(() => analyticsStore.selectedDeviceId, async (newId) => {
 });
 
 onMounted(() => {
-  analyticsStore.fetchDevices();
+  analyticsStore.fetchDevices().then(() => {
+    if (analyticsStore.devices.length > 0 && !analyticsStore.selectedDeviceId) {
+      analyticsStore.selectDevice(analyticsStore.devices[0].id);
+    }
+  });
 });
 
 // Energy consumption chart (last 30 days)
@@ -262,8 +268,8 @@ const getHealthColor = (health) => {
         <pv-select
           v-model="selectedDevice"
           :options="deviceOptions"
-          option-label="label"
-          option-value="value"
+          option-label="name"
+          option-value="id"
           class="telemetry-select"
           :placeholder="$t('devices.telemetry.selectDevice')"
         />
@@ -561,6 +567,15 @@ const getHealthColor = (health) => {
 .telemetry-select {
   min-width: 280px;
   max-width: 400px;
+}
+
+.telemetry-select .p-select-label,
+.telemetry-select .p-select-value {
+  color: #111827 !important;
+}
+
+.telemetry-select .p-select-option {
+  color: #111827 !important;
 }
 
 .telemetry-content {
