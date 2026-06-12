@@ -28,6 +28,6 @@ export class Profile {
   get displayPhotoUrl() {
     return this.photoUrl && this.photoUrl.trim() !== ''
       ? this.photoUrl
-      : 'https://via.placeholder.com/40x40/10B981/FFFFFF?text=U';
+      : 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2240%22 height=%2240%22%3E%3Crect width=%2240%22 height=%2240%22 rx=%224%22 fill=%22%2310B981%22/%3E%3Ctext x=%2220%22 y=%2226%22 text-anchor=%22middle%22 fill=%22white%22 font-size=%2218%22 font-family=%22sans-serif%22%3EU%3C/text%3E%3C/svg%3E';
   }
 }

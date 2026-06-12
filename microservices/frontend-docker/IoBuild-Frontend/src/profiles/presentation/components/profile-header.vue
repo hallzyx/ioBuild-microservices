@@ -1,7 +1,7 @@
 <template>
   <div class="profile-header">
     <div class="profile-avatar">
-      <img :src="avatarUrl || 'https://via.placeholder.com/60'" alt="Avatar" class="avatar-img">
+      <img :src="avatarUrl || 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2260%22 height=%2260%22%3E%3Ccircle cx=%2230%22 cy=%2230%22 r=%2230%22 fill=%22%23CCCCCC%22/%3E%3Ctext x=%2230%22 y=%2236%22 text-anchor=%22middle%22 fill=%22white%22 font-size=%2224%22 font-family=%22sans-serif%22%3E%3F%3C/text%3E%3C/svg%3E'" alt="Avatar" class="avatar-img">
     </div>
     <div class="profile-info">
       <h2 class="name">{{ name }}</h2>
