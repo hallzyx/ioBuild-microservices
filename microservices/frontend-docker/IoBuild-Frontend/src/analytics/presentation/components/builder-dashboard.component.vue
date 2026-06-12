@@ -104,12 +104,7 @@ watch(() => analyticsStore.selectedDeviceId, async (newId) => {
 });
 
 onMounted(() => {
-  analyticsStore.fetchDevices().then(() => {
-    if (analyticsStore.devices.length > 0 && !analyticsStore.selectedDeviceId) {
-      analyticsStore.selectDevice(analyticsStore.devices[0].id);
-    }
-  });
-  analyticsStore.fetchBuilderDashboard(1);
+  analyticsStore.fetchDevices();
 });
 
 // Chart configurations

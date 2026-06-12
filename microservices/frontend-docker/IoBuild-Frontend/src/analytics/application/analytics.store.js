@@ -57,7 +57,12 @@ export const useAnalyticsStore = defineStore("analytics", () => {
 
     async function fetchDevices() {
         try {
-            devices.value = await deviceApi.getAllDevices();
+            const result = await deviceApi.getAllDevices();
+            devices.value = result;
+            // Auto-select first device when devices are loaded
+            if (result.length > 0 && selectedDeviceId.value === null) {
+                selectDevice(result[0].id);
+            }
         } catch (error) {
             errors.value.push(error);
             console.error('Error fetching devices for telemetry:', error);

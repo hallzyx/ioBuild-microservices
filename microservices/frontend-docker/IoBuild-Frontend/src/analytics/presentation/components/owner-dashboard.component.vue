@@ -104,11 +104,14 @@ watch(() => analyticsStore.selectedDeviceId, async (newId) => {
 });
 
 onMounted(() => {
-  analyticsStore.fetchDevices().then(() => {
-    if (analyticsStore.devices.length > 0 && !analyticsStore.selectedDeviceId) {
-      analyticsStore.selectDevice(analyticsStore.devices[0].id);
-    }
-  });
+  analyticsStore.fetchDevices();
+});
+
+// Auto-select first device when devices are loaded
+watch(() => analyticsStore.devices.length, (len) => {
+  if (len > 0 && !analyticsStore.selectedDeviceId) {
+    analyticsStore.selectDevice(analyticsStore.devices[0].id);
+  }
 });
 
 // Energy consumption chart (last 30 days)
