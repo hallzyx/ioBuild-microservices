@@ -76,3 +76,13 @@ sdd/
 .*
 !.gitignore
 !.env.example
+
+# ── Windows reserved names (evitar errores de git add) ──
+[Nn][Uu][Ll]
+[Pp][Rr][Nn]
+[Aa][Uu][Xx]
+[Cc][Ll][Oo][Cc][Kk][Ss]
+[Cc][Oo][Nn]
+[Cc][Oo][Mm][Mm][Aa][Nn][Dd]
+[Ll][Pp][Tt][0-9]
+[Nn][Uu][Ll][Ll]

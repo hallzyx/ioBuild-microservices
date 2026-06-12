@@ -156,8 +156,9 @@ services:
       - DB_PASSWORD=${DB_PASSWORD:-iobuild123}
       - DB_NAME=iobuild_subscriptions
       - JWT_SECRET=${JWT_SECRET:-dev-fallback-key-minimum-32-characters!!}
-      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}
-      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-whsec_dev_placeholder}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      - STRIPE_PUBLISHABLE_KEY=${STRIPE_PUBLISHABLE_KEY}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
     networks:
       - iobuild-network
     healthcheck:
