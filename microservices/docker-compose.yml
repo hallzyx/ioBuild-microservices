@@ -336,6 +336,9 @@ services:
     build:
       context: ./frontend-docker
       dockerfile: Dockerfile
+      args:
+        - VITE_CLOUDINARY_CLOUD_NAME=${VITE_CLOUDINARY_CLOUD_NAME:-demo}
+        - VITE_CLOUDINARY_UPLOAD_PRESET=${VITE_CLOUDINARY_UPLOAD_PRESET:-unsigned_upload}
     container_name: iobuild-frontend
     restart: unless-stopped
     depends_on:
