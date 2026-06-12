@@ -3,6 +3,7 @@ using IoBuild.Analytics.Domain.Model.Entities;
 using IoBuild.Analytics.Domain.Model.Queries;
 using IoBuild.Analytics.Domain.Services;
 using IoBuild.Analytics.Interfaces.ACL;
+using Microsoft.EntityFrameworkCore;
 
 namespace IoBuild.Analytics.Application.Internal.QueryServices;
 
@@ -10,21 +11,39 @@ public class AnalyticsQueryService : IAnalyticsQueryService
 {
     private readonly IDevicesContextFacade _devices;
     private readonly IProjectsContextFacade _projects;
+    private readonly AnalyticsDbContext _db;
     private readonly ILogger<AnalyticsQueryService> _logger;
 
     public AnalyticsQueryService(
         IDevicesContextFacade devices,
         IProjectsContextFacade projects,
+        AnalyticsDbContext db,
         ILogger<AnalyticsQueryService> logger)
     {
         _devices = devices;
         _projects = projects;
+        _db = db;
         _logger = logger;
     }
 
     public async Task<BuilderMetrics?> Handle(GetBuilderDashboardQuery query)
     {
         _logger.LogInformation("Building builder dashboard for user {UserId}", query.UserId);
+
+        // Try database seed first (fast, offline-capable)
+        var latestSnapshot = await _db.BuilderMetrics
+            .Where(b => EF.Property<int>(b, "UserId") == query.UserId)
+            .OrderByDescending(b => EF.Property<DateTime>(b, "SnapshotDate"))
+            .FirstOrDefaultAsync();
+
+        if (latestSnapshot is not null)
+        {
+            _logger.LogInformation("Using cached dashboard data for user {UserId}", query.UserId);
+            return latestSnapshot;
+        }
+
+        // Fallback: compute from ACLs (real-time, requires devices/projects APIs)
+        _logger.LogInformation("Computing dashboard from APIs for user {UserId}", query.UserId);
 
         var totalDevices = await _devices.GetTotalDevicesAsync(query.UserId);
         var onlineDevices = await _devices.GetOnlineDevicesAsync(query.UserId);
@@ -61,6 +80,20 @@ public class AnalyticsQueryService : IAnalyticsQueryService
     public async Task<OwnerMetrics?> Handle(GetOwnerDashboardQuery query)
     {
         _logger.LogInformation("Building owner dashboard for user {UserId}", query.UserId);
+
+        // Try database seed first
+        var latestSnapshot = await _db.OwnerMetrics
+            .Where(o => EF.Property<int>(o, "UserId") == query.UserId)
+            .OrderByDescending(o => EF.Property<DateTime>(o, "SnapshotDate"))
+            .FirstOrDefaultAsync();
+
+        if (latestSnapshot is not null)
+        {
+            _logger.LogInformation("Using cached owner dashboard for user {UserId}", query.UserId);
+            return latestSnapshot;
+        }
+
+        // Fallback: compute from ACLs
 
         var totalDevices = await _devices.GetTotalDevicesAsync(query.UserId);
         var onlineDevices = await _devices.GetOnlineDevicesAsync(query.UserId);

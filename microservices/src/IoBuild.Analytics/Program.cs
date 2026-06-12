@@ -53,13 +53,13 @@ builder.Services.AddDbContext<AnalyticsDbContext>(options =>
 
 builder.Services.AddHttpClient<IDevicesContextFacade, DevicesContextFacade>(client =>
 {
-    client.BaseAddress = new Uri(builder.Configuration.GetValue<string>("Services:DevicesApi") ?? "http://localhost:5003");
+    client.BaseAddress = new Uri(builder.Configuration.GetValue<string>("Services:DevicesApi") ?? "http://localhost:5002");
     client.Timeout = TimeSpan.FromSeconds(10);
 });
 
 builder.Services.AddHttpClient<IProjectsContextFacade, ProjectsContextFacade>(client =>
 {
-    client.BaseAddress = new Uri(builder.Configuration.GetValue<string>("Services:ProjectsApi") ?? "http://localhost:5004");
+    client.BaseAddress = new Uri(builder.Configuration.GetValue<string>("Services:ProjectsApi") ?? "http://localhost:5003");
     client.Timeout = TimeSpan.FromSeconds(10);
 });
 

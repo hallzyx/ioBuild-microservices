@@ -187,6 +187,8 @@ services:
       - DB_USER=root
       - DB_PASSWORD=${DB_PASSWORD:-iobuild123}
       - DB_NAME=iobuild_analytics
+      - Services__DevicesApi=http://devices:5002
+      - Services__ProjectsApi=http://projects:5003
     networks:
       - iobuild-network
     healthcheck:
