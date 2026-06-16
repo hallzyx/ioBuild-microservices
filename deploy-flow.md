@@ -183,18 +183,41 @@ que cloud-init escribe dentro de la VM.
 
 ---
 
-### Fase 5 — Cloudflare SSL en "Flexible" ⏳ (tu turno)
+### Fase 5 — SSL: Configuration Rule (Flexible solo para iobuild-v2) ⏳ (tu turno)
 
-En el dashboard de Cloudflare, zona `arroz.dev` → **SSL/TLS** → **Overview** →
-elegí modo **Flexible**.
+**Contexto importante (lo descubrimos en vivo):** la zona `arroz.dev` está
+COMPARTIDA — 20 registros DNS, todos apuntando al VPS de Dokploy (`167.86.75.9`):
+arquitory, knb, n8n, sparkhub, vehiflow, licita-verify, chacra-chain, etc. La zona
+está en modo **Full** (Cloudflare habla HTTPS con los orígenes; el VPS sirve HTTPS
+vía Traefik). Por eso **NO se puede cambiar el modo SSL global** — romperíamos esos
+~19 servicios.
 
-**Concepto — modos SSL de Cloudflare:**
-- **Flexible**: el navegador ↔ Cloudflare va por HTTPS (cifrado), y Cloudflare ↔ tu VM
-  va por HTTP (sin cifrar). El visitante ve el candado verde igual. Para un demo está bien.
-- **Full**: cifrado en los dos tramos, pero necesitás un certificado en la VM. Más laburo.
+**Sobre el TLD `.dev` (verificado):** `.dev` está en la HSTS preload list con
+`include_subdomains`, así que los navegadores fuerzan HTTPS en TODO `*.dev`. PERO eso
+se cumple en el **edge de Cloudflare** (que sirve cert válido), no en la VM. El tramo
+Cloudflare→VM es invisible para el navegador. Por eso Flexible es suficiente, siempre
+que el registro esté **proxied** (lo está).
+Fuentes: https://ma.ttias.be/chrome-force-dev-domains-https-via-preloaded-hsts/ ,
+https://developers.cloudflare.com/ssl/origin-configuration/ssl-modes/
 
-Elegimos Flexible porque la VM solo escucha en el puerto 80 y no queremos lidiar con
-certificados para algo efímero.
+**Solución — override por-host con una Configuration Rule** (Free incluye 10):
+1. `arroz.dev` → **Rules** → **Configuration Rules** → **Create rule**
+2. Nombre: `iobuild-v2 flexible SSL`
+3. When incoming requests match: Field=**Hostname**, Operator=**equals**,
+   Value=**`iobuild-v2.arroz.dev`**
+4. Then → Settings: activar **SSL** → **Flexible**
+5. **Deploy**
+
+La zona queda en Full para todos; solo `iobuild-v2` usa Flexible.
+
+**Concepto — modos SSL (tramo Cloudflare → origen):**
+- **Flexible**: CF→origen por HTTP. La VM solo necesita puerto 80. Lo que usamos.
+- **Full**: CF→origen por HTTPS; el origen necesita certificado.
+- **Full (strict)**: como Full pero con cert válido/confiable.
+
+**Trade-off:** con Flexible, el tramo CF→VM de ESE host va en texto plano. Aceptable
+para un demo efímero. El plan B "correcto" sería un Origin Certificate de Cloudflare
+en la VM + Full, pero implica meterle TLS al stack (no vale la pena para esto).
 
 ---
 
