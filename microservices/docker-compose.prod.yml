@@ -1,0 +1,272 @@
+# docker-compose.prod.yml — GHCR images, no local build. Used by the Azure VM.
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: iobuild-mysql
+    restart: unless-stopped
+    mem_limit: 384m
+    environment:
+      - MYSQL_ROOT_PASSWORD=${DB_PASSWORD:-iobuild123}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks: [iobuild-network]
+
+  iam:
+    image: ghcr.io/hallzyx/iobuild-iam:${IMAGE_TAG:-latest}
+    container_name: iobuild-iam
+    restart: unless-stopped
+    mem_limit: 256m
+    depends_on:
+      mysql: { condition: service_healthy }
+    environment:
+      - ASPNETCORE_URLS=http://+:5001
+      - ASPNETCORE_ENVIRONMENT=Production
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USER=root
+      - DB_PASSWORD=${DB_PASSWORD:-iobuild123}
+      - DB_NAME=iobuild_iam
+      - JWT_SECRET=${JWT_SECRET:-dev-fallback-key-minimum-32-characters!!}
+    networks: [iobuild-network]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  devices:
+    image: ghcr.io/hallzyx/iobuild-devices:${IMAGE_TAG:-latest}
+    container_name: iobuild-devices
+    restart: unless-stopped
+    mem_limit: 256m
+    depends_on:
+      iam: { condition: service_healthy }
+      influxdb: { condition: service_healthy }
+      mosquitto: { condition: service_started }
+    environment:
+      - ASPNETCORE_URLS=http://+:5002
+      - ASPNETCORE_ENVIRONMENT=Production
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USER=root
+      - DB_PASSWORD=${DB_PASSWORD:-iobuild123}
+      - DB_NAME=iobuild_devices
+      - JWT_SECRET=${JWT_SECRET:-dev-fallback-key-minimum-32-characters!!}
+      - INFLUXDB_TOKEN=${INFLUXDB_TOKEN:-iobuild-telemetry-token}
+      - MQTT_HOST=mosquitto
+      - MQTT_PORT=1883
+    networks: [iobuild-network]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5002/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  projects:
+    image: ghcr.io/hallzyx/iobuild-projects:${IMAGE_TAG:-latest}
+    container_name: iobuild-projects
+    restart: unless-stopped
+    mem_limit: 256m
+    depends_on:
+      iam: { condition: service_healthy }
+    environment:
+      - ASPNETCORE_URLS=http://+:5003
+      - ASPNETCORE_ENVIRONMENT=Production
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USER=root
+      - DB_PASSWORD=${DB_PASSWORD:-iobuild123}
+      - DB_NAME=iobuild_projects
+      - JWT_SECRET=${JWT_SECRET:-dev-fallback-key-minimum-32-characters!!}
+    networks: [iobuild-network]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5003/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  subscriptions:
+    image: ghcr.io/hallzyx/iobuild-subscriptions:${IMAGE_TAG:-latest}
+    container_name: iobuild-subscriptions
+    restart: unless-stopped
+    mem_limit: 256m
+    depends_on:
+      iam: { condition: service_healthy }
+    environment:
+      - ASPNETCORE_URLS=http://+:5004
+      - ASPNETCORE_ENVIRONMENT=Production
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USER=root
+      - DB_PASSWORD=${DB_PASSWORD:-iobuild123}
+      - DB_NAME=iobuild_subscriptions
+      - JWT_SECRET=${JWT_SECRET:-dev-fallback-key-minimum-32-characters!!}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      - STRIPE_PUBLISHABLE_KEY=${STRIPE_PUBLISHABLE_KEY}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
+    networks: [iobuild-network]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5004/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  analytics:
+    image: ghcr.io/hallzyx/iobuild-analytics:${IMAGE_TAG:-latest}
+    container_name: iobuild-analytics
+    restart: unless-stopped
+    mem_limit: 256m
+    depends_on:
+      iam: { condition: service_healthy }
+    environment:
+      - ASPNETCORE_URLS=http://+:5005
+      - ASPNETCORE_ENVIRONMENT=Production
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USER=root
+      - DB_PASSWORD=${DB_PASSWORD:-iobuild123}
+      - DB_NAME=iobuild_analytics
+      - Services__DevicesApi=http://devices:5002
+      - Services__ProjectsApi=http://projects:5003
+    networks: [iobuild-network]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5005/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  profiles:
+    image: ghcr.io/hallzyx/iobuild-profiles:${IMAGE_TAG:-latest}
+    container_name: iobuild-profiles
+    restart: unless-stopped
+    mem_limit: 128m
+    depends_on:
+      iam: { condition: service_healthy }
+    environment:
+      - ASPNETCORE_URLS=http://+:5006
+      - ASPNETCORE_ENVIRONMENT=Production
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USER=root
+      - DB_PASSWORD=${DB_PASSWORD:-iobuild123}
+      - DB_NAME=iobuild_profiles
+      - JWT_SECRET=${JWT_SECRET:-dev-fallback-key-minimum-32-characters!!}
+    networks: [iobuild-network]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5006/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  gateway:
+    image: ghcr.io/hallzyx/iobuild-gateway:${IMAGE_TAG:-latest}
+    container_name: iobuild-gateway
+    restart: unless-stopped
+    mem_limit: 128m
+    depends_on:
+      iam: { condition: service_healthy }
+      devices: { condition: service_healthy }
+      projects: { condition: service_healthy }
+      subscriptions: { condition: service_healthy }
+      analytics: { condition: service_healthy }
+    environment:
+      - ASPNETCORE_URLS=http://+:8080
+      - ASPNETCORE_ENVIRONMENT=Docker
+    expose: ["8080"]
+    networks: [iobuild-network]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  mosquitto:
+    image: eclipse-mosquitto:2-openssl
+    container_name: iobuild-mosquitto
+    restart: unless-stopped
+    mem_limit: 16m
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mosquitto/config/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - mosquitto_data:/mosquitto/data
+    networks: [iobuild-network]
+
+  influxdb:
+    image: influxdb:2.7-alpine
+    container_name: iobuild-influxdb
+    restart: unless-stopped
+    mem_limit: 64m
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=admin
+      - DOCKER_INFLUXDB_INIT_PASSWORD=${INFLUXDB_PASSWORD:-admin123}
+      - DOCKER_INFLUXDB_INIT_ORG=iobuild
+      - DOCKER_INFLUXDB_INIT_BUCKET=iobuild-telemetry
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${INFLUXDB_TOKEN:-iobuild-telemetry-token}
+    volumes:
+      - influxdb_data:/var/lib/influxdb2
+    networks: [iobuild-network]
+    healthcheck:
+      test: ["CMD", "influx", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  simulator:
+    image: ghcr.io/hallzyx/iobuild-simulator:${IMAGE_TAG:-latest}
+    container_name: iobuild-simulator
+    restart: unless-stopped
+    mem_limit: 32m
+    depends_on:
+      - mosquitto
+    environment:
+      - MQTT_HOST=mosquitto
+      - MQTT_PORT=1883
+      - DEVICE_COUNT=5
+    networks: [iobuild-network]
+
+  frontend:
+    image: ghcr.io/hallzyx/iobuild-frontend:${IMAGE_TAG:-latest}
+    container_name: iobuild-frontend
+    restart: unless-stopped
+    depends_on:
+      - gateway
+    ports:
+      - "80:80"
+    networks: [iobuild-network]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+networks:
+  iobuild-network:
+    driver: bridge
+
+volumes:
+  mysql_data:
+    driver: local
+  mosquitto_data:
+    driver: local
+  influxdb_data:
+    driver: local
