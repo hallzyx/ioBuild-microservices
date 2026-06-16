@@ -49,9 +49,9 @@ tirás abajo después.
 | 1. Llave SSH | Crear la llave para entrar a la VM si hace falta | ✅ |
 | 2. Storage del state | Crear la "cajita" donde vive el tfstate | ✅ |
 | 3. Service Principal | Crear el usuario robot para GitHub Actions | ❌ Bloqueado por UPC → pivote a Terraform local |
-| 4. Llenar terraform.tfvars + token Cloudflare | Cargar claves localmente | ⏳ (tu turno) |
-| 5. Cloudflare SSL | Poner el modo TLS en "Flexible" | ⏳ (tu turno) |
-| 6. Build imágenes + deploy.sh / destroy.sh | Buildear y levantar/destruir | ⏳ |
+| 4. Llenar terraform.tfvars + token Cloudflare | Cargar claves localmente | ✅ |
+| 5. Cloudflare SSL (Configuration Rule por-host) | Flexible solo para iobuild-v2 | ✅ |
+| 6. Build imágenes + deploy.sh | Buildear y levantar | ✅ deploy aplicado (VM 20.22.198.254) |
 
 ---
 
@@ -256,5 +256,20 @@ cd infra
 ./destroy.sh
 ```
 Borra la VM, la IP y el DNS. Azure deja de cobrar el cómputo.
+
+**⚠️ Gotcha al deployar — Azure solo acepta llaves RSA:** el primer `apply` falló con
+`the provided ssh-ed25519 SSH key is not supported. Only RSA SSH keys are supported by Azure`.
+El recurso `azurerm_linux_virtual_machine` no acepta ed25519 en `admin_ssh_key`. Se
+solucionó generando una RSA y reemplazándola en `terraform.tfvars`:
+```bash
+ssh-keygen -t rsa -b 4096 -f ~/.ssh/iobuild_demo_rsa -N ""
+```
+Para entrar a la VM (debug): `ssh -i ~/.ssh/iobuild_demo_rsa azureuser@20.22.198.254`
+
+**Resultado del deploy (apply OK):** 9 recursos creados.
+- VM IP: `20.22.198.254` (región eastus2, Standard_B2ms)
+- DNS: `iobuild-v2.arroz.dev` → 20.22.198.254 (proxied)
+- URL: https://iobuild-v2.arroz.dev
+- Tras el apply, cloud-init instala Docker + baja imágenes + `docker compose up` (~3-5 min).
 
 ---
