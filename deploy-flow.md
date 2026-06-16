@@ -200,11 +200,23 @@ certificados para algo efímero.
 
 ### Fase 6 — Build + Deploy + Destroy ⏳
 
+**Gotcha de GitHub Actions:** un workflow con `workflow_dispatch` solo se puede
+DISPARAR si el archivo existe en la rama **default** (`main`). Por eso llevamos
+`build-images.yml` a `main` (solo ese archivo + el fix del `.gitignore`), mientras
+el infra de Terraform sigue sin tocar `main`. Se dispara con:
+```bash
+gh workflow run build-images.yml --ref main
+```
+
 **1) Buildear imágenes (una vez, o cada vez que cambie el código):**
 - GitHub → tu repo → pestaña **Actions** → workflow **Build and push images to GHCR** → **Run workflow**.
 - Cuando termine, andá a tu perfil de GitHub → **Packages** y marcá cada paquete
-  `iobuild-*` como **Public** (Package settings → Change visibility → Public).
+  `iobuild-*` como **Public** (Package settings → Danger Zone → Change visibility → Public).
   Esto permite que la VM los baje sin credenciales.
+  - URL directa por paquete: `https://github.com/users/hallzyx/packages/container/iobuild-<nombre>/settings`
+  - Nota: NO se puede automatizar — GitHub solo permite cambiar visibilidad de
+    paquetes de usuario por la web, y el token de `gh` necesitaría scope `write:packages`.
+  - Los 9: iam, devices, projects, subscriptions, analytics, profiles, gateway, frontend, simulator.
 
 **2) Deploy (desde tu terminal):**
 ```bash
