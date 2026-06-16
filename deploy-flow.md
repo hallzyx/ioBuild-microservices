@@ -273,3 +273,43 @@ Para entrar a la VM (debug): `ssh -i ~/.ssh/iobuild_demo_rsa azureuser@20.22.198
 - Tras el apply, cloud-init instala Docker + baja imágenes + `docker compose up` (~3-5 min).
 
 ---
+
+### Fase 6b — Bugs del primer arranque y cómo se resolvieron
+
+La VM se creó bien, pero la app no levantó al toque (Cloudflare daba **521** =
+"no puedo conectar al origen"). Diagnóstico por SSH:
+```bash
+ssh -i ~/.ssh/iobuild_demo_rsa azureuser@<IP>
+sudo cloud-init status --long       # estado del arranque
+sudo docker ps -a                   # contenedores
+sudo docker logs iobuild-mysql      # logs de un servicio
+sudo tail -n50 /var/log/iobuild-bootstrap.log
+```
+
+**Bug 1 — cloud-init clonaba la rama equivocada.** El log mostró
+`open .../docker-compose.prod.yml: no such file or directory`. cloud-init hacía
+`git clone` de la rama default (`main`), que NO tiene `docker-compose.prod.yml`
+(vive en `feat/azure-ephemeral-demo`). Fix: clonar la rama explícita con
+`--branch ${git_ref}` (variable `repo_branch` en Terraform).
+
+**Bug 2 — MySQL se quedaba sin RAM importando `init.sql`.** Logs:
+`ERROR 2013 Lost connection ... at line 109078` y luego, en los servicios .NET:
+`Host '172.18.0.x' is not allowed to connect to this MySQL server`. El `init.sql`
+tiene +109k líneas; con `mem_limit: 384m` y la VM **sin swap**, el OOM mataba a
+mysqld a mitad de import, dejando el datadir a medias y **sin crear `root@'%'`**.
+En localhost no pasa porque Docker Desktop tiene swap. Fix: `mem_limit: 2048m` +
+reinicializar limpio (`docker compose down -v` borra el volumen corrupto).
+> Concepto: en MySQL, `root@'%'` (cualquier host) se crea durante la PRIMERA
+> inicialización. Si esa init falla, en el segundo arranque MySQL ve el datadir
+> "ya inicializado" y NO la vuelve a crear → conexiones remotas rechazadas.
+
+**Bug 3 (menor) — carrera de dependencias.** `docker compose up -d` se rendía
+mientras mysql/iam todavía no estaban `healthy`. Como todos tienen
+`restart: unless-stopped` y el `up` es idempotente, re-ejecutarlo levanta el
+siguiente tier. Fix: bucle de reintento de `up -d` en cloud-init.
+
+**Estado final:** los 3 fixes quedaron en el código (commit `fix(infra): ...`),
+así que el próximo `./deploy.sh` (tras un `./destroy.sh`) arranca limpio sin
+intervención manual. La demo quedó viva en https://iobuild-v2.arroz.dev (HTTP 200).
+
+---
