@@ -1,7 +1,7 @@
 variable "location" {
-  description = "Azure region"
+  description = "Azure region (must be allowed by the student subscription policy)"
   type        = string
-  default     = "eastus"
+  default     = "eastus2"
 }
 
 variable "resource_group_name" {
