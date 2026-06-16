@@ -4,7 +4,9 @@ services:
     image: mysql:8.0
     container_name: iobuild-mysql
     restart: unless-stopped
-    mem_limit: 384m
+    # 384m OOM-kills mysqld mid-import of the large init.sql on a swapless VM,
+    # leaving the datadir half-initialized (root@'%' missing). 2g imports cleanly.
+    mem_limit: 2048m
     environment:
       - MYSQL_ROOT_PASSWORD=${DB_PASSWORD:-iobuild123}
     ports:

@@ -21,9 +21,10 @@ write_files:
       apt-get update -y
       apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
 
-      # Clone repo for config files (public repo, no auth)
+      # Clone repo for config files (public repo, no auth).
+      # docker-compose.prod.yml lives on ${git_ref}, so clone that branch explicitly.
       rm -rf /opt/iobuild/repo
-      git clone --depth 1 https://github.com/hallzyx/ioBuild-microservices.git /opt/iobuild/repo
+      git clone --depth 1 --branch ${git_ref} https://github.com/hallzyx/ioBuild-microservices.git /opt/iobuild/repo
 
       cd /opt/iobuild/repo/microservices
 
@@ -39,9 +40,21 @@ write_files:
       STRIPE_WEBHOOK_SECRET=${stripe_webhook_secret}
       ENVEOF
 
-      # Pull GHCR images (public) and start the stack
+      # Pull GHCR images (public) and start the stack.
       docker compose -f docker-compose.prod.yml pull
-      docker compose -f docker-compose.prod.yml up -d
+
+      # Retry `up -d` a few times: services gate on healthchecks (mysql/iam take
+      # time to become healthy), so the first attempt may report a dependency
+      # timeout while containers are still initializing. Re-running brings up the
+      # next tier until everything is healthy.
+      for attempt in 1 2 3 4 5 6; do
+        if docker compose -f docker-compose.prod.yml up -d; then
+          echo "compose up succeeded on attempt $attempt"
+          break
+        fi
+        echo "compose up attempt $attempt hit a dependency timeout, retrying in 45s..."
+        sleep 45
+      done
 
 runcmd:
   - /opt/iobuild/bootstrap.sh > /var/log/iobuild-bootstrap.log 2>&1

@@ -113,6 +113,7 @@ resource "azurerm_linux_virtual_machine" "main" {
   }
 
   custom_data = base64encode(templatefile("${path.module}/cloud-init.yaml", {
+    git_ref                = var.repo_branch
     image_tag              = var.image_tag
     db_password            = var.db_password
     jwt_secret             = var.jwt_secret

@@ -56,6 +56,12 @@ variable "image_tag" {
   default     = "latest"
 }
 
+variable "repo_branch" {
+  description = "Git branch the VM clones for compose/config files (docker-compose.prod.yml lives here)"
+  type        = string
+  default     = "feat/azure-ephemeral-demo"
+}
+
 # App secrets injected into the VM .env via cloud-init
 variable "db_password" {
   type      = string
