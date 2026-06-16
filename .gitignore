@@ -75,6 +75,7 @@ sdd/
 # ── AI Agent / Tool configs — ignorar dotfiles (no compartir configs personales) ──
 .*
 !.gitignore
+!.gitattributes
 !.env.example
 # Project-level dotfolders that MUST be shared (CI workflows, etc.)
 !.github/
