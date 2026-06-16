@@ -76,6 +76,9 @@ sdd/
 .*
 !.gitignore
 !.env.example
+# Project-level dotfolders that MUST be shared (CI workflows, etc.)
+!.github/
+!.github/**
 
 # ── Windows reserved names (evitar errores de git add) ──
 [Nn][Uu][Ll]
