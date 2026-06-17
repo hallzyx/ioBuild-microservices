@@ -1,0 +1,11 @@
+# Spec: domain-events (archived)
+
+**Change**: analytics-event-driven
+**Archive date**: 2026-06-17
+**Status**: COMPLETE
+
+Archived from: `openspec/changes/analytics-event-driven/specs/domain-events/spec.md`
+
+See main spec at: `openspec/specs/domain-events/spec.md` (merged from delta)
+
+This archive preserves the change-specific delta spec for audit trail and historical reference.
