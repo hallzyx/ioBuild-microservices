@@ -2,305 +2,195 @@ using IoBuild.Analytics.Domain.Model.Aggregates;
 using IoBuild.Analytics.Domain.Model.Entities;
 using IoBuild.Analytics.Domain.Model.Queries;
 using IoBuild.Analytics.Domain.Services;
-using IoBuild.Analytics.Interfaces.ACL;
 using Microsoft.EntityFrameworkCore;
 
 namespace IoBuild.Analytics.Application.Internal.QueryServices;
 
+/// <remarks>
+/// Metrics are eventually consistent with source services
+/// (Transactional Outbox, ~5 s lag).
+/// </remarks>
 public class AnalyticsQueryService : IAnalyticsQueryService
 {
-    private readonly IDevicesContextFacade _devices;
-    private readonly IProjectsContextFacade _projects;
     private readonly AnalyticsDbContext _db;
     private readonly ILogger<AnalyticsQueryService> _logger;
 
+    // ACL facades (IDevicesContextFacade / IProjectsContextFacade) have been removed.
+    // All metrics are now computed from the local projection tables populated by
+    // AnalyticsEventConsumer (ADR-6, REQ-AQ-01).
+
     public AnalyticsQueryService(
-        IDevicesContextFacade devices,
-        IProjectsContextFacade projects,
         AnalyticsDbContext db,
         ILogger<AnalyticsQueryService> logger)
     {
-        _devices = devices;
-        _projects = projects;
         _db = db;
         _logger = logger;
     }
 
+    /// <summary>
+    /// Computes builder metrics from local projection tables (ADR-6, REQ-AQ-02).
+    /// Returns a zeroed BuilderMetrics when tables are empty — no exceptions (ADR-7).
+    /// </summary>
     public async Task<BuilderMetrics?> Handle(GetBuilderDashboardQuery query)
     {
         _logger.LogInformation("Building builder dashboard for user {UserId}", query.UserId);
 
-        // Try database seed first (fast, offline-capable)
-        var latestSnapshot = await _db.BuilderMetrics
-            .Where(b => EF.Property<int>(b, "UserId") == query.UserId)
-            .OrderByDescending(b => EF.Property<DateTime>(b, "SnapshotDate"))
-            .FirstOrDefaultAsync();
+        // Projects owned by this builder
+        var builderProjectIds = await _db.ProjectProjections
+            .Where(p => p.BuilderUserId == query.UserId)
+            .Select(p => p.ProjectId)
+            .ToListAsync();
 
-        if (latestSnapshot is not null)
+        // Active projects (status = "OnGoing" or any non-null status — all are active)
+        var activeProjectsCount = builderProjectIds.Count;
+
+        // Devices whose project_id belongs to this builder (via project_projection join)
+        var devices = await _db.DeviceProjections
+            .Where(d => d.ProjectId != null && builderProjectIds.Contains(d.ProjectId!.Value))
+            .ToListAsync();
+
+        var totalDevices   = devices.Count;
+        var onlineDevices  = devices.Count(d => d.Status.Equals("Online", StringComparison.OrdinalIgnoreCase));
+        var offlineDevices = devices.Count(d => !d.Status.Equals("Online", StringComparison.OrdinalIgnoreCase));
+
+        // Devices by type (for DevicesByType dictionary)
+        var devicesByType = devices
+            .GroupBy(d => d.DeviceType)
+            .ToDictionary(g => g.Key, g => g.Count());
+
+        // Units owned by this builder
+        var units = await _db.UnitProjections
+            .Where(u => u.BuilderUserId == query.UserId)
+            .ToListAsync();
+
+        var totalUnits    = units.Count;
+        var occupiedUnits = units.Count(u => u.Status.Equals("Occupied", StringComparison.OrdinalIgnoreCase));
+        var occupancyRate = totalUnits > 0
+            ? (double)occupiedUnits / totalUnits * 100
+            : 0;
+
+        // Projects overview (name + unit rollup)
+        var projects = await _db.ProjectProjections
+            .Where(p => p.BuilderUserId == query.UserId)
+            .ToListAsync();
+
+        var projectsOverview = projects.Select(p =>
         {
-            _logger.LogInformation("Using cached dashboard data for user {UserId}", query.UserId);
-            // Populate chart data from seed (these are ignored by EF Core, so always empty)
-            latestSnapshot.TemperatureHistory = GenerateSampleTemperatureData();
-            latestSnapshot.EnergyHistory = GenerateSampleEnergyData();
-            latestSnapshot.HourlyEnergyData = GenerateSampleHourlyEnergy();
-            latestSnapshot.MonthlyOccupancy = GenerateSampleMonthlyOccupancy();
-            latestSnapshot.DevicesByType = new Dictionary<string, int>
+            var pUnits    = units.Where(u => u.ProjectId == p.ProjectId).ToList();
+            var pOccupied = pUnits.Count(u => u.Status.Equals("Occupied", StringComparison.OrdinalIgnoreCase));
+            var pTotal    = pUnits.Count;
+            return new Dictionary<string, object>
             {
-                ["Temperature"] = 5, ["Energy"] = 3, ["Water"] = 2,
-                ["Access Control"] = 1, ["HVAC"] = 1, ["Lighting"] = 1
+                ["id"]            = p.ProjectId,
+                ["name"]          = p.Name,
+                ["status"]        = p.Status,
+                ["totalUnits"]    = pTotal,
+                ["occupiedUnits"] = pOccupied,
+                ["occupancyRate"] = pTotal > 0 ? (double)pOccupied / pTotal * 100 : 0.0
             };
-            latestSnapshot.ProjectsOverview = new List<Dictionary<string, object>>
-            {
-                new() { ["id"] = 1, ["name"] = "Residencial Los Álamos", ["location"] = "San Isidro", ["totalUnits"] = 120, ["occupiedUnits"] = 95, ["occupancyRate"] = 79.2, ["status"] = "OnGoing" },
-                new() { ["id"] = 2, ["name"] = "Torres del Pacífico", ["location"] = "Miraflores", ["totalUnits"] = 80, ["occupiedUnits"] = 68, ["occupancyRate"] = 85.0, ["status"] = "OnGoing" },
-                new() { ["id"] = 3, ["name"] = "Condominio Las Casuarinas", ["location"] = "Surco", ["totalUnits"] = 60, ["occupiedUnits"] = 30, ["occupancyRate"] = 50.0, ["status"] = "OnGoing" }
-            };
-            return latestSnapshot;
-        }
-
-        // Fallback: compute from ACLs (real-time, requires devices/projects APIs)
-        _logger.LogInformation("Computing dashboard from APIs for user {UserId}", query.UserId);
-
-        var totalDevices = await _devices.GetTotalDevicesAsync(query.UserId);
-        var onlineDevices = await _devices.GetOnlineDevicesAsync(query.UserId);
-        var offlineDevices = await _devices.GetOfflineDevicesAsync(query.UserId);
-        var alertsCount = await _devices.GetAlertsCountAsync(query.UserId);
-        var activeProjects = await _projects.GetActiveProjectsCountAsync(query.UserId);
-        var totalUnits = await _projects.GetTotalUnitsAsync(query.UserId);
-        var occupiedUnits = await _projects.GetOccupiedUnitsAsync(query.UserId);
-        var occupancyRate = await _projects.GetOccupancyRateAsync(query.UserId);
-        var energyEfficiency = await _projects.GetEnergyEfficiencyAverageAsync(query.UserId);
-        var devicesByType = await _devices.GetDevicesByTypeAsync(query.UserId);
-        var occupancyHistory = await _projects.GetOccupancyHistoryAsync(query.UserId);
+        }).ToList<Dictionary<string, object>>();
 
         return new BuilderMetrics
         {
-            TotalDevices = totalDevices,
-            OnlineDevices = onlineDevices,
-            OfflineDevices = offlineDevices,
-            AlertsCount = alertsCount,
-            ActiveProjectsCount = activeProjects,
-            TotalUnits = totalUnits,
-            OccupiedUnits = occupiedUnits,
-            OccupancyRate = occupancyRate,
-            EnergyEfficiencyAvg = energyEfficiency,
-            TemperatureHistory = MapToDataPoints(occupancyHistory, "temperature"),
-            EnergyHistory = MapToDataPoints(occupancyHistory, "energy"),
-            HourlyEnergyData = MapToDataPoints(occupancyHistory, "hourly_energy"),
-            MonthlyOccupancy = MapToDataPoints(occupancyHistory, "monthly_occupancy"),
-            DevicesByType = devicesByType,
-            ProjectsOverview = MapProjectsOverview(activeProjects, totalUnits, occupiedUnits)
+            TotalDevices         = totalDevices,
+            OnlineDevices        = onlineDevices,
+            OfflineDevices       = offlineDevices,
+            AlertsCount          = 0,    // No alert event in scope (was fake before — documented)
+            ActiveProjectsCount  = activeProjectsCount,
+            TotalUnits           = totalUnits,
+            OccupiedUnits        = occupiedUnits,
+            OccupancyRate        = occupancyRate,
+            EnergyEfficiencyAvg  = 0,    // Telemetry out of scope (InfluxDB path removed)
+            DevicesByType        = devicesByType,
+            ProjectsOverview     = projectsOverview,
+            // Chart time-series remain empty — telemetry out of scope (ADR-6)
+            TemperatureHistory   = [],
+            EnergyHistory        = [],
+            HourlyEnergyData     = [],
+            MonthlyOccupancy     = []
         };
     }
 
+    /// <summary>
+    /// Computes owner metrics from local projection tables (ADR-6, REQ-AQ-02).
+    /// Note: Device.OwnerUserId is always 0 (Device aggregate has no owner concept —
+    /// known source-data limitation; owner device counts will be 0 until the Devices
+    /// aggregate is extended). Unit counts are accurate.
+    /// Returns zeroed metrics when tables are empty — no exceptions (ADR-7).
+    /// </summary>
     public async Task<OwnerMetrics?> Handle(GetOwnerDashboardQuery query)
     {
         _logger.LogInformation("Building owner dashboard for user {UserId}", query.UserId);
 
-        // Try database seed first
-        var latestSnapshot = await _db.OwnerMetrics
-            .Where(o => EF.Property<int>(o, "UserId") == query.UserId)
-            .OrderByDescending(o => EF.Property<DateTime>(o, "SnapshotDate"))
-            .FirstOrDefaultAsync();
+        // Devices where owner_user_id = UserId
+        // Note: Always 0 due to Device aggregate gap (see class remarks)
+        var devices = await _db.DeviceProjections
+            .Where(d => d.OwnerUserId == query.UserId)
+            .ToListAsync();
 
-        if (latestSnapshot is not null)
+        var totalDevices   = devices.Count;
+        var onlineDevices  = devices.Count(d => d.Status.Equals("Online", StringComparison.OrdinalIgnoreCase));
+        var offlineDevices = devices.Count(d => !d.Status.Equals("Online", StringComparison.OrdinalIgnoreCase));
+
+        // Device health status list
+        var deviceHealthStatus = devices.Select(d => new DeviceHealthStatus
         {
-            _logger.LogInformation("Using cached owner dashboard for user {UserId}", query.UserId);
-            // Populate chart data (these are ignored by EF Core, so always empty from DB)
-            latestSnapshot.TemperatureHistory = GenerateSampleTemperatureData();
-            latestSnapshot.EnergyHistory = GenerateSampleEnergyData();
-            latestSnapshot.DailyEnergyConsumption = GenerateSampleHourlyEnergy();
-            latestSnapshot.WaterUsageWeekly = GenerateSampleWaterUsage();
-            latestSnapshot.DeviceHealthStatus = new List<DeviceHealthStatus>
-            {
-                new() { DeviceId = 1, DeviceName = "Temperature - Living Room", Status = "Online", LastOnline = DateTime.UtcNow },
-                new() { DeviceId = 2, DeviceName = "Energy Meter - Main", Status = "Online", LastOnline = DateTime.UtcNow },
-                new() { DeviceId = 3, DeviceName = "Water Meter - Garden", Status = "Online", LastOnline = DateTime.UtcNow.AddHours(-2) }
-            };
-            latestSnapshot.MyUnitsDetails = new List<Dictionary<string, object>>
-            {
-                new() { ["unitNumber"] = "A-101", ["projectName"] = "Condominio Las Casuarinas", ["status"] = "Occupied", ["occupancyRate"] = 100 },
-                new() { ["unitNumber"] = "A-102", ["projectName"] = "Condominio Las Casuarinas", ["status"] = "Occupied", ["occupancyRate"] = 100 }
-            };
-            return latestSnapshot;
-        }
+            DeviceId   = d.DeviceId,
+            DeviceName = $"{d.DeviceType} #{d.DeviceId}",
+            Status     = d.Status,
+            LastOnline = d.LastEventAt
+        }).ToList();
 
-        // Fallback: compute from ACLs
+        // Units owned by this user
+        var units = await _db.UnitProjections
+            .Where(u => u.OwnerUserId == query.UserId)
+            .ToListAsync();
 
-        var totalDevices = await _devices.GetTotalDevicesAsync(query.UserId);
-        var onlineDevices = await _devices.GetOnlineDevicesAsync(query.UserId);
-        var offlineDevices = await _devices.GetOfflineDevicesAsync(query.UserId);
-        var alertsCount = await _devices.GetAlertsCountAsync(query.UserId);
-        var myUnitsCount = await _projects.GetMyUnitsCountAsync(query.UserId);
-        var energyThisMonth = await _devices.GetEnergyThisMonthAsync(query.UserId);
-        var temperatureAvg = await _devices.GetTemperatureAverageAsync(query.UserId);
-        var waterUsage = await _devices.GetWaterUsageThisMonthAsync(query.UserId);
-        var healthStatuses = await _devices.GetDeviceHealthStatusesAsync(query.UserId);
-        var unitsDetails = await _projects.GetOwnerUnitsDetailsAsync(query.UserId);
+        var myUnitsCount = units.Count;
+
+        // Units details with project name
+        var projectIds = units.Select(u => u.ProjectId).Distinct().ToList();
+        var projectNames = await _db.ProjectProjections
+            .Where(p => projectIds.Contains(p.ProjectId))
+            .ToDictionaryAsync(p => p.ProjectId, p => p.Name);
+
+        var myUnitsDetails = units.Select(u => new Dictionary<string, object>
+        {
+            ["unitId"]      = u.UnitId,
+            ["projectName"] = projectNames.GetValueOrDefault(u.ProjectId, "Unknown"),
+            ["status"]      = u.Status
+        }).ToList<Dictionary<string, object>>();
 
         return new OwnerMetrics
         {
-            TotalDevices = totalDevices,
-            OnlineDevices = onlineDevices,
-            OfflineDevices = offlineDevices,
-            AlertsCount = alertsCount,
-            MyUnitsCount = myUnitsCount,
-            EnergyThisMonth = energyThisMonth,
-            TemperatureAvg = temperatureAvg,
-            WaterUsageThisMonth = waterUsage,
-            TemperatureHistory = MapToDataPoints(unitsDetails, "temperature"),
-            EnergyHistory = MapToDataPoints(unitsDetails, "energy"),
-            DailyEnergyConsumption = MapToDataPoints(unitsDetails, "daily_energy"),
-            WaterUsageWeekly = MapToDataPoints(unitsDetails, "water_weekly"),
-            DeviceHealthStatus = healthStatuses.Select(h => new DeviceHealthStatus
-            {
-                DeviceId = Convert.ToInt32(h.GetValueOrDefault("deviceId", 0)),
-                DeviceName = h.GetValueOrDefault("deviceName")?.ToString() ?? "",
-                Status = h.GetValueOrDefault("status")?.ToString() ?? "unknown",
-                LastOnline = DateTime.TryParse(h.GetValueOrDefault("lastOnline")?.ToString(), out var dt) ? dt : DateTime.MinValue
-            }).ToList(),
-            MyUnitsDetails = unitsDetails.ToList()
+            TotalDevices          = totalDevices,
+            OnlineDevices         = onlineDevices,
+            OfflineDevices        = offlineDevices,
+            AlertsCount           = 0,
+            MyUnitsCount          = myUnitsCount,
+            EnergyThisMonth       = 0,  // Telemetry out of scope
+            TemperatureAvg        = 0,  // Telemetry out of scope
+            WaterUsageThisMonth   = 0,  // Telemetry out of scope
+            TemperatureHistory    = [],
+            EnergyHistory         = [],
+            DailyEnergyConsumption = [],
+            WaterUsageWeekly      = [],
+            DeviceHealthStatus    = deviceHealthStatus,
+            MyUnitsDetails        = myUnitsDetails
         };
     }
 
-    public async Task<IEnumerable<HistoricalDataPoint>> Handle(GetHistoricalDataQuery query)
+    /// <summary>
+    /// Returns empty — telemetry data path removed with ACL facades.
+    /// // Eventually consistent — telemetry out of scope
+    /// </summary>
+    public Task<IEnumerable<HistoricalDataPoint>> Handle(GetHistoricalDataQuery query)
     {
-        _logger.LogInformation("Fetching historical data for project {ProjectId}, metric {Metric}", query.ProjectId, query.Metric);
+        _logger.LogInformation(
+            "GetHistoricalData called for project {ProjectId} — telemetry out of scope, returning empty",
+            query.ProjectId);
 
-        var telemetry = await _devices.GetDeviceTelemetryAsync(query.ProjectId, query.Metric, query.StartDate, query.EndDate);
-        if (telemetry == null)
-            return [];
-
-        return telemetry.Select(kvp => new HistoricalDataPoint
-        {
-            Timestamp = DateTime.TryParse(kvp.Key, out var ts) ? ts : DateTime.MinValue,
-            Value = Convert.ToDouble(kvp.Value),
-            Metric = query.Metric
-        });
-    }
-
-    private static List<HistoricalDataPoint> MapToDataPoints(IEnumerable<Dictionary<string, object>> source, string metricKey)
-    {
-        var points = new List<HistoricalDataPoint>();
-        foreach (var item in source)
-        {
-            if (item.TryGetValue(metricKey, out var value))
-            {
-                points.Add(new HistoricalDataPoint
-                {
-                    Timestamp = DateTime.TryParse(item.GetValueOrDefault("timestamp")?.ToString(), out var ts) ? ts : DateTime.UtcNow,
-                    Value = Convert.ToDouble(value),
-                    Metric = metricKey
-                });
-            }
-        }
-        return points;
-    }
-
-    private static List<Dictionary<string, object>> MapProjectsOverview(
-        int activeProjects, int totalUnits, int occupiedUnits)
-    {
-        var projects = new List<Dictionary<string, object>>();
-        for (int i = 1; i <= activeProjects; i++)
-        {
-            projects.Add(new Dictionary<string, object>
-            {
-                ["id"] = i,
-                ["name"] = $"Project {i}",
-                ["totalUnits"] = totalUnits / activeProjects,
-                ["occupiedUnits"] = occupiedUnits / activeProjects,
-                ["occupancyRate"] = totalUnits > 0 ? (double)occupiedUnits / totalUnits * 100 : 0,
-                ["status"] = "OnGoing"
-            });
-        }
-        return projects;
-    }
-
-    // ── Sample data generators for seed fallback ──
-
-    private static List<HistoricalDataPoint> GenerateSampleTemperatureData()
-    {
-        var now = DateTime.UtcNow;
-        var points = new List<HistoricalDataPoint>();
-        for (int i = 6; i >= 0; i--)
-        {
-            for (int h = 0; h < 24; h++)
-            {
-                points.Add(new HistoricalDataPoint
-                {
-                    Timestamp = now.AddDays(-i).AddHours(-h),
-                    Value = 22.0 + Math.Sin((i * 24.0 + h) * 0.1) * 3,
-                    Metric = "temperature"
-                });
-            }
-        }
-        return points;
-    }
-
-    private static List<HistoricalDataPoint> GenerateSampleEnergyData()
-    {
-        var now = DateTime.UtcNow;
-        var points = new List<HistoricalDataPoint>();
-        for (int i = 6; i >= 0; i--)
-        {
-            for (int h = 0; h < 24; h++)
-            {
-                points.Add(new HistoricalDataPoint
-                {
-                    Timestamp = now.AddDays(-i).AddHours(-h),
-                    Value = 40.0 + Math.Sin((i * 24.0 + h) * 0.15) * 5,
-                    Metric = "energy"
-                });
-            }
-        }
-        return points;
-    }
-
-    private static List<HistoricalDataPoint> GenerateSampleHourlyEnergy()
-    {
-        var now = DateTime.UtcNow;
-        var points = new List<HistoricalDataPoint>();
-        for (int h = 23; h >= 0; h--)
-        {
-            points.Add(new HistoricalDataPoint
-            {
-                Timestamp = now.AddHours(-h),
-                Value = 2.0 + Math.Sin(h * 0.3) * 1.0,
-                Metric = "hourly_energy"
-            });
-        }
-        return points;
-    }
-
-    private static List<HistoricalDataPoint> GenerateSampleMonthlyOccupancy()
-    {
-        var now = DateTime.UtcNow;
-        var points = new List<HistoricalDataPoint>();
-        for (int m = 5; m >= 0; m--)
-        {
-            points.Add(new HistoricalDataPoint
-            {
-                Timestamp = now.AddMonths(-m),
-                Value = 60.0 + (5 - m) * 5.0,
-                Metric = "monthly_occupancy"
-            });
-        }
-        return points;
-    }
-
-    private static List<HistoricalDataPoint> GenerateSampleWaterUsage()
-    {
-        var now = DateTime.UtcNow;
-        var points = new List<HistoricalDataPoint>();
-        for (int d = 6; d >= 0; d--)
-        {
-            points.Add(new HistoricalDataPoint
-            {
-                Timestamp = now.AddDays(-d),
-                Value = Math.Round(1.5 + Math.Sin(d * 0.5) * 0.8, 2),
-                Metric = "water_weekly"
-            });
-        }
-        return points;
+        // Eventually consistent — telemetry out of scope
+        return Task.FromResult<IEnumerable<HistoricalDataPoint>>([]);
     }
 }

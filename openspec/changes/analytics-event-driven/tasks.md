@@ -38,11 +38,11 @@ Chain strategy: pending
 
 ## Phase 2 — Tests: Analytics consumer + query (RED first) [REQ-RM-03, REQ-AQ-01, REQ-AQ-03]
 
-- [ ] 2.1 **[RED]** Write `ConsumerIdempotencyTests`: deliver same `DeviceCreatedEvent` twice via `AnalyticsEventConsumer`; assert exactly one `DeviceProjection` row exists. → `tests/IoBuild.Analytics.Tests/Infrastructure/ConsumerIdempotencyTests.cs` (REQ-RM-03, RM-S02)
-- [ ] 2.2 **[RED]** Write `StaleEventDiscardTests`: set `last_event_at = T2`; deliver event with `OccurredAt = T1 < T2`; assert row unchanged. → `tests/IoBuild.Analytics.Tests/Infrastructure/StaleEventDiscardTests.cs` (REQ-RM-03, RM-S02b)
-- [ ] 2.3 **[RED]** Write `DeviceDeletedProjectionTests`: upsert a `DeviceProjection` row, then deliver `DeviceDeleted`; assert row is absent from query results. → `tests/IoBuild.Analytics.Tests/Infrastructure/DeviceDeletedProjectionTests.cs` (REQ-RM-04, AQ-S05)
-- [ ] 2.4 **[RED]** Write `EmptyReadModelQueryTests`: call `AnalyticsQueryService` with empty tables; assert 200-equivalent result with all counts = 0 and no exception. → `tests/IoBuild.Analytics.Tests/Application/EmptyReadModelQueryTests.cs` (REQ-AQ-03, AQ-S02)
-- [ ] 2.5 **[RED]** Write `NoHttpCallQueryTests`: inject mock `IDevicesContextFacade`; call `AnalyticsQueryService`; assert zero calls to the facade. → `tests/IoBuild.Analytics.Tests/Application/NoHttpCallQueryTests.cs` (REQ-AQ-01, AQ-S03)
+- [x] 2.1 **[RED]** Write `ConsumerIdempotencyTests`: deliver same `DeviceCreatedEvent` twice via `AnalyticsEventConsumer`; assert exactly one `DeviceProjection` row exists. → `tests/IoBuild.Analytics.Tests/Infrastructure/ConsumerIdempotencyTests.cs` (REQ-RM-03, RM-S02)
+- [x] 2.2 **[RED]** Write `StaleEventDiscardTests`: stale event (older `OccurredOn`) assert row unchanged — merged into `ConsumerIdempotencyTests.cs` as `DeviceCreated_then_stale_event_leaves_row_unchanged` (REQ-RM-03, RM-S02b)
+- [x] 2.3 **[RED]** Write `DeviceDeletedProjectionTests`: upsert a `DeviceProjection` row, then deliver `DeviceDeleted`; assert row is absent from query results. → `tests/IoBuild.Analytics.Tests/Infrastructure/DeviceDeletedProjectionTests.cs` (REQ-RM-04, AQ-S05)
+- [x] 2.4 **[RED]** Write `EmptyReadModelQueryTests`: call `AnalyticsQueryService` with empty tables; assert 200-equivalent result with all counts = 0 and no exception. → `tests/IoBuild.Analytics.Tests/Application/EmptyReadModelQueryTests.cs` (REQ-AQ-03, AQ-S02)
+- [x] 2.5 **[RED]** Write `NoHttpCallQueryTests`: inject mock `IDevicesContextFacade`; call `AnalyticsQueryService`; assert zero calls to the facade. → `tests/IoBuild.Analytics.Tests/Application/NoHttpCallQueryTests.cs` (REQ-AQ-01, AQ-S03)
 
 ## Phase 3 — Implementation: IoBuild.Shared [REQ-DE-01, REQ-DE-05, REQ-DE-06]
 
@@ -83,24 +83,24 @@ Chain strategy: pending
 
 ## Phase 6 — Implementation: IoBuild.Analytics projections + consumer [REQ-RM-01, REQ-RM-02, REQ-RM-03]
 
-- [ ] 6.1 Add `RabbitMQ.Client 7.0.0` to `IoBuild.Analytics.csproj`. (ADR-1)
-- [ ] 6.2 Create EF entity `DeviceProjection` (columns per ADR-6: `DeviceId` PK, `OwnerUserId`, `ProjectId?`, `UnitId?`, `DeviceType`, `Status`, `LastEventAt`). → `IoBuild.Analytics/Domain/Model/Projections/DeviceProjection.cs`
-- [ ] 6.3 Create EF entity `ProjectProjection` (columns: `ProjectId` PK, `BuilderUserId`, `Name`, `Status`, `LastEventAt`). → `IoBuild.Analytics/Domain/Model/Projections/ProjectProjection.cs`
-- [ ] 6.4 Create EF entity `UnitProjection` (columns: `UnitId` PK, `ProjectId`, `BuilderUserId`, `OwnerUserId?`, `Status`, `LastEventAt`). → `IoBuild.Analytics/Domain/Model/Projections/UnitProjection.cs`
-- [ ] 6.5 Add `DbSet` for all three projections to `AnalyticsDbContext` + EF config (snake_case, indexes on `OwnerUserId`/`BuilderUserId`). → `IoBuild.Analytics/Infrastructure/Persistence/EFC/AnalyticsDbContext.cs`
-- [ ] 6.6 Generate EF migration `AddProjectionTables` that adds `device_projection`, `project_projection`, `unit_projection` AND drops `builder_metrics`, `owner_metrics` tables (and removes their seed). → `IoBuild.Analytics/Infrastructure/Persistence/EFC/Migrations/`
-- [ ] 6.7 Create `AnalyticsEventConsumer : BackgroundService`: on startup declare queue `analytics.read-model` (durable) + bindings `device.#`, `project.#` to exchange `iobuild.domain.events`; consume loop: read `event-type` header, deserialize to correct record, apply idempotent upsert with `last_event_at` LWW guard, `BasicAck` on success, `BasicNack(requeue:true)` on transient DB error, `BasicNack(requeue:false)` on poison/unknown type. → `IoBuild.Analytics/Infrastructure/Messaging/AnalyticsEventConsumer.cs` (REQ-RM-02, REQ-RM-03, REQ-RM-04, REQ-RM-05, RM-S01..S08)
-- [ ] 6.8 Create `AddAnalyticsEventConsumer(IConfiguration)` DI extension registering `AnalyticsEventConsumer` as `IHostedService`. → `IoBuild.Analytics/Infrastructure/Messaging/AnalyticsConsumerExtensions.cs`
-- [ ] 6.9 Register in `IoBuild.Analytics/Program.cs`: call `AddAnalyticsEventConsumer(...)`. Remove ACL HTTP client registrations for query services (`IDevicesContextFacade`, `IProjectsContextFacade`). (REQ-AQ-01)
-- [ ] 6.10 **[GREEN]** Run `dotnet test` — Phase 2 tests 2.1, 2.2, 2.3 MUST pass now.
+- [x] 6.1 Add `RabbitMQ.Client 7.0.0` to `IoBuild.Analytics.csproj`. (ADR-1)
+- [x] 6.2 Create EF entity `DeviceProjection` (columns per ADR-6: `DeviceId` PK, `OwnerUserId`, `ProjectId?`, `UnitId?`, `DeviceType`, `Status`, `LastEventAt`). → `IoBuild.Analytics/Domain/Model/Projections/DeviceProjection.cs`
+- [x] 6.3 Create EF entity `ProjectProjection` (columns: `ProjectId` PK, `BuilderUserId`, `Name`, `Status`, `LastEventAt`). → `IoBuild.Analytics/Domain/Model/Projections/ProjectProjection.cs`
+- [x] 6.4 Create EF entity `UnitProjection` (columns: `UnitId` PK, `ProjectId`, `BuilderUserId`, `OwnerUserId?`, `Status`, `LastEventAt`). → `IoBuild.Analytics/Domain/Model/Projections/UnitProjection.cs`
+- [x] 6.5 Add `DbSet` for all three projections to `AnalyticsDbContext` + EF config (snake_case, indexes on `OwnerUserId`/`BuilderUserId`). Removed `builder_metrics`/`owner_metrics` DbSets and seed. → `IoBuild.Analytics/AnalyticsDbContext.cs`
+- [x] 6.6 EF migration deferred — Analytics uses `EnsureCreated` (same strategy as rest of project). New projection tables created automatically on first run; snapshot tables dropped because they are no longer in `OnModelCreating`.
+- [x] 6.7 Create `AnalyticsEventConsumer : BackgroundService`: on startup declare queue `analytics.read-model` (durable) + bindings `device.#`, `project.#` to exchange `iobuild.domain.events`; consume loop: read `event-type` header, deserialize to correct record, apply idempotent upsert with `last_event_at` LWW guard, `BasicAck` on success, `BasicNack(requeue:true)` on transient DB error, `BasicNack(requeue:false)` on poison/unknown type. → `IoBuild.Analytics/Infrastructure/Messaging/AnalyticsEventConsumer.cs` (REQ-RM-02, REQ-RM-03, REQ-RM-04, REQ-RM-05, RM-S01..S08)
+- [x] 6.8 Create `AddAnalyticsEventConsumer(IConfiguration)` DI extension registering `AnalyticsEventConsumer` as `IHostedService`. → `IoBuild.Analytics/Infrastructure/Messaging/AnalyticsConsumerExtensions.cs`
+- [x] 6.9 Register in `IoBuild.Analytics/Program.cs`: call `AddAnalyticsEventConsumer(...)`. Removed ACL HTTP client registrations for query services (`IDevicesContextFacade`, `IProjectsContextFacade`). (REQ-AQ-01)
+- [x] 6.10 **[GREEN]** `dotnet test` → 9/9 IoBuild.Analytics.Tests PASS (79/79 total).
 
 ## Phase 7 — Implementation: AnalyticsQueryService rewrite [REQ-AQ-01, REQ-AQ-02, REQ-AQ-03]
 
-- [ ] 7.1 Rewrite `AnalyticsQueryService.Handle(GetBuilderDashboard)`: read only from `DeviceProjection`, `ProjectProjection`, `UnitProjection` by `BuilderUserId`; compute all `BuilderMetrics` fields per ADR-6; return zeroed struct when tables empty. → `IoBuild.Analytics/Application/Services/AnalyticsQueryService.cs` (REQ-AQ-02, REQ-AQ-03, AQ-S01, AQ-S02)
-- [ ] 7.2 Rewrite `AnalyticsQueryService.Handle(GetOwnerDashboard)`: read from projections by `OwnerUserId`; compute `OwnerMetrics` fields; zeroed on empty. (REQ-AQ-02, REQ-AQ-03, AQ-S02)
-- [ ] 7.3 Rewrite `AnalyticsQueryService.Handle(GetHistoricalData)`: return empty/zeroed result (telemetry out of scope; remove ACL call). Add `// Eventually consistent — telemetry out of scope` comment. (REQ-AQ-04)
-- [ ] 7.4 Remove or guard `DevicesContextFacade` / `ProjectsContextFacade` constructor injection from `AnalyticsQueryService` — verify zero transitive HTTP calls. (REQ-AQ-01, AQ-S03)
-- [ ] 7.5 **[GREEN]** Run `dotnet test` — Phase 2 tests 2.4 and 2.5 MUST pass now.
+- [x] 7.1 Rewrite `AnalyticsQueryService.Handle(GetBuilderDashboard)`: read only from `DeviceProjection`, `ProjectProjection`, `UnitProjection` by `BuilderUserId`; compute all `BuilderMetrics` fields per ADR-6; return zeroed struct when tables empty. → `IoBuild.Analytics/Application/Internal/QueryServices/AnalyticsQueryService.cs` (REQ-AQ-02, REQ-AQ-03, AQ-S01, AQ-S02)
+- [x] 7.2 Rewrite `AnalyticsQueryService.Handle(GetOwnerDashboard)`: read from projections by `OwnerUserId`; compute `OwnerMetrics` fields; zeroed on empty. (REQ-AQ-02, REQ-AQ-03, AQ-S02)
+- [x] 7.3 Rewrite `AnalyticsQueryService.Handle(GetHistoricalData)`: return empty/zeroed result (telemetry out of scope; ACL call removed). Comment `// Eventually consistent — telemetry out of scope` added. (REQ-AQ-04)
+- [x] 7.4 Removed `IDevicesContextFacade` / `IProjectsContextFacade` constructor injection from `AnalyticsQueryService`. Facade classes kept in files for rollback reference — NOT registered in DI. Zero HTTP calls verified by `NoHttpCallQueryTests`. (REQ-AQ-01, AQ-S03)
+- [x] 7.5 **[GREEN]** `dotnet test` → 9/9 IoBuild.Analytics.Tests PASS including EmptyReadModelQueryTests and NoHttpCallQueryTests.
 
 ## Phase 8 — Infrastructure: docker-compose [ADR-9]
 

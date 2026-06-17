@@ -1,6 +1,6 @@
 # Apply Progress: analytics-event-driven
 
-**Batch**: 2 of 5 (updated — merging batch 1 + batch 2)
+**Batch**: 3 of 5 (updated — merging batches 1 + 2 + 3)
 **Mode**: Strict TDD (RED → GREEN → REFACTOR)
 **Delivery**: single PR with `size:exception` on branch `feat/analytics-event-driven`
 **Date**: 2026-06-17
@@ -19,6 +19,11 @@
 | 4.1–4.10 (partial) | OutboxMessage/Repo/Worker | Devices OutboxMessage entity, IOutboxMessageRepository, OutboxMessageRepository, DevicesDbContext updated, DeviceCommandService modified, OutboxWorker created, Program.cs registered | n/a | DONE |
 | B2-RED OutboxWriteInTransactionTests (Projects) | Build fails — IOutboxMessageRepository missing on Projects | ProjectCommandService + UnitCommandService wired with IOutboxMessageRepository | n/a | DONE |
 | B2-GREEN 5.1–5.10 | Tests RED → GREEN after all Projects outbox files created | 70/70 pass | n/a | DONE |
+| B3-RED ConsumerIdempotencyTests | Build fails — DeviceProjection / AnalyticsEventConsumer missing | Projection entities + consumer + query rewrite created | n/a | DONE |
+| B3-RED DeviceDeletedProjectionTests | Build fails | Same GREEN sweep | n/a | DONE |
+| B3-RED EmptyReadModelQueryTests | Build fails — AnalyticsQueryService constructor changed | AnalyticsQueryService rewritten (no facade deps) | n/a | DONE |
+| B3-RED NoHttpCallQueryTests | Build fails | Same GREEN sweep | n/a | DONE |
+| B3-GREEN 6.1–6.10, 7.1–7.5 | Tests RED → GREEN | 9/9 IoBuild.Analytics.Tests pass | n/a | DONE |
 
 ---
 
@@ -60,7 +65,7 @@
 ### Batch 1 — Pre-existing bug fix
 - [x] Fixed `tests/IoBuild.Subscriptions.Tests/OutboxPaymentTests.cs` — `StripePaymentService` constructor stale signature fixed.
 
-### Batch 2 — Phase 5 (IoBuild.Projects outbox) — NEW
+### Batch 2 — Phase 5 (IoBuild.Projects outbox)
 - [x] 5-RED `tests/IoBuild.Projects.Tests/Application/OutboxWriteInTransactionTests.cs` — 3 tests (CreateProject, UpdateProject, CreateUnit all write exactly 1 outbox row before CompleteAsync)
 - [x] 5.1 `Polly 8.5.2` + `RabbitMQ.Client 7.0.0` added to `IoBuild.Projects.csproj`
 - [x] 5.2 `IoBuild.Projects/Domain/Model/Entities/OutboxMessage.cs` — mirrors Devices entity
@@ -71,6 +76,33 @@
 - [x] 5.8 `UnitCommandService.Handle(Create)` → `UnitCreatedEvent` → outbox row in same `CompleteAsync()`
 - [x] 5.9 `IoBuild.Projects/Workers/OutboxWorker.cs` — mirrors Devices worker; EventTypeMap: ProjectCreated/Updated + UnitCreated
 - [x] 5.10 `IoBuild.Projects/Program.cs` — registered `IOutboxMessageRepository`, `AddDomainEventPublishing`, `AddHostedService<OutboxWorker>()`
+
+### Batch 3 — Phase 2 (TDD RED — Analytics tests) — NEW
+- [x] 2.1 `tests/IoBuild.Analytics.Tests/Infrastructure/ConsumerIdempotencyTests.cs` — 2 tests: same event twice → one row; stale event → row unchanged (LWW guard)
+- [x] 2.3 `tests/IoBuild.Analytics.Tests/Infrastructure/DeviceDeletedProjectionTests.cs` — 2 tests: delete removes row; delete absent row is no-op
+- [x] 2.4 `tests/IoBuild.Analytics.Tests/Application/EmptyReadModelQueryTests.cs` — 3 tests: empty builder dashboard; empty owner dashboard; builder device count from projections
+- [x] 2.5 `tests/IoBuild.Analytics.Tests/Application/NoHttpCallQueryTests.cs` — 2 tests: structural assertion that AnalyticsQueryService has no facade deps; constructable with only db+logger
+- [x] `tests/IoBuild.Analytics.Tests/IoBuild.Analytics.Tests.csproj` created (xUnit + Moq + FluentAssertions + EF InMemory)
+- [x] `microservices/IoBuild.sln` — `IoBuild.Analytics.Tests` added
+
+### Batch 3 — Phase 6 (IoBuild.Analytics projections + consumer)
+- [x] 6.1 `RabbitMQ.Client 7.0.0` added to `IoBuild.Analytics.csproj`
+- [x] 6.2 `IoBuild.Analytics/Domain/Model/Projections/DeviceProjection.cs` — `DeviceId` PK, `OwnerUserId` (always 0 — see owner gap decision), `ProjectId?`, `UnitId?`, `DeviceType`, `Status`, `LastEventAt`
+- [x] 6.3 `IoBuild.Analytics/Domain/Model/Projections/ProjectProjection.cs` — `ProjectId` PK, `BuilderUserId`, `Name`, `Status`, `LastEventAt`
+- [x] 6.4 `IoBuild.Analytics/Domain/Model/Projections/UnitProjection.cs` — `UnitId` PK, `ProjectId`, `BuilderUserId`, `OwnerUserId?`, `Status`, `LastEventAt`
+- [x] 6.5 `IoBuild.Analytics/AnalyticsDbContext.cs` rewritten: DbSets for 3 projection types; `builder_metrics`/`owner_metrics` DbSets + seed removed; EF config + indexes; keyless DTOs retained
+- [x] 6.6 EF migration deferred — Analytics uses `EnsureCreated` (matches existing strategy). Projection tables auto-created; snapshot tables dropped because removed from `OnModelCreating`.
+- [x] 6.7 `IoBuild.Analytics/Infrastructure/Messaging/AnalyticsEventConsumer.cs` — BackgroundService; dual constructor (production DI + internal test constructor); `ApplyEventAsync` public for testing; exchange/queue/binding declare on startup; LWW upsert; delete-if-exists; ack/nack semantics; `InternalsVisibleTo` on csproj
+- [x] 6.8 `IoBuild.Analytics/Infrastructure/Messaging/AnalyticsConsumerExtensions.cs` — `AddAnalyticsEventConsumer` DI extension
+- [x] 6.9 `IoBuild.Analytics/Program.cs` — removed `AddHttpClient<IDevicesContextFacade>` and `AddHttpClient<IProjectsContextFacade>`; added `AddAnalyticsEventConsumer`
+- [x] 6.10 `dotnet test` → 9/9 IoBuild.Analytics.Tests PASS
+
+### Batch 3 — Phase 7 (AnalyticsQueryService rewrite)
+- [x] 7.1 `AnalyticsQueryService.Handle(GetBuilderDashboard)`: builder device count via join on project_projection; active projects, units, occupancy rate (divide-by-zero safe), DevicesByType from projections only
+- [x] 7.2 `AnalyticsQueryService.Handle(GetOwnerDashboard)`: owner devices by `owner_user_id`; `MyUnitsCount` from unit_projection; `MyUnitsDetails` with project name join
+- [x] 7.3 `AnalyticsQueryService.Handle(GetHistoricalData)`: returns empty list; comment `// Eventually consistent — telemetry out of scope`
+- [x] 7.4 Constructor no longer accepts `IDevicesContextFacade` / `IProjectsContextFacade` — verified by `NoHttpCallQueryTests`
+- [x] 7.5 `dotnet test` → all Analytics tests including `EmptyReadModelQueryTests` and `NoHttpCallQueryTests` PASS
 
 ---
 
@@ -92,7 +124,19 @@
 
 ### Schema creation strategy: EnsureCreated (NOT migrations)
 
-**Decision**: Projects uses `db.Database.EnsureCreated()` in `Program.cs` (not `Migrate()`). Tasks 5.5 and 4.5 (EF migrations) were deferred. The `outbox_messages` table is created automatically by EnsureCreated on first run because the EF config is in `OnModelCreating`. No manual migration needed to match the existing schema strategy.
+**Decision**: Analytics (and all other services) uses `db.Database.EnsureCreated()` in `Program.cs` (not `Migrate()`). The projection tables are created automatically by EnsureCreated on first run because the EF config is in `OnModelCreating`. The snapshot tables (`builder_metrics`, `owner_metrics`) are **dropped** because they are no longer in `OnModelCreating` — EnsureCreated does not drop removed tables on a running database; they must be cleaned up manually in production (dev DBs only hold seed data).
+
+### Device.OwnerUserId gap (RESOLVED — batch 3)
+
+**Decision**: The `Device` aggregate has no `owner` concept — it carries only `ProjectId`, not `OwnerUserId`. `DeviceCreatedEvent.OwnerUserId` is always 0. `DeviceProjection.OwnerUserId` is always 0.
+
+**Consequence**: Owner dashboard device counts = 0 (NOT a regression — the old HTTP path hit non-existent endpoints and already returned 0). Builder dashboard device counts ARE computable by joining `device_projection.project_id` → `project_projection.builder_user_id`.
+
+**Decision**: Do NOT widen scope into Shared/Devices to add `OwnerUserId` to the Device aggregate. Keep `DeviceCreatedEvent.OwnerUserId` as-is (already committed in batch 1). Document as a known source-data limitation.
+
+### ACL Facade removal (RESOLVED — batch 3)
+
+**Decision**: `IDevicesContextFacade` and `IProjectsContextFacade` are **removed from `AnalyticsQueryService` constructor** and **not registered in `Program.cs`**. The facade classes (`DevicesContextFacade.cs`, `ProjectsContextFacade.cs`) and interfaces (`IDevicesContextFacade.cs`, `IProjectsContextFacade.cs`) are retained in their existing files as orphaned dead code for rollback reference. Verified by `NoHttpCallQueryTests` structural test.
 
 ---
 
@@ -145,6 +189,27 @@
 | `microservices/src/IoBuild.Projects/Program.cs` | Modified (outbox repo + publisher + worker registration) |
 | `openspec/changes/analytics-event-driven/tasks.md` | Updated (tasks 4.x and 5.x marked `[x]`) |
 
+### Batch 3
+
+| File | Action |
+|------|--------|
+| `microservices/tests/IoBuild.Analytics.Tests/IoBuild.Analytics.Tests.csproj` | Created |
+| `microservices/tests/IoBuild.Analytics.Tests/Infrastructure/ConsumerIdempotencyTests.cs` | Created (2 tests) |
+| `microservices/tests/IoBuild.Analytics.Tests/Infrastructure/DeviceDeletedProjectionTests.cs` | Created (2 tests) |
+| `microservices/tests/IoBuild.Analytics.Tests/Application/EmptyReadModelQueryTests.cs` | Created (3 tests) |
+| `microservices/tests/IoBuild.Analytics.Tests/Application/NoHttpCallQueryTests.cs` | Created (2 tests) |
+| `microservices/src/IoBuild.Analytics/IoBuild.Analytics.csproj` | Modified (added RabbitMQ.Client 7.0.0, InternalsVisibleTo Analytics.Tests) |
+| `microservices/src/IoBuild.Analytics/Domain/Model/Projections/DeviceProjection.cs` | Created |
+| `microservices/src/IoBuild.Analytics/Domain/Model/Projections/ProjectProjection.cs` | Created |
+| `microservices/src/IoBuild.Analytics/Domain/Model/Projections/UnitProjection.cs` | Created |
+| `microservices/src/IoBuild.Analytics/AnalyticsDbContext.cs` | Rewritten (projection DbSets; snapshot tables + seed removed) |
+| `microservices/src/IoBuild.Analytics/Infrastructure/Messaging/AnalyticsEventConsumer.cs` | Created |
+| `microservices/src/IoBuild.Analytics/Infrastructure/Messaging/AnalyticsConsumerExtensions.cs` | Created |
+| `microservices/src/IoBuild.Analytics/Application/Internal/QueryServices/AnalyticsQueryService.cs` | Rewritten (no facade deps; reads from projections) |
+| `microservices/src/IoBuild.Analytics/Program.cs` | Modified (removed facade HttpClient; added consumer registration) |
+| `microservices/IoBuild.sln` | Modified (added IoBuild.Analytics.Tests) |
+| `openspec/changes/analytics-event-driven/tasks.md` | Updated (tasks 2.x, 6.x, 7.x marked `[x]`) |
+
 ---
 
 ## Build & Test Results
@@ -172,29 +237,45 @@ dotnet test  microservices/IoBuild.sln → ALL PASS
   TOTAL: 70/70
 ```
 
+### Batch 3
+```
+dotnet build microservices/IoBuild.sln → SUCCESS (0 errors, pre-existing warnings only)
+dotnet test  microservices/IoBuild.sln → ALL PASS
+  IoBuild.Shared.Tests:       19/19
+  IoBuild.Devices.Tests:      34/34
+  IoBuild.IAM.Tests:           3/3
+  IoBuild.Projects.Tests:      6/6
+  IoBuild.Subscriptions.Tests: 8/8
+  IoBuild.Analytics.Tests:     9/9  (+9 new: consumer idempotency, delete, empty model, no-HTTP)
+  TOTAL: 79/79
+```
+
 ---
 
 ## Deviations from Design
 
-1. **`Device.OwnerUserId` not on aggregate**: `DeviceCreatedEvent.OwnerUserId` is set to `0` as a placeholder. The `Device` aggregate only carries `ProjectId`, not `OwnerUserId`. Analytics can resolve it via ProjectId if needed.
+1. **`Device.OwnerUserId` not on aggregate**: `DeviceCreatedEvent.OwnerUserId` is set to `0` as a placeholder. The `Device` aggregate only carries `ProjectId`, not `OwnerUserId`. Analytics owner device counts = 0. Documented as a known source-data limitation. Explicitly approved by user before batch 3.
 
-2. **EF migrations deferred (4.5 / 5.5)**: Both Devices and Projects use `db.Database.EnsureCreated()`, NOT `Migrate()`. The `outbox_messages` table is created automatically on first run via EF's `OnModelCreating` config. No explicit migration was added — this MATCHES the existing schema-creation strategy for both services.
+2. **EF migrations deferred (4.5 / 5.5 / 6.6)**: All services use `db.Database.EnsureCreated()`, NOT `Migrate()`. Projection tables created automatically on first run via EF's `OnModelCreating` config. No explicit migration was added — this MATCHES the existing schema-creation strategy for all services. Snapshot tables (`builder_metrics`, `owner_metrics`) no longer appear in `OnModelCreating` and will not exist in new deployments; must be manually dropped on existing DBs.
 
 3. **`UnitCommandService` now depends on `IProjectRepository`**: Required to resolve `BuilderUserId` from the parent project for `UnitCreatedEvent`. DI is wired in Program.cs (already registered `IProjectRepository`).
 
 4. **Circuit-breaker location**: As documented in batch 1 — breaker is in the worker, not the publisher.
 
+5. **`AnalyticsEventConsumer` dual constructor pattern**: The consumer has an `internal` test constructor (db + logger only) and a production constructor (scopeFactory + config + logger). `InternalsVisibleTo(IoBuild.Analytics.Tests)` is set on the csproj so tests can use the internal constructor. This avoids touching the production code path for unit tests.
+
+6. **ACL facade classes retained as dead code**: `DevicesContextFacade.cs`, `ProjectsContextFacade.cs`, `IDevicesContextFacade.cs`, `IProjectsContextFacade.cs` remain in place for rollback reference but are not registered in DI.
+
 ---
 
-## Remaining Tasks (Batches 3–5)
+## Remaining Tasks (Batches 4–5)
 
-### Batch 3 — IoBuild.Analytics consumer + projection tables
-- [ ] 2.1–2.5 Phase 2 RED tests (Analytics consumer + query)
-- [ ] 6.1–6.10 Analytics consumer + projection tables + AnalyticsEventConsumer
+### Batch 4 — docker-compose + RabbitMQ service
+- [ ] 8.1–8.4 RabbitMQ in compose files (all three compose variants; env vars + depends_on for Devices, Projects, Analytics)
 
-### Batch 4 — AnalyticsQueryService rewrite
-- [ ] 7.1–7.5 AnalyticsQueryService rewrite (read from projections, remove ACL)
-
-### Batch 5 — docker-compose + cleanup
-- [ ] 8.1–8.4 RabbitMQ in compose files
-- [ ] 9.1–9.5 Cleanup, refactor, final build + test verification
+### Batch 5 — Cleanup + final verification
+- [ ] 9.1 Remove (or comment) ACL facade DI registration from Analytics `Program.cs` *(already done in batch 3)*
+- [ ] 9.2 Snapshot seed classes confirmed removed from `AnalyticsDbContext` *(done in batch 3)*
+- [ ] 9.3 XML doc `<remarks>` added to `AnalyticsQueryService` *(done in batch 3)*
+- [ ] 9.4 Final build verification — MUST succeed with zero errors
+- [ ] 9.5 Final test run — ALL tests MUST pass
