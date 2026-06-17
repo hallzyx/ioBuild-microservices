@@ -24,9 +24,9 @@ public class OutboxMessageRepository(AppDbContext context) : IOutboxMessageRepos
         await context.OutboxMessages.AddAsync(message);
     }
 
-    public Task UpdateAsync(OutboxMessage message)
+    public async Task UpdateAsync(OutboxMessage message)
     {
         context.OutboxMessages.Update(message);
-        return Task.CompletedTask;
+        await context.SaveChangesAsync();
     }
 }

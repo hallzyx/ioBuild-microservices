@@ -28,7 +28,7 @@ All domain events MUST implement `IoBuild.Shared.IEvent`.
 
 Each event MUST carry:
 - `Guid Id` — stable unique identifier for the event occurrence; used by downstream consumers for de-duplication.
-- `DateTime OccurredAt` — UTC timestamp set at event creation.
+- `DateTime OccurredOn` — UTC timestamp set at event creation. (Note: code uses `OccurredOn`; spec aligned to implementation — batch 5 correction.)
 - A typed payload with the resource state at the time of occurrence.
 
 Events defined in this change:
@@ -113,7 +113,7 @@ And the OutboxWorker polls and publishes the row to RabbitMQ
 And the row is marked Status = Processed after successful publish
 And the HTTP response to the caller is 201 Created
 And the event Id is a non-empty Guid
-And the event OccurredAt is a UTC timestamp within 1 second of the command
+And the event OccurredOn is a UTC timestamp within 1 second of the command
 ```
 
 ### Scenario DE-S02 — Rolled-back command produces no outbox row and no publish

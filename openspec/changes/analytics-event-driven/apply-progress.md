@@ -1,6 +1,6 @@
 # Apply Progress: analytics-event-driven
 
-**Batch**: 4 of 5 (updated — merging batches 1 + 2 + 3 + 4)
+**Batch**: 5 of 5 COMPLETE (merged batches 1 + 2 + 3 + 4 + 5)
 **Mode**: Strict TDD (RED → GREEN → REFACTOR)
 **Delivery**: single PR with `size:exception` on branch `feat/analytics-event-driven`
 **Date**: 2026-06-17
@@ -24,6 +24,8 @@
 | B3-RED EmptyReadModelQueryTests | Build fails — AnalyticsQueryService constructor changed | AnalyticsQueryService rewritten (no facade deps) | n/a | DONE |
 | B3-RED NoHttpCallQueryTests | Build fails | Same GREEN sweep | n/a | DONE |
 | B3-GREEN 6.1–6.10, 7.1–7.5 | Tests RED → GREEN | 9/9 IoBuild.Analytics.Tests pass | n/a | DONE |
+| B5-RED ProductionConsumerPathTests | `InvalidOperationException: Production code must resolve DbContext from DI scope, not via GetDb()` — 2 tests FAIL | Production constructor fix: upserts accept db param; ApplyEventAsync opens scope | n/a | DONE |
+| B5-RED OutboxMessageRepositoryPersistenceTests | `Expected "Pending" to be "Processed"` — 1 test FAIL | Added `await context.SaveChangesAsync()` in both Devices + Projects repos | n/a | DONE |
 
 ---
 
@@ -103,6 +105,26 @@
 - [x] 8.3 `docker-compose.prod.yml` — rabbitmq service added; management port 15672 NOT published externally; credentials from `${RABBITMQ_USER}` / `${RABBITMQ_PASS}` with NO defaults (real secrets required in prod)
 - [x] 8.4 `RabbitMq__ConnectionString=amqp://${RABBITMQ_USER:-iobuild}:${RABBITMQ_PASS:-iobuild}@rabbitmq:5672/` injected into `devices`, `projects`, `analytics` in `docker-compose.yml`; same (without defaults) in `docker-compose.prod.yml`; `depends_on: rabbitmq: { condition: service_healthy }` added to all three services in both files
 - [x] Config key confirmed: C# reads `RabbitMq:ConnectionString` → env var `RabbitMq__ConnectionString`. Exact match in `DomainEventPublishingExtensions.cs:36` and `AnalyticsEventConsumer.cs:54`
+
+### Batch 5 — Bug-Fix (CRITICAL-1, CRITICAL-2, WARNING-1, WARNING-2)
+
+#### CRITICAL-1 — AnalyticsEventConsumer production path (RED → GREEN)
+- [x] C1-RED `tests/IoBuild.Analytics.Tests/Infrastructure/ProductionConsumerPathTests.cs` — 2 tests using production constructor; FAILED with `InvalidOperationException: Production code must resolve DbContext from DI scope, not via GetDb()` BEFORE fix
+- [x] C1-GREEN `microservices/src/IoBuild.Analytics/Infrastructure/Messaging/AnalyticsEventConsumer.cs` — upsert methods now accept `AnalyticsDbContext` as parameter; `ApplyEventAsync` opens a scope from `_scopeFactory` when in production mode; test constructor path (`_directDb`) unchanged; `HandleDeliveryAsync` passes scoped db into `ApplyEventByTypeAsync`
+- [x] C1-VERIFY 2/2 ProductionConsumerPathTests now PASS; all 11/11 Analytics.Tests PASS
+
+#### CRITICAL-2 — OutboxWorker status never persisted (RED → GREEN)
+- [x] C2-RED `tests/IoBuild.Devices.Tests/Repositories/OutboxMessageRepositoryPersistenceTests.cs` — 2 tests; `UpdateAsync_PersistsStatusChange_ToDatabase` FAILED with `Expected "Pending" to be "Processed"` BEFORE fix
+- [x] C2-GREEN `microservices/src/IoBuild.Devices/Infrastructure/Persistence/EFC/Repositories/OutboxMessageRepository.cs` — `UpdateAsync` now calls `await context.SaveChangesAsync()`
+- [x] C2-GREEN `microservices/src/IoBuild.Projects/Infrastructure/Repositories/OutboxMessageRepository.cs` — `UpdateAsync` now calls `await context.SaveChangesAsync()`
+- [x] C2-VERIFY 2/2 OutboxMessageRepositoryPersistenceTests now PASS; all 36/36 Devices.Tests PASS
+
+#### WARNING-1 — OccurredAt vs OccurredOn spec alignment
+- [x] `openspec/changes/analytics-event-driven/specs/domain-events/spec.md` — REQ-DE-01 updated: `OccurredAt` → `OccurredOn` (code is source of truth; spec aligned to implementation)
+
+#### WARNING-2 — Stale env vars in compose files
+- [x] `microservices/docker-compose.yml` — removed `Services__DevicesApi` and `Services__ProjectsApi` from analytics service stanza
+- [x] `microservices/docker-compose.prod.yml` — removed `Services__DevicesApi` and `Services__ProjectsApi` from analytics service stanza
 
 ### Batch 3 — Phase 7 (AnalyticsQueryService rewrite)
 - [x] 7.1 `AnalyticsQueryService.Handle(GetBuilderDashboard)`: builder device count via join on project_projection; active projects, units, occupancy rate (divide-by-zero safe), DevicesByType from projections only
@@ -279,6 +301,25 @@ dotnet test  microservices/IoBuild.sln --no-build   → ALL PASS
   TOTAL: 79/79  (no regressions — only compose YAML changed, zero C# touched)
 ```
 
+### Batch 5 (bug-fix)
+```
+dotnet build microservices/IoBuild.sln → SUCCESS (0 errors, 46 pre-existing warnings — no new warnings)
+dotnet test  microservices/IoBuild.sln → ALL PASS
+  IoBuild.Shared.Tests:       19/19
+  IoBuild.Devices.Tests:      36/36  (+2 new: OutboxMessageRepositoryPersistenceTests)
+  IoBuild.IAM.Tests:           3/3
+  IoBuild.Projects.Tests:      6/6
+  IoBuild.Subscriptions.Tests: 8/8
+  IoBuild.Analytics.Tests:    11/11  (+2 new: ProductionConsumerPathTests)
+  TOTAL: 83/83  (no regressions; 4 new tests catch CRITICAL-1 + CRITICAL-2)
+
+TDD Evidence:
+  CRITICAL-1 RED: 2 tests FAIL with InvalidOperationException before fix
+  CRITICAL-1 GREEN: 2 tests PASS after AnalyticsEventConsumer upserts receive db param from scope
+  CRITICAL-2 RED: 1 test FAILS with "Expected Pending to be Processed" before fix
+  CRITICAL-2 GREEN: 2 tests PASS after SaveChangesAsync added to UpdateAsync
+```
+
 ---
 
 ## Deviations from Design
@@ -297,14 +338,17 @@ dotnet test  microservices/IoBuild.sln --no-build   → ALL PASS
 
 ---
 
-## Remaining Tasks (Batches 4–5)
+## Remaining Tasks
 
-### Batch 4 — docker-compose + RabbitMQ service
-- [x] 8.1–8.4 RabbitMQ in compose files (all three compose variants; env vars + depends_on for Devices, Projects, Analytics)
+All tasks complete — change is ready for `sdd-verify` (re-verify after bug fixes).
 
-### Batch 5 — Cleanup + final verification
-- [ ] 9.1 Remove (or comment) ACL facade DI registration from Analytics `Program.cs` *(already done in batch 3)*
-- [ ] 9.2 Snapshot seed classes confirmed removed from `AnalyticsDbContext` *(done in batch 3)*
-- [ ] 9.3 XML doc `<remarks>` added to `AnalyticsQueryService` *(done in batch 3)*
-- [ ] 9.4 Final build verification — MUST succeed with zero errors
-- [ ] 9.5 Final test run — ALL tests MUST pass
+### Batch 5 — Bug-fix (COMPLETE)
+- [x] 9.1 ACL facade DI removed from Analytics `Program.cs` *(done in batch 3)*
+- [x] 9.2 Snapshot seed classes removed from `AnalyticsDbContext` *(done in batch 3)*
+- [x] 9.3 XML doc `<remarks>` added to `AnalyticsQueryService` *(done in batch 3)*
+- [x] 9.4 Final build: `dotnet build microservices/IoBuild.sln` → 0 errors, 46 pre-existing warnings
+- [x] 9.5 Final tests: `dotnet test microservices/IoBuild.sln` → **83/83 PASS** (+4 new bug-fix tests)
+- [x] CRITICAL-1 fixed: AnalyticsEventConsumer production path now resolves DbContext from scope
+- [x] CRITICAL-2 fixed: OutboxMessageRepository.UpdateAsync now calls SaveChangesAsync in both Devices + Projects
+- [x] WARNING-1 fixed: spec `OccurredAt` → `OccurredOn` (aligned to code)
+- [x] WARNING-2 fixed: stale compose env vars removed from both compose files

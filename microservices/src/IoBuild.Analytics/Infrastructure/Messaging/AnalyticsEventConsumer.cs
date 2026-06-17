@@ -3,6 +3,7 @@ using System.Text.Json;
 using IoBuild.Analytics.Domain.Model.Projections;
 using IoBuild.Shared.Domain.Model.Events;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 
@@ -159,7 +160,21 @@ public class AnalyticsEventConsumer : BackgroundService
                 : rawType?.ToString();
 
             var body = ea.Body.ToArray();
-            await ApplyEventByTypeAsync(eventType!, body, ct);
+
+            // Open a DI scope per message to get a fresh DbContext (production path).
+            // The test path (_directDb != null) never reaches HandleDeliveryAsync —
+            // tests call ApplyEventAsync directly with a pre-wired DbContext.
+            if (_scopeFactory is not null)
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<AnalyticsDbContext>();
+                await ApplyEventByTypeAsync(eventType!, body, db, ct);
+            }
+            else
+            {
+                // Defensive: should not occur in practice (test constructor bypasses this method)
+                await ApplyEventByTypeAsync(eventType!, body, _directDb!, ct);
+            }
 
             await channel.BasicAckAsync(deliveryTag, multiple: false);
         }
@@ -179,27 +194,27 @@ public class AnalyticsEventConsumer : BackgroundService
         }
     }
 
-    private async Task ApplyEventByTypeAsync(string eventType, byte[] body, CancellationToken ct)
+    private async Task ApplyEventByTypeAsync(string eventType, byte[] body, AnalyticsDbContext db, CancellationToken ct)
     {
         switch (eventType)
         {
             case nameof(DeviceCreatedEvent):
-                await ApplyEventAsync(Deserialize<DeviceCreatedEvent>(body));
+                await UpsertDeviceAsync(Deserialize<DeviceCreatedEvent>(body), db);
                 break;
             case nameof(DeviceUpdatedEvent):
-                await ApplyEventAsync(Deserialize<DeviceUpdatedEvent>(body));
+                await UpsertDeviceAsync(Deserialize<DeviceUpdatedEvent>(body), db);
                 break;
             case nameof(DeviceDeletedEvent):
-                await ApplyEventAsync(Deserialize<DeviceDeletedEvent>(body));
+                await DeleteDeviceAsync(Deserialize<DeviceDeletedEvent>(body), db);
                 break;
             case nameof(ProjectCreatedEvent):
-                await ApplyEventAsync(Deserialize<ProjectCreatedEvent>(body));
+                await UpsertProjectAsync(Deserialize<ProjectCreatedEvent>(body), db);
                 break;
             case nameof(ProjectUpdatedEvent):
-                await ApplyEventAsync(Deserialize<ProjectUpdatedEvent>(body));
+                await UpsertProjectAsync(Deserialize<ProjectUpdatedEvent>(body), db);
                 break;
             case nameof(UnitCreatedEvent):
-                await ApplyEventAsync(Deserialize<UnitCreatedEvent>(body));
+                await UpsertUnitAsync(Deserialize<UnitCreatedEvent>(body), db);
                 break;
             default:
                 _logger.LogWarning(
@@ -213,35 +228,47 @@ public class AnalyticsEventConsumer : BackgroundService
 
     /// <summary>
     /// Applies a domain event to the projection tables.
-    /// Called directly by unit tests via the test constructor; in production this is
-    /// called from HandleDeliveryAsync which opens a DI scope around the DbContext.
+    /// Tests using the internal constructor call this directly with a pre-wired DbContext.
+    /// Production path reaches here only through HandleDeliveryAsync which opens a DI scope.
     /// </summary>
-    public Task ApplyEventAsync(DomainEvent evt) => evt switch
+    public Task ApplyEventAsync(DomainEvent evt)
     {
-        DeviceCreatedEvent e  => UpsertDeviceAsync(e),
-        DeviceUpdatedEvent e  => UpsertDeviceAsync(e),
-        DeviceDeletedEvent e  => DeleteDeviceAsync(e),
-        ProjectCreatedEvent e => UpsertProjectAsync(e),
-        ProjectUpdatedEvent e => UpsertProjectAsync(e),
-        UnitCreatedEvent e    => UpsertUnitAsync(e),
+        // Resolve db: test constructor sets _directDb; production constructor uses _scopeFactory.
+        // When called from tests (internal constructor), _directDb is always set.
+        // When called from production tests using the production constructor, we open a scope.
+        if (_directDb is not null)
+        {
+            return ApplyEventWithDb(evt, _directDb);
+        }
+
+        if (_scopeFactory is not null)
+        {
+            // Open a synchronous scope and resolve DbContext — async scope not needed here
+            // because we just need the DbContext; scope lifetime is managed in this method.
+            using var scope = _scopeFactory.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<AnalyticsDbContext>();
+            return ApplyEventWithDb(evt, db);
+        }
+
+        throw new InvalidOperationException(
+            "AnalyticsEventConsumer: neither _directDb nor _scopeFactory is set. This should never happen.");
+    }
+
+    private Task ApplyEventWithDb(DomainEvent evt, AnalyticsDbContext db) => evt switch
+    {
+        DeviceCreatedEvent e  => UpsertDeviceAsync(e, db),
+        DeviceUpdatedEvent e  => UpsertDeviceAsync(e, db),
+        DeviceDeletedEvent e  => DeleteDeviceAsync(e, db),
+        ProjectCreatedEvent e => UpsertProjectAsync(e, db),
+        ProjectUpdatedEvent e => UpsertProjectAsync(e, db),
+        UnitCreatedEvent e    => UpsertUnitAsync(e, db),
         _ => throw new InvalidOperationException($"Unsupported event type: {evt.GetType().Name}")
     };
 
-    private AnalyticsDbContext GetDb()
-    {
-        if (_directDb is not null)
-            return _directDb;
-
-        // In production path this is never called directly — the caller resolves from scope.
-        throw new InvalidOperationException(
-            "Production code must resolve DbContext from DI scope, not via GetDb().");
-    }
-
     // ── Projection upsert / delete logic ──
 
-    private async Task UpsertDeviceAsync(DeviceCreatedEvent evt)
+    private async Task UpsertDeviceAsync(DeviceCreatedEvent evt, AnalyticsDbContext db)
     {
-        var db = GetDb();
         var row = await db.DeviceProjections.FindAsync(evt.DeviceId);
         if (row is null)
         {
@@ -263,9 +290,8 @@ public class AnalyticsEventConsumer : BackgroundService
         await db.SaveChangesAsync();
     }
 
-    private async Task UpsertDeviceAsync(DeviceUpdatedEvent evt)
+    private async Task UpsertDeviceAsync(DeviceUpdatedEvent evt, AnalyticsDbContext db)
     {
-        var db = GetDb();
         var row = await db.DeviceProjections.FindAsync(evt.DeviceId);
         if (row is null)
         {
@@ -286,9 +312,8 @@ public class AnalyticsEventConsumer : BackgroundService
         await db.SaveChangesAsync();
     }
 
-    private async Task DeleteDeviceAsync(DeviceDeletedEvent evt)
+    private async Task DeleteDeviceAsync(DeviceDeletedEvent evt, AnalyticsDbContext db)
     {
-        var db = GetDb();
         var row = await db.DeviceProjections.FindAsync(evt.DeviceId);
         if (row is not null)
         {
@@ -297,9 +322,8 @@ public class AnalyticsEventConsumer : BackgroundService
         }
     }
 
-    private async Task UpsertProjectAsync(ProjectCreatedEvent evt)
+    private async Task UpsertProjectAsync(ProjectCreatedEvent evt, AnalyticsDbContext db)
     {
-        var db = GetDb();
         var row = await db.ProjectProjections.FindAsync(evt.ProjectId);
         if (row is null)
         {
@@ -318,9 +342,8 @@ public class AnalyticsEventConsumer : BackgroundService
         await db.SaveChangesAsync();
     }
 
-    private async Task UpsertProjectAsync(ProjectUpdatedEvent evt)
+    private async Task UpsertProjectAsync(ProjectUpdatedEvent evt, AnalyticsDbContext db)
     {
-        var db = GetDb();
         var row = await db.ProjectProjections.FindAsync(evt.ProjectId);
         if (row is null)
         {
@@ -339,9 +362,8 @@ public class AnalyticsEventConsumer : BackgroundService
         await db.SaveChangesAsync();
     }
 
-    private async Task UpsertUnitAsync(UnitCreatedEvent evt)
+    private async Task UpsertUnitAsync(UnitCreatedEvent evt, AnalyticsDbContext db)
     {
-        var db = GetDb();
         var row = await db.UnitProjections.FindAsync(evt.UnitId);
         if (row is null)
         {

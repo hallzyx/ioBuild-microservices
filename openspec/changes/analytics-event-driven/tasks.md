@@ -111,8 +111,19 @@ Chain strategy: pending
 
 ## Phase 9 — Cleanup + REFACTOR [REQ-AQ-01, REQ-DE-09, REQ-AQ-06]
 
-- [ ] 9.1 Remove (or comment out with `// ACL — orphaned, kept for rollback reference`) `DevicesContextFacade` and `ProjectsContextFacade` HTTP client registrations from `IoBuild.Analytics/Program.cs`. (REQ-AQ-01)
-- [ ] 9.2 Remove `builder_metrics`/`owner_metrics` EF seed classes and their `OnModelCreating` mapping from `AnalyticsDbContext`. (ADR-6)
-- [ ] 9.3 Add XML doc comment `/// <remarks>Metrics are eventually consistent with source services (Transactional Outbox, ~5 s lag).</remarks>` to `AnalyticsQueryService` class. (REQ-AQ-04)
-- [ ] 9.4 **[REFACTOR]** Run `dotnet build microservices/IoBuild.sln` — MUST succeed with zero errors. Fix any remaining build issues. (REQ-DE-09, REQ-AQ-06)
-- [ ] 9.5 **[REFACTOR]** Run `dotnet test` from `microservices/` — ALL tests MUST pass (including pre-existing). (REQ-DE-09, REQ-RM-07, REQ-AQ-06)
+- [x] 9.1 Remove (or comment out with `// ACL — orphaned, kept for rollback reference`) `DevicesContextFacade` and `ProjectsContextFacade` HTTP client registrations from `IoBuild.Analytics/Program.cs`. (REQ-AQ-01) *(done in batch 3)*
+- [x] 9.2 Remove `builder_metrics`/`owner_metrics` EF seed classes and their `OnModelCreating` mapping from `AnalyticsDbContext`. (ADR-6) *(done in batch 3)*
+- [x] 9.3 Add XML doc comment `/// <remarks>Metrics are eventually consistent with source services (Transactional Outbox, ~5 s lag).</remarks>` to `AnalyticsQueryService` class. (REQ-AQ-04) *(done in batch 3)*
+- [x] 9.4 **[REFACTOR]** Run `dotnet build microservices/IoBuild.sln` — MUST succeed with zero errors. (REQ-DE-09, REQ-AQ-06) *(batch 5: 0 errors, 46 pre-existing warnings)*
+- [x] 9.5 **[REFACTOR]** Run `dotnet test` from `microservices/` — ALL tests MUST pass. (REQ-DE-09, REQ-RM-07, REQ-AQ-06) *(batch 5: 83/83 PASS — +4 new bug-fix tests)*
+
+## Phase 9b — Bug-Fix Batch (CRITICAL findings from verify-report)
+
+- [x] C1-RED `tests/IoBuild.Analytics.Tests/Infrastructure/ProductionConsumerPathTests.cs` — 2 RED tests proving production constructor → GetDb() throws (CRITICAL-1)
+- [x] C1-GREEN Fix `AnalyticsEventConsumer`: upsert methods now accept `AnalyticsDbContext` parameter; `ApplyEventAsync` opens scope from `_scopeFactory` when built via production constructor; test constructor path unchanged
+- [x] C2-RED `tests/IoBuild.Devices.Tests/Repositories/OutboxMessageRepositoryPersistenceTests.cs` — 1 RED test proving UpdateAsync loses mutation without SaveChangesAsync (CRITICAL-2)
+- [x] C2-GREEN Fix Devices `OutboxMessageRepository.UpdateAsync` — added `await context.SaveChangesAsync()`
+- [x] C2-GREEN Fix Projects `OutboxMessageRepository.UpdateAsync` — added `await context.SaveChangesAsync()`
+- [x] W1 Spec `openspec/changes/analytics-event-driven/specs/domain-events/spec.md` — `OccurredAt` renamed to `OccurredOn` in spec text (code is source of truth)
+- [x] W2 `microservices/docker-compose.yml` — removed `Services__DevicesApi` and `Services__ProjectsApi` from analytics stanza
+- [x] W2 `microservices/docker-compose.prod.yml` — removed `Services__DevicesApi` and `Services__ProjectsApi` from analytics stanza
