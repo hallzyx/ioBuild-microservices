@@ -10,6 +10,7 @@ using IoBuild.Devices.Infrastructure.Persistence.EFC.DbContext;
 using IoBuild.Devices.Infrastructure.Persistence.EFC.Repositories;
 using IoBuild.Devices.Workers;
 using IoBuild.Shared.Infrastructure.ASP.Configuration;
+using IoBuild.Shared.Infrastructure.Messaging;
 using IoBuild.Shared.Infrastructure.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -84,8 +85,15 @@ builder.Services.AddDbContext<DevicesDbContext>(options =>
 
 builder.Services.AddScoped<IDeviceRepository, DeviceRepository>();
 builder.Services.AddScoped<IDeviceLogRepository, DeviceLogRepository>();
+builder.Services.AddScoped<IOutboxMessageRepository, OutboxMessageRepository>();
 builder.Services.AddScoped<IDeviceCommandService, DeviceCommandService>();
 builder.Services.AddScoped<IDeviceQueryService, DeviceQueryService>();
+
+// ── Domain-event publishing + outbox resilience pipeline (ADR-8) ──
+builder.Services.AddDomainEventPublishing(builder.Configuration);
+
+// ── OutboxWorker: polls pending outbox rows and publishes to RabbitMQ (ADR-2) ──
+builder.Services.AddHostedService<OutboxWorker>();
 
 builder.Services.AddCors(options =>
 {

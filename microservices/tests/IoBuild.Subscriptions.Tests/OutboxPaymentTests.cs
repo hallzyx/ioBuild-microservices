@@ -83,7 +83,7 @@ public class OutboxPaymentTests
             PublishableKey = "pk_test_placeholder",
             WebhookSecret = "whsec_placeholder"
         };
-        var stripeService = new StripePaymentService(stripeSettings);
+        var stripeService = new StripePaymentService(subRepo.Object, planRepo.Object, unitOfWork.Object, stripeSettings);
 
         // No existing active subscription
         subRepo.Setup(r => r.FindActiveByBuilderIdAsync(builderId))
@@ -148,7 +148,7 @@ public class OutboxPaymentTests
             SecretKey = "sk_test_placeholder",
             PublishableKey = "pk_test_placeholder"
         };
-        var stripeService = new StripePaymentService(stripeSettings);
+        var stripeService = new StripePaymentService(subRepo.Object, planRepo.Object, unitOfWork.Object, stripeSettings);
 
         // Idempotency key already exists
         idempotencyRepo.Setup(r => r.ExistsAsync(eventId))
