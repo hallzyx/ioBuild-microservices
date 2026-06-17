@@ -231,23 +231,25 @@ public class AnalyticsEventConsumer : BackgroundService
     /// Tests using the internal constructor call this directly with a pre-wired DbContext.
     /// Production path reaches here only through HandleDeliveryAsync which opens a DI scope.
     /// </summary>
-    public Task ApplyEventAsync(DomainEvent evt)
+    public async Task ApplyEventAsync(DomainEvent evt)
     {
         // Resolve db: test constructor sets _directDb; production constructor uses _scopeFactory.
         // When called from tests (internal constructor), _directDb is always set.
         // When called from production tests using the production constructor, we open a scope.
         if (_directDb is not null)
         {
-            return ApplyEventWithDb(evt, _directDb);
+            await ApplyEventWithDb(evt, _directDb);
+            return;
         }
 
         if (_scopeFactory is not null)
         {
-            // Open a synchronous scope and resolve DbContext — async scope not needed here
-            // because we just need the DbContext; scope lifetime is managed in this method.
+            // Keep the scope alive for the entire await so the DbContext is not disposed
+            // before the async DB operation completes (WARNING-A fix).
             using var scope = _scopeFactory.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<AnalyticsDbContext>();
-            return ApplyEventWithDb(evt, db);
+            await ApplyEventWithDb(evt, db);
+            return;
         }
 
         throw new InvalidOperationException(

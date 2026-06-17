@@ -340,7 +340,7 @@ TDD Evidence:
 
 ## Remaining Tasks
 
-All tasks complete — change is ready for `sdd-verify` (re-verify after bug fixes).
+All tasks complete — change is ready for `sdd-archive`.
 
 ### Batch 5 — Bug-fix (COMPLETE)
 - [x] 9.1 ACL facade DI removed from Analytics `Program.cs` *(done in batch 3)*
@@ -352,3 +352,10 @@ All tasks complete — change is ready for `sdd-verify` (re-verify after bug fix
 - [x] CRITICAL-2 fixed: OutboxMessageRepository.UpdateAsync now calls SaveChangesAsync in both Devices + Projects
 - [x] WARNING-1 fixed: spec `OccurredAt` → `OccurredOn` (aligned to code)
 - [x] WARNING-2 fixed: stale compose env vars removed from both compose files
+
+### Batch 6 — Cleanup (WARNING-A + WARNING-B, COMPLETE)
+- [x] WARNING-A fixed: `ApplyEventAsync` rewritten as `async Task`; scope stays alive for the full `await ApplyEventWithDb(evt, db)` call (no premature disposal with real DB providers)
+- [x] WARNING-B fixed: `tests/IoBuild.Projects.Tests/Repositories/OutboxMessageRepositoryPersistenceTests.cs` created — three-context pattern (write / worker / read), asserts `Status == "Processed"` via a fresh `AppDbContext`
+- [x] `Microsoft.EntityFrameworkCore.InMemory 9.0.5` added to `IoBuild.Projects.Tests.csproj`
+- [x] Final build: `dotnet build microservices/IoBuild.sln` → 0 errors, 5 pre-existing warnings (no new)
+- [x] Final tests: `dotnet test microservices/IoBuild.sln` → **85/85 PASS** (+2 new Projects persistence tests)
