@@ -1,0 +1,60 @@
+#cloud-config
+package_update: true
+packages:
+  - ca-certificates
+  - curl
+  - git
+
+write_files:
+  - path: /opt/iobuild/bootstrap.sh
+    permissions: "0755"
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+
+      # Install Docker Engine + compose plugin
+      install -m 0755 -d /etc/apt/keyrings
+      curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+      chmod a+r /etc/apt/keyrings/docker.asc
+      echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable" \
+        > /etc/apt/sources.list.d/docker.list
+      apt-get update -y
+      apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+
+      # Clone repo for config files (public repo, no auth).
+      # docker-compose.prod.yml lives on ${git_ref}, so clone that branch explicitly.
+      rm -rf /opt/iobuild/repo
+      git clone --depth 1 --branch ${git_ref} https://github.com/hallzyx/ioBuild-microservices.git /opt/iobuild/repo
+
+      cd /opt/iobuild/repo/microservices
+
+      # Write .env from templated secrets
+      cat > .env <<'ENVEOF'
+      IMAGE_TAG=${image_tag}
+      DB_PASSWORD=${db_password}
+      JWT_SECRET=${jwt_secret}
+      INFLUXDB_TOKEN=${influxdb_token}
+      INFLUXDB_PASSWORD=${influxdb_password}
+      STRIPE_SECRET_KEY=${stripe_secret_key}
+      STRIPE_PUBLISHABLE_KEY=${stripe_publishable_key}
+      STRIPE_WEBHOOK_SECRET=${stripe_webhook_secret}
+      ENVEOF
+
+      # Pull GHCR images (public) and start the stack.
+      docker compose -f docker-compose.prod.yml pull
+
+      # Retry `up -d` a few times: services gate on healthchecks (mysql/iam take
+      # time to become healthy), so the first attempt may report a dependency
+      # timeout while containers are still initializing. Re-running brings up the
+      # next tier until everything is healthy.
+      for attempt in 1 2 3 4 5 6; do
+        if docker compose -f docker-compose.prod.yml up -d; then
+          echo "compose up succeeded on attempt $attempt"
+          break
+        fi
+        echo "compose up attempt $attempt hit a dependency timeout, retrying in 45s..."
+        sleep 45
+      done
+
+runcmd:
+  - /opt/iobuild/bootstrap.sh > /var/log/iobuild-bootstrap.log 2>&1

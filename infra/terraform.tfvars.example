@@ -1,0 +1,14 @@
+# Copy to terraform.tfvars for local runs (DO NOT commit terraform.tfvars).
+# In CI these are passed via TF_VAR_* env from GitHub Secrets.
+# Azure VMs only accept RSA keys here (not ed25519). Generate with:
+#   ssh-keygen -t rsa -b 4096 -f ~/.ssh/iobuild_demo_rsa -N ""
+ssh_public_key         = "ssh-rsa AAAA... you@host"
+ssh_allow_cidr         = "203.0.113.7/32"
+cloudflare_api_token   = "cf-token"
+db_password            = "change-me"
+jwt_secret             = "a-32+char-secret-................"
+influxdb_token         = "iobuild-telemetry-token"
+influxdb_password      = "admin123"
+stripe_secret_key      = "sk_test_..."
+stripe_publishable_key = "pk_test_..."
+stripe_webhook_secret  = "whsec_..."

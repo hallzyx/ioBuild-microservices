@@ -1,0 +1,17 @@
+# Terraform providers/cache (large, machine-specific)
+.terraform/
+
+# State and plans (state lives in the remote Azure backend)
+*.tfstate
+*.tfstate.*
+*.tfplan
+
+# Local variable values — may contain secrets
+terraform.tfvars
+*.auto.tfvars
+
+# Crash logs
+crash.log
+crash.*.log
+
+# Keep: .terraform.lock.hcl (provider version pinning, should be committed)

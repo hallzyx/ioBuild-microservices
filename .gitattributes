@@ -1,0 +1,6 @@
+# Force LF on files consumed by Linux (the Azure VM) and by bash.
+# Prevents CRLF from Windows autocrlf breaking cloud-init and shell scripts.
+*.sh           text eol=lf
+*.yaml         text eol=lf
+*.yml          text eol=lf
+infra/cloud-init.yaml text eol=lf
