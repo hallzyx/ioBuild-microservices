@@ -104,10 +104,10 @@ Chain strategy: pending
 
 ## Phase 8 — Infrastructure: docker-compose [ADR-9]
 
-- [ ] 8.1 Add `rabbitmq` service (`rabbitmq:4-management`, ports 5672/15672, env credentials, healthcheck, `iobuild-net`) to `docker-compose.yml`. (ADR-9)
-- [ ] 8.2 Add the same `rabbitmq` service to `docker-compose.override.yml` (dev override) if present.
-- [ ] 8.3 Add to `docker-compose.prod.yml`: same service, management port omitted externally.
-- [ ] 8.4 Add `RabbitMq__ConnectionString` env var and `depends_on: rabbitmq: { condition: service_healthy }` to Devices, Projects, and Analytics service definitions in all compose files. (ADR-9, REQ-DE-07)
+- [x] 8.1 Add `rabbitmq` service (`rabbitmq:4-management`, ports 5672/15672, env credentials, healthcheck, `iobuild-net`) to `docker-compose.yml`. (ADR-9)
+- [x] 8.2 Add the same `rabbitmq` service to `docker-compose.override.yml` (dev override) if present.
+- [x] 8.3 Add to `docker-compose.prod.yml`: same service, management port omitted externally.
+- [x] 8.4 Add `RabbitMq__ConnectionString` env var and `depends_on: rabbitmq: { condition: service_healthy }` to Devices, Projects, and Analytics service definitions in all compose files. (ADR-9, REQ-DE-07)
 
 ## Phase 9 — Cleanup + REFACTOR [REQ-AQ-01, REQ-DE-09, REQ-AQ-06]
 

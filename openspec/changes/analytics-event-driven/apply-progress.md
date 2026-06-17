@@ -1,6 +1,6 @@
 # Apply Progress: analytics-event-driven
 
-**Batch**: 3 of 5 (updated — merging batches 1 + 2 + 3)
+**Batch**: 4 of 5 (updated — merging batches 1 + 2 + 3 + 4)
 **Mode**: Strict TDD (RED → GREEN → REFACTOR)
 **Delivery**: single PR with `size:exception` on branch `feat/analytics-event-driven`
 **Date**: 2026-06-17
@@ -97,6 +97,13 @@
 - [x] 6.9 `IoBuild.Analytics/Program.cs` — removed `AddHttpClient<IDevicesContextFacade>` and `AddHttpClient<IProjectsContextFacade>`; added `AddAnalyticsEventConsumer`
 - [x] 6.10 `dotnet test` → 9/9 IoBuild.Analytics.Tests PASS
 
+### Batch 4 — Phase 8 (docker-compose RabbitMQ wiring) — NEW
+- [x] 8.1 `rabbitmq` service added to `docker-compose.yml`: `rabbitmq:4-management`, container `iobuild-rabbitmq`, ports 5672+15672, env `RABBITMQ_DEFAULT_USER/PASS` with `${RABBITMQ_USER:-iobuild}` defaults, healthcheck `rabbitmq-diagnostics -q ping`, `restart: unless-stopped`, `networks: iobuild-network`
+- [x] 8.2 `docker-compose.override.yml` — rabbitmq stanza added (ports 5672 + 15672 explicit for local dev, comment for management UI URL)
+- [x] 8.3 `docker-compose.prod.yml` — rabbitmq service added; management port 15672 NOT published externally; credentials from `${RABBITMQ_USER}` / `${RABBITMQ_PASS}` with NO defaults (real secrets required in prod)
+- [x] 8.4 `RabbitMq__ConnectionString=amqp://${RABBITMQ_USER:-iobuild}:${RABBITMQ_PASS:-iobuild}@rabbitmq:5672/` injected into `devices`, `projects`, `analytics` in `docker-compose.yml`; same (without defaults) in `docker-compose.prod.yml`; `depends_on: rabbitmq: { condition: service_healthy }` added to all three services in both files
+- [x] Config key confirmed: C# reads `RabbitMq:ConnectionString` → env var `RabbitMq__ConnectionString`. Exact match in `DomainEventPublishingExtensions.cs:36` and `AnalyticsEventConsumer.cs:54`
+
 ### Batch 3 — Phase 7 (AnalyticsQueryService rewrite)
 - [x] 7.1 `AnalyticsQueryService.Handle(GetBuilderDashboard)`: builder device count via join on project_projection; active projects, units, occupancy rate (divide-by-zero safe), DevicesByType from projections only
 - [x] 7.2 `AnalyticsQueryService.Handle(GetOwnerDashboard)`: owner devices by `owner_user_id`; `MyUnitsCount` from unit_projection; `MyUnitsDetails` with project name join
@@ -189,6 +196,15 @@
 | `microservices/src/IoBuild.Projects/Program.cs` | Modified (outbox repo + publisher + worker registration) |
 | `openspec/changes/analytics-event-driven/tasks.md` | Updated (tasks 4.x and 5.x marked `[x]`) |
 
+### Batch 4
+
+| File | Action |
+|------|--------|
+| `microservices/docker-compose.yml` | Modified — added `rabbitmq` service; added `RabbitMq__ConnectionString` + `depends_on: rabbitmq` to devices/projects/analytics |
+| `microservices/docker-compose.override.yml` | Modified — added `rabbitmq` ports stanza for local dev |
+| `microservices/docker-compose.prod.yml` | Modified — added `rabbitmq` service (management port not published); added `RabbitMq__ConnectionString` + `depends_on: rabbitmq` to devices/projects/analytics |
+| `openspec/changes/analytics-event-driven/tasks.md` | Updated (tasks 8.1–8.4 marked `[x]`) |
+
 ### Batch 3
 
 | File | Action |
@@ -250,6 +266,19 @@ dotnet test  microservices/IoBuild.sln → ALL PASS
   TOTAL: 79/79
 ```
 
+### Batch 4
+```
+dotnet build microservices/IoBuild.sln --no-restore → SUCCESS (0 errors, 46 pre-existing warnings only — no new warnings)
+dotnet test  microservices/IoBuild.sln --no-build   → ALL PASS
+  IoBuild.Shared.Tests:       19/19
+  IoBuild.Devices.Tests:      34/34
+  IoBuild.IAM.Tests:           3/3
+  IoBuild.Projects.Tests:      6/6
+  IoBuild.Subscriptions.Tests: 8/8
+  IoBuild.Analytics.Tests:     9/9
+  TOTAL: 79/79  (no regressions — only compose YAML changed, zero C# touched)
+```
+
 ---
 
 ## Deviations from Design
@@ -271,7 +300,7 @@ dotnet test  microservices/IoBuild.sln → ALL PASS
 ## Remaining Tasks (Batches 4–5)
 
 ### Batch 4 — docker-compose + RabbitMQ service
-- [ ] 8.1–8.4 RabbitMQ in compose files (all three compose variants; env vars + depends_on for Devices, Projects, Analytics)
+- [x] 8.1–8.4 RabbitMQ in compose files (all three compose variants; env vars + depends_on for Devices, Projects, Analytics)
 
 ### Batch 5 — Cleanup + final verification
 - [ ] 9.1 Remove (or comment) ACL facade DI registration from Analytics `Program.cs` *(already done in batch 3)*
