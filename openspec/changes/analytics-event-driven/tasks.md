@@ -56,30 +56,30 @@ Chain strategy: pending
 
 ## Phase 4 — Implementation: IoBuild.Devices outbox [REQ-DE-02, REQ-DE-03, ADR-8b]
 
-- [ ] 4.1 Add `RabbitMQ.Client 7.0.0` to `IoBuild.Devices.csproj`. (ADR-10)
-- [ ] 4.2 Copy `OutboxMessage` entity from Subscriptions + add `EventId` (Guid) field. → `IoBuild.Devices/Domain/Model/Entities/OutboxMessage.cs` (ADR-8b)
-- [ ] 4.3 Copy `IOutboxMessageRepository` and `OutboxMessageRepository` from Subscriptions, change DbContext type to `DevicesDbContext`. → `IoBuild.Devices/Domain/Repositories/IOutboxMessageRepository.cs` + `IoBuild.Devices/Infrastructure/Persistence/EFC/Repositories/OutboxMessageRepository.cs` (ADR-8b)
-- [ ] 4.4 Add `DbSet<OutboxMessage> OutboxMessages` to `DevicesDbContext` + EF config block (ADR-8b columns + `(Status, CreatedAt)` index). → `IoBuild.Devices/Infrastructure/Persistence/EFC/DevicesDbContext.cs`
-- [ ] 4.5 Generate EF migration `AddOutboxMessages` for `iobuild_devices`. → `IoBuild.Devices/Infrastructure/Persistence/EFC/Migrations/`
-- [ ] 4.6 Modify `DeviceCommandService.Handle(Create)`: build `DeviceCreatedEvent`, serialize to JSON, `outboxRepo.AddAsync(new OutboxMessage(...){ EventId })`, keep single `SaveChangesAsync()`. (REQ-DE-02, DE-S01)
-- [ ] 4.7 Modify `DeviceCommandService.Handle(Update)`: same pattern → `DeviceUpdatedEvent`. (REQ-DE-02)
-- [ ] 4.8 Modify `DeviceCommandService.Handle(Delete)`: same pattern → `DeviceDeletedEvent`. (REQ-DE-02, DE-S06)
-- [ ] 4.9 Create `OutboxWorker : BackgroundService` mirroring `Subscriptions/Workers/OutboxWorker.cs` + adds `IDomainEventPublisher` publish call + Polly wrapping; `RetryCount++` on failure. → `IoBuild.Devices/Workers/OutboxWorker.cs` (REQ-DE-03, REQ-DE-06)
-- [ ] 4.10 Register in `IoBuild.Devices/Program.cs`: `AddScoped<IOutboxMessageRepository, OutboxMessageRepository>()`, `AddDomainEventPublishing(...)`, `AddHostedService<OutboxWorker>()`. (ADR-8)
-- [ ] 4.11 **[GREEN]** Run `dotnet test` — Phase 1 tests 1.2 and 1.3 MUST pass now.
+- [x] 4.1 Add `RabbitMQ.Client 7.0.0` to `IoBuild.Devices.csproj`. (ADR-10)
+- [x] 4.2 Copy `OutboxMessage` entity from Subscriptions + add `EventId` (Guid) field. → `IoBuild.Devices/Domain/Model/Entities/OutboxMessage.cs` (ADR-8b)
+- [x] 4.3 Copy `IOutboxMessageRepository` and `OutboxMessageRepository` from Subscriptions, change DbContext type to `DevicesDbContext`. → `IoBuild.Devices/Domain/Repositories/IOutboxMessageRepository.cs` + `IoBuild.Devices/Infrastructure/Persistence/EFC/Repositories/OutboxMessageRepository.cs` (ADR-8b)
+- [x] 4.4 Add `DbSet<OutboxMessage> OutboxMessages` to `DevicesDbContext` + EF config block (ADR-8b columns + `(Status, CreatedAt)` index). → `IoBuild.Devices/Infrastructure/Persistence/EFC/DevicesDbContext.cs`
+- [ ] 4.5 Generate EF migration `AddOutboxMessages` for `iobuild_devices`. → `IoBuild.Devices/Infrastructure/Persistence/EFC/Migrations/` *(deferred — project uses EnsureCreated; table created on first run)*
+- [x] 4.6 Modify `DeviceCommandService.Handle(Create)`: build `DeviceCreatedEvent`, serialize to JSON, `outboxRepo.AddAsync(new OutboxMessage(...){ EventId })`, keep single `SaveChangesAsync()`. (REQ-DE-02, DE-S01)
+- [x] 4.7 Modify `DeviceCommandService.Handle(Update)`: same pattern → `DeviceUpdatedEvent`. (REQ-DE-02)
+- [x] 4.8 Modify `DeviceCommandService.Handle(Delete)`: same pattern → `DeviceDeletedEvent`. (REQ-DE-02, DE-S06)
+- [x] 4.9 Create `OutboxWorker : BackgroundService` mirroring `Subscriptions/Workers/OutboxWorker.cs` + adds `IDomainEventPublisher` publish call + Polly wrapping; `RetryCount++` on failure. → `IoBuild.Devices/Workers/OutboxWorker.cs` (REQ-DE-03, REQ-DE-06)
+- [x] 4.10 Register in `IoBuild.Devices/Program.cs`: `AddScoped<IOutboxMessageRepository, OutboxMessageRepository>()`, `AddDomainEventPublishing(...)`, `AddHostedService<OutboxWorker>()`. (ADR-8)
+- [x] 4.11 **[GREEN]** Run `dotnet test` — Phase 1 tests 1.2 and 1.3 MUST pass now.
 
 ## Phase 5 — Implementation: IoBuild.Projects outbox [REQ-DE-02, REQ-DE-03, DE-S07]
 
-- [ ] 5.1 Add `RabbitMQ.Client 7.0.0` to `IoBuild.Projects.csproj`. (ADR-10)
-- [ ] 5.2 Copy `OutboxMessage` entity (same as Devices + `EventId`). → `IoBuild.Projects/Domain/Model/Entities/OutboxMessage.cs`
-- [ ] 5.3 Copy `IOutboxMessageRepository` + `OutboxMessageRepository` changing DbContext type. → `IoBuild.Projects/Domain/Repositories/` + `IoBuild.Projects/Infrastructure/Persistence/EFC/Repositories/`
-- [ ] 5.4 Add `DbSet<OutboxMessage>` + EF config to `ProjectsDbContext`.
-- [ ] 5.5 Generate EF migration `AddOutboxMessages` for `iobuild_projects`. → `IoBuild.Projects/Infrastructure/Persistence/EFC/Migrations/`
-- [ ] 5.6 Modify `ProjectCommandService.Handle(Create)`: `ProjectCreatedEvent` → outbox row in same `IUnitOfWork.CompleteAsync()`. (REQ-DE-02, DE-S07)
-- [ ] 5.7 Modify `ProjectCommandService.Handle(Update)`: `ProjectUpdatedEvent` → outbox row. (REQ-DE-02)
-- [ ] 5.8 Modify `UnitCommandService.Handle(Create)`: `UnitCreatedEvent` → outbox row in same `CompleteAsync()`. (REQ-DE-02, DE-S07)
-- [ ] 5.9 Create `OutboxWorker : BackgroundService` mirroring Devices worker. → `IoBuild.Projects/Workers/OutboxWorker.cs` (REQ-DE-03)
-- [ ] 5.10 Register in `IoBuild.Projects/Program.cs`: outbox repo, publisher extension, `AddHostedService<OutboxWorker>()`. (ADR-8)
+- [x] 5.1 Add `RabbitMQ.Client 7.0.0` and `Polly 8.5.2` to `IoBuild.Projects.csproj`. (ADR-10)
+- [x] 5.2 Copy `OutboxMessage` entity (same as Devices + `EventId`). → `IoBuild.Projects/Domain/Model/Entities/OutboxMessage.cs`
+- [x] 5.3 Copy `IOutboxMessageRepository` + `OutboxMessageRepository` changing DbContext type. → `IoBuild.Projects/Domain/Repositories/IOutboxMessageRepository.cs` + `IoBuild.Projects/Infrastructure/Repositories/OutboxMessageRepository.cs`
+- [x] 5.4 Add `DbSet<OutboxMessage>` + EF config to `AppDbContext` (Projects uses `AppDbContext`, not a named ProjectsDbContext).
+- [ ] 5.5 Generate EF migration `AddOutboxMessages` for `iobuild_projects`. *(deferred — Projects uses EnsureCreated; table created on first run)*
+- [x] 5.6 Modify `ProjectCommandService.Handle(Create)`: `ProjectCreatedEvent` → outbox row in same `IUnitOfWork.CompleteAsync()`. (REQ-DE-02, DE-S07)
+- [x] 5.7 Modify `ProjectCommandService.Handle(Update)`: `ProjectUpdatedEvent` → outbox row. (REQ-DE-02)
+- [x] 5.8 Modify `UnitCommandService.Handle(Create)`: `UnitCreatedEvent` → outbox row in same `CompleteAsync()`. (REQ-DE-02, DE-S07)
+- [x] 5.9 Create `OutboxWorker : BackgroundService` mirroring Devices worker. → `IoBuild.Projects/Workers/OutboxWorker.cs` (REQ-DE-03)
+- [x] 5.10 Register in `IoBuild.Projects/Program.cs`: outbox repo, publisher extension, `AddHostedService<OutboxWorker>()`. (ADR-8)
 
 ## Phase 6 — Implementation: IoBuild.Analytics projections + consumer [REQ-RM-01, REQ-RM-02, REQ-RM-03]
 

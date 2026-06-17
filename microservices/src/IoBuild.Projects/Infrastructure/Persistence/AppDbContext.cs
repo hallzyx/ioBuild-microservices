@@ -1,4 +1,5 @@
 using IoBuild.Projects.Domain.Model.Aggregates;
+using IoBuild.Projects.Domain.Model.Entities;
 using IoBuild.Projects.Infrastructure.Persistence.EFC.Configuration.Seed;
 using IoBuild.Shared.Domain.Repositories;
 using IoBuild.Shared.Infrastructure.EFC.Extensions;
@@ -11,6 +12,7 @@ public class AppDbContext : DbContext, IUnitOfWork
     public DbSet<Project> Projects { get; set; }
     public DbSet<Unit> Units { get; set; }
     public DbSet<Client> Clients { get; set; }
+    public DbSet<OutboxMessage> OutboxMessages { get; set; }
 
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
     {
@@ -62,6 +64,18 @@ public class AppDbContext : DbContext, IUnitOfWork
             entity.HasOne<Project>()
                 .WithMany()
                 .HasForeignKey(c => c.ProjectId);
+        });
+
+        // Outbox messages (ADR-8b) — mirrors Devices schema + EventId for tracing
+        modelBuilder.Entity<OutboxMessage>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.EventType).HasMaxLength(100).IsRequired();
+            entity.Property(e => e.Payload).IsRequired().HasColumnType("longtext");
+            entity.Property(e => e.Status).HasMaxLength(20).HasDefaultValue("Pending");
+            entity.Property(e => e.EventId);
+            entity.Property(e => e.CreatedAt);
+            entity.HasIndex(e => new { e.Status, e.CreatedAt });
         });
 
         // Apply seed data AFTER entity configuration and naming conventions
