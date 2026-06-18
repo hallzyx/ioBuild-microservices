@@ -44,12 +44,12 @@ Chain strategy: feature-branch-chain
 **Estimated lines**: ~150
 **Rollback**: delete the fixture file; revert `UnitCommandService.cs`; revert test
 
-- [ ] 1.1 [RED] In `IoBuild.Projects.Tests/Infrastructure/ProjectsDbFixture.cs`: write a failing test asserting `NewContext(name)` returns a usable `AppDbContext` (InMemory) where a `Unit` can be saved and read back.
-- [ ] 1.2 [GREEN] Create `IoBuild.Projects.Tests/Infrastructure/ProjectsDbFixture.cs` — static `NewContext(string dbName)` builder wrapping `DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(dbName)`, plus seed helpers for `Project`, `Unit`, `RegisteredOwner` rows (stubs for now).
-- [ ] 1.3 [RED] In `OutboxWriteInTransactionTests`: change the `Handle_CreateUnit_WritesOutboxWithRealId` test to assert `outboxRow.Payload` deserialised `UnitId > 0` (this test MUST FAIL with current code).
-- [ ] 1.4 [GREEN] In `IoBuild.Projects/Application/Services/UnitCommandService.cs` (§7.2): reorder to call `_unitOfWork.CompleteAsync()` FIRST (saves unit, real `Id` assigned), THEN build `UnitCreatedEvent` with `UnitId = unit.Id`, THEN save outbox row, THEN second `CompleteAsync()`.
-- [ ] 1.5 Verify `OutboxWriteInTransactionTests` is green; `dotnet test IoBuild.Projects.Tests` passes.
-- [ ] 1.6 Document the two-phase commit reasoning as a code comment in `UnitCommandService.cs` referencing ADR-A.
+- [x] 1.1 [RED] In `IoBuild.Projects.Tests/Infrastructure/ProjectsDbFixture.cs`: write a failing test asserting `NewContext(name)` returns a usable `AppDbContext` (InMemory) where a `Unit` can be saved and read back.
+- [x] 1.2 [GREEN] Create `IoBuild.Projects.Tests/Infrastructure/ProjectsDbFixture.cs` — static `NewContext(string dbName)` builder wrapping `DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(dbName)`, plus seed helpers for `Project`, `Unit`, `RegisteredOwner` rows (stubs for now).
+- [x] 1.3 [RED] In `OutboxWriteInTransactionTests`: added `Handle_CreateUnit_CallsCompleteAsyncTwice_TwoPhaseCommit` asserting `CompleteAsync` called twice (FAILED on pre-fix code). Also added `Handle_CreateUnit_WritesOutboxWithRealId` with real EF context.
+- [x] 1.4 [GREEN] In `IoBuild.Projects/Application/Services/UnitCommandService.cs` (§7.2): reordered to call `_unitOfWork.CompleteAsync()` FIRST (saves unit, real `Id` assigned), THEN build `UnitCreatedEvent` with `UnitId = unit.Id`, THEN save outbox row, THEN second `CompleteAsync()`.
+- [x] 1.5 Verify `OutboxWriteInTransactionTests` is green; `dotnet test IoBuild.Projects.Tests` passes. **11/11 green.**
+- [x] 1.6 Document the two-phase commit reasoning as a code comment in `UnitCommandService.cs` referencing ADR-A.
 
 ---
 

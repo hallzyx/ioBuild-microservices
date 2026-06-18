@@ -37,16 +37,35 @@ public class UnitCommandService : IUnitCommandService
 
         await _repository.AddAsync(unit);
 
+        // ADR-A — Two-phase commit to fix the unit.Id == 0 bug.
+        //
+        // Phase 1: persist the Unit aggregate so the database assigns its real
+        // identity (auto-increment PK). On MySQL/Pomelo the Id property is 0
+        // until SaveChanges executes the INSERT and returns the generated key.
+        // Building UnitCreatedEvent before this commit would ship UnitId = 0,
+        // corrupting the Analytics UnitProjection PK (the original bug).
+        //
+        // Phase 2: with the real Id in hand, build UnitCreatedEvent and persist
+        // the outbox row. A second CompleteAsync commits only the outbox row.
+        //
+        // Trade-off: if the process crashes between the two commits, the Unit
+        // exists without its outbox event. The existing idempotent OutboxBackfill
+        // (Projects/Infrastructure/Persistence/EFC/Configuration/Seed/) re-emits
+        // missing events on next startup, so at-least-once delivery is preserved.
+        // This is consistent with the Devices and IAM patterns (ADR-A).
+
+        await _unitOfWork.CompleteAsync(); // Phase 1 — unit.Id is now real
+
         // Resolve BuilderUserId from the parent Project (Unit has no BuilderUserId directly).
-        // If the parent project is not found (defensive guard), BuilderUserId is set to 0
-        // and the Analytics read model can resolve it via project_id → project_projection.builder_user_id.
+        // If the parent project is not found (defensive guard), BuilderUserId defaults to 0
+        // and Analytics can resolve it via project_id → project_projection.builder_user_id.
         var parentProject = await _projectRepository.FindByIdAsync(command.ProjectId);
         var builderUserId = parentProject?.BuilderId ?? 0;
 
-        // Build and serialize the domain event for the outbox (ADR-8, REQ-DE-02, DE-S07)
+        // Build the domain event AFTER Phase 1 so UnitId carries the real identity (ADR-A).
         var evt = new UnitCreatedEvent
         {
-            UnitId = unit.Id,
+            UnitId = unit.Id,          // real DB-assigned id
             ProjectId = unit.ProjectId,
             BuilderUserId = builderUserId,
             OwnerUserId = unit.OwnerId,
@@ -61,8 +80,8 @@ public class UnitCommandService : IUnitCommandService
 
         await _outboxRepository.AddAsync(outboxMessage);
 
-        // Single CompleteAsync covers BOTH the unit row and the outbox row (REQ-DE-02)
-        await _unitOfWork.CompleteAsync();
+        await _unitOfWork.CompleteAsync(); // Phase 2 — outbox row committed (REQ-DE-02)
+
         return unit.Id;
     }
 }
