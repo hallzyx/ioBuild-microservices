@@ -23,4 +23,11 @@
     <ProjectReference Include="..\IoBuild.Shared\IoBuild.Shared.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Expose internal constructors (test seam) to the Projects test project (§9.3) -->
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>IoBuild.Projects.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
 </Project>

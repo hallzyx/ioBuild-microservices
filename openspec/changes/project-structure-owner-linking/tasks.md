@@ -126,17 +126,17 @@ Chain strategy: feature-branch-chain
 **Estimated lines**: ~250
 **Rollback**: remove consumer file and extension; revert `OutboxWorker.EventTypeMap`; revert `Program.cs`
 
-- [ ] 5.1 [RED] Write `OwnerLinkingConsumerTests` (uses internal constructor with direct `AppDbContext`, mirrors `AnalyticsEventConsumer` test seam — §9.3):
+- [x] 5.1 [RED] Write `OwnerLinkingConsumerTests` (uses internal constructor with direct `AppDbContext`, mirrors `AnalyticsEventConsumer` test seam — §9.3):
   - OL-S01: unit-first — existing unit with `OwnerEmail="alice@test.com"`, `OwnerId=null`; process `UserRegisteredEvent{UserId:42,Email:"alice@test.com",Role:"Owner"}` → `OwnerId=42`, one `UnitOwnerMatchedEvent` outbox row.
   - OL-S02: registration-first — `registered_owner` row exists for email; no unit matches on event, but the row is upserted/confirmed (§3.3 inline path is the primary handler; consumer covers the async path).
   - OL-S03: case-insensitive — `OwnerEmail="Carol@Test.COM"`, event `email="carol@test.com"` → matches.
   - OL-S04: non-owner role Builder → no mutation, message acked.
   - OL-S05: redelivery with `OwnerId` already set → no overwrite, no duplicate event, acked.
-- [ ] 5.2 [GREEN] Add `IoBuild.Projects/Infrastructure/Messaging/OwnerLinkingConsumer.cs` (§3.1–3.2): `BackgroundService`, topology `projects.owner-linking / iam.user.#`; handle `UserRegisteredEvent`; upsert `registered_owner` (only for `role=="owner"`); query `Units` by lower-cased email where `OwnerId==null`; call `unit.LinkOwner()`; write `UnitOwnerMatchedEvent` outbox per matched unit; single `CompleteAsync`; transient/poison nack handling.
-- [ ] 5.3 [GREEN] Add `IoBuild.Projects/Infrastructure/Messaging/OwnerLinkingConsumerExtensions.cs`: `AddOwnerLinkingConsumer()` extension method.
-- [ ] 5.4 [GREEN] Update `IoBuild.Projects/Workers/OutboxWorker.cs` `EventTypeMap`: add `FloorStructureDefinedEvent` and `UnitOwnerMatchedEvent` entries.
-- [ ] 5.5 [GREEN] Update `IoBuild.Projects/Program.cs`: call `AddOwnerLinkingConsumer()`.
-- [ ] 5.6 Verify all OL scenario tests are green; `dotnet test IoBuild.Projects.Tests`.
+- [x] 5.2 [GREEN] Add `IoBuild.Projects/Infrastructure/Messaging/OwnerLinkingConsumer.cs` (§3.1–3.2): `BackgroundService`, topology `projects.owner-linking / iam.user.#`; handle `UserRegisteredEvent`; upsert `registered_owner` (only for `role=="owner"`); query `Units` by lower-cased email where `OwnerId==null`; call `unit.LinkOwner()`; write `UnitOwnerMatchedEvent` outbox per matched unit; single `CompleteAsync`; transient/poison nack handling.
+- [x] 5.3 [GREEN] Add `IoBuild.Projects/Infrastructure/Messaging/OwnerLinkingConsumerExtensions.cs`: `AddOwnerLinkingConsumer()` extension method.
+- [x] 5.4 [GREEN] `IoBuild.Projects/Workers/OutboxWorker.cs` `EventTypeMap`: `FloorStructureDefinedEvent` and `UnitOwnerMatchedEvent` were already added in PR3 (Task 3.10). No change needed.
+- [x] 5.5 [GREEN] Update `IoBuild.Projects/Program.cs`: call `AddOwnerLinkingConsumer()`. Also added `using IoBuild.Projects.Infrastructure.Messaging`. Added `InternalsVisibleTo("IoBuild.Projects.Tests")` to `.csproj` (required for `internal` test constructor seam).
+- [x] 5.6 Verify all OL scenario tests are green; `dotnet test IoBuild.Projects.Tests`. **33/33 green** (28 PR1–PR3 + 5 OL scenarios).
 
 ---
 

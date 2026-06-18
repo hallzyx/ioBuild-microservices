@@ -2,6 +2,7 @@ using IoBuild.Projects.Application.Services;
 using IoBuild.Projects.Infrastructure.Persistence;
 using IoBuild.Projects.Domain.Repositories;
 using IoBuild.Projects.Domain.Services;
+using IoBuild.Projects.Infrastructure.Messaging;
 using IoBuild.Projects.Infrastructure.Persistence;
 using IoBuild.Projects.Infrastructure.Repositories;
 using IoBuild.Projects.Workers;
@@ -91,6 +92,9 @@ builder.Services.AddDomainEventPublishing(builder.Configuration);
 
 // ── OutboxWorker: polls pending outbox rows and publishes to RabbitMQ (ADR-2) ──
 builder.Services.AddHostedService<OutboxWorker>();
+
+// ── PR 5 — OwnerLinkingConsumer: subscribes to iam.user.# and backfills Unit.OwnerId (REQ-OL-02) ──
+builder.Services.AddOwnerLinkingConsumer(builder.Configuration);
 
 builder.Services.AddCors(options =>
 {

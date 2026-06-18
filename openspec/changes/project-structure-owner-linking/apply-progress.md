@@ -1,7 +1,7 @@
 # Apply Progress: project-structure-owner-linking
 
-> Last slice completed: **PR 4 — IAM Outbox + UserRegisteredEvent**
-> Branch (PR4): `feat/psol/pr4-iam-outbox`
+> Last slice completed: **PR 5 — Projects Owner-Linking Consumer**
+> Branch (PR5): `feat/psol/pr5-owner-consumer`
 > Last updated: 2026-06-18
 
 ## PR 1 Tasks — Status
@@ -229,3 +229,53 @@ IoBuild.IAM.Tests.dll (net9.0)
 dotnet build IoBuild.IAM: 0 Errores, 0 Advertencias.
 Migration filename: 20260618181433_AddOutbox.cs
 docker compose config -q: no output (valid YAML).
+
+---
+
+# PR 5 — Projects Owner-Linking Consumer
+
+> PR slice: **PR 5 — Projects Owner-Linking Consumer**
+> Branch: `feat/psol/pr5-owner-consumer`
+> Last updated: 2026-06-18
+
+## PR 5 Tasks — Status
+
+- [x] 5.1 [RED] `OwnerLinkingConsumerTests` written with 5 test cases covering all OL scenarios. Build failed (CS0234: namespace `Messaging` not found — correct RED). File: `tests/IoBuild.Projects.Tests/Application/OwnerLinkingConsumerTests.cs`
+- [x] 5.2 [GREEN] `OwnerLinkingConsumer.cs` created: `BackgroundService`, topology `projects.owner-linking / iam.user.#` on exchange `iobuild.domain.events`; `UserRegisteredEvent` handler upserts `registered_owner` mirror (LWW) then queries `Units` by lower-cased email where `OwnerId==null`; `unit.LinkOwner()` + `UnitOwnerMatchedEvent` outbox per match; single `CompleteAsync`; non-owner role skipped; transient/poison nack; internal test-seam constructor (mirrors `AnalyticsEventConsumer` pattern exactly). File: `src/IoBuild.Projects/Infrastructure/Messaging/OwnerLinkingConsumer.cs`
+- [x] 5.3 [GREEN] `OwnerLinkingConsumerExtensions.cs` created: `AddOwnerLinkingConsumer()` extension. File: `src/IoBuild.Projects/Infrastructure/Messaging/OwnerLinkingConsumerExtensions.cs`
+- [x] 5.4 [GREEN] `OutboxWorker.EventTypeMap` already contained `FloorStructureDefinedEvent` and `UnitOwnerMatchedEvent` (added in PR3, Task 3.10). No change needed.
+- [x] 5.5 [GREEN] `Program.cs` updated: added `using IoBuild.Projects.Infrastructure.Messaging`; called `AddOwnerLinkingConsumer(builder.Configuration)`. `IoBuild.Projects.csproj` updated: added `InternalsVisibleTo("IoBuild.Projects.Tests")` so the `internal` test-seam constructor is accessible from the test project. Files: `src/IoBuild.Projects/Program.cs`, `src/IoBuild.Projects/IoBuild.Projects.csproj`
+- [x] 5.6 **33/33 green**. `dotnet build IoBuild.Projects`: 0 Errors, 40 pre-existing Warnings (resource nullable CS8618 — unchanged from prior PRs).
+
+## Notes / Discoveries (PR 5)
+
+### InternalsVisibleTo required for test seam
+The `internal` constructor pattern used by `AnalyticsEventConsumer` requires an `InternalsVisibleTo` attribute in the production project's `.csproj` — without it, the test assembly cannot call `internal` constructors. This was missing in `IoBuild.Projects.csproj` (Analytics already had it). Added `InternalsVisibleTo("IoBuild.Projects.Tests")` as a `.csproj` `AssemblyAttribute` item (same format as Analytics uses).
+
+### OL-S02 consumer behavior vs. spec
+The spec describes OL-S02 as "registration-first" — i.e., the IAM user registers before the unit is email-assigned. The consumer's role in this scenario is to upsert the `registered_owner` mirror row so that `ProjectStructureCommandService`'s inline lookup (PR3) can find it. The consumer does NOT emit a `UnitOwnerMatchedEvent` in this case (no unit matches yet). The test asserts: mirror row created, outbox empty.
+
+### OutboxWorker.EventTypeMap — already complete from PR3
+PR3 (Task 3.10) updated the `EventTypeMap` to include `FloorStructureDefinedEvent` and `UnitOwnerMatchedEvent`. No change needed in PR5. Confirmed by reading the file before implementation.
+
+### EF InMemory ordinal string comparison (ADR-D)
+EF InMemory uses ordinal (case-sensitive) string comparison for `Where` filters. The ADR-D lower-casing convention ensures email comparisons work on both InMemory (tests) and MySQL CI collation (production). OL-S03 works correctly because both the stored `unit.OwnerEmail` (lower-cased via `Unit` ctor) and the event email (lower-cased by IAM publisher and further lowercased by `normalizedEmail`) are canonical lower-case strings.
+
+## Files Changed (PR 5)
+
+| File | Change |
+|---|---|
+| `tests/IoBuild.Projects.Tests/Application/OwnerLinkingConsumerTests.cs` | CREATED — 5 OL scenario tests (OL-S01..OL-S05) |
+| `src/IoBuild.Projects/Infrastructure/Messaging/OwnerLinkingConsumer.cs` | CREATED — BackgroundService consumer |
+| `src/IoBuild.Projects/Infrastructure/Messaging/OwnerLinkingConsumerExtensions.cs` | CREATED — DI extension method |
+| `src/IoBuild.Projects/Program.cs` | UPDATED — using + AddOwnerLinkingConsumer() call |
+| `src/IoBuild.Projects/IoBuild.Projects.csproj` | UPDATED — InternalsVisibleTo("IoBuild.Projects.Tests") |
+
+## Test Run Summary (PR 5 final)
+
+```
+Correctas! - Con error: 0, Superado: 33, Omitido: 0, Total: 33, Duración: 1s
+IoBuild.Projects.Tests.dll (net9.0)
+```
+
+dotnet build IoBuild.Projects: 0 Errores, 40 Advertencias (pre-existing CS8618 nullable resource warnings).
