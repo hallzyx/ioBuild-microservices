@@ -24,18 +24,23 @@ public class DeviceCommandService(
 
         await repository.AddAsync(device);
 
-        // Build and serialize the domain event for the outbox (ADR-8, REQ-DE-02)
+        // ADR-A two-phase commit — same pattern as UnitCommandService (§7.3):
+        //   Phase 1: persist the device → EF/MySQL assigns the real identity (device.Id is 0
+        //            until this call returns on a MySQL identity column).
+        await repository.SaveChangesAsync();
+
+        // Phase 2: build the domain event with the real device.Id, persist outbox row.
+        //   If the process crashes between the two SaveChanges calls, the device exists
+        //   without an outbox row. OutboxBackfill.RunAsync (run at startup) re-emits
+        //   DeviceCreatedEvent for any seeded/orphaned devices — the same safety net as Projects.
         var evt = new DeviceCreatedEvent
         {
-            // Note: Device.Id is 0 until SaveChanges assigns it (identity column).
-            // The OutboxWorker will have the correct Id in the payload after commit.
-            // OwnerUserId is not on the Device aggregate yet; mapped as 0.
-            // TODO (batch 2): map OwnerUserId once Device carries it.
-            DeviceId = device.Id,
+            DeviceId = device.Id,   // real Id after phase-1 commit
             OwnerUserId = 0,
             ProjectId = device.ProjectId,
             DeviceType = device.Type,
-            Status = device.Status
+            Status = device.Status,
+            FloorNumber = device.FloorNumber
         };
 
         var payload = JsonSerializer.Serialize(evt);
@@ -45,8 +50,6 @@ public class DeviceCommandService(
         };
 
         await outboxRepository.AddAsync(outboxMessage);
-
-        // Single SaveChanges covers BOTH the device row and the outbox row (REQ-DE-02)
         await repository.SaveChangesAsync();
 
         return device;

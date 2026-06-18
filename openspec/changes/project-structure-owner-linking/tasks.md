@@ -148,20 +148,20 @@ Chain strategy: feature-branch-chain
 **Estimated lines**: ~300
 **Rollback**: `dotnet ef migrations remove -p IoBuild.Devices`; revert consumer, aggregate, command service
 
-- [ ] 6.1 [RED] Write `DeviceCommandServiceOutboxTests` (EF-InMemory): after `Handle(CreateDeviceCommand)`, `DeviceCreatedEvent` payload `DeviceId > 0`.
-- [ ] 6.2 [GREEN] Fix `IoBuild.Devices/Application/Services/DeviceCommandService.cs` (§7.3): apply same two-phase commit as `UnitCommandService` — `SaveChangesAsync` first, then build `DeviceCreatedEvent` with real `device.Id`.
-- [ ] 6.3 [RED] Write `FloorProvisioningConsumerTests` (SQLite-in-memory for unique constraint — §9.2):
+- [x] 6.1 [RED] Write `DeviceCommandServiceOutboxTests` (EF-InMemory): after `Handle(CreateDeviceCommand)`, `DeviceCreatedEvent` payload `DeviceId > 0`.
+- [x] 6.2 [GREEN] Fix `IoBuild.Devices/Application/Services/DeviceCommandService.cs` (§7.3): apply same two-phase commit as `UnitCommandService` — `SaveChangesAsync` first, then build `DeviceCreatedEvent` with real `device.Id`.
+- [x] 6.3 [RED] Write `FloorProvisioningConsumerTests` (SQLite-in-memory for unique constraint — §9.2):
   - FD-S01: `FloorStructureDefinedEvent{ProjectId:P,Floor:2}` → exactly 3 devices created, `FloorNumber=2`, `Location="Floor 2"`, 3 outbox rows.
   - FD-S02: 3 events for floors 1–3 → 9 devices total.
   - FD-S03: redelivery → no duplicates (unique constraint enforced; pre-check guard path).
   - FD-S04: each `DeviceCreatedEvent` payload has `FloorNumber` equal to event `Floor`.
-- [ ] 6.4 [GREEN] Update `IoBuild.Devices/Domain/Model/Aggregates/Device.cs` (§4.4): add `FloorNumber:int?` and `UnitId:int?` properties; extend ctor to accept them (nullable, default null).
-- [ ] 6.5 [GREEN] Update EF config for `Device` (§4.4): map `FloorNumber` and `UnitId` as nullable; add unique index `(ProjectId, FloorNumber, Type)`.
-- [ ] 6.6 Run `dotnet ef migrations add AddDeviceFloorPlacement -p IoBuild.Devices`; verify additive columns + unique index.
-- [ ] 6.7 [GREEN] Add `IoBuild.Devices/Domain/Constants/FloorDeviceDefaults.cs` (§4.2): static `Defaults` list with SmartMeter, WaterSensor, SmokeDetector.
-- [ ] 6.8 [GREEN] Add `IoBuild.Devices/Infrastructure/Messaging/FloorProvisioningConsumer.cs` (§4.1–4.3): `BackgroundService`, topology `devices.provisioning / project.floor.defined`; idempotency pre-check `ExistsByProjectFloorType`; create 3 `Device` rows with `FloorNumber`; two-phase commit (devices, then outbox rows with `DeviceCreatedEvent.FloorNumber` set); catch unique-constraint `DbUpdateException` → ack as already-provisioned; transient/poison nack.
-- [ ] 6.9 [GREEN] Register `FloorProvisioningConsumer` in `IoBuild.Devices/Program.cs`.
-- [ ] 6.10 Verify all FD scenario tests and device command service fix tests are green; `dotnet build IoBuild.Devices` zero errors.
+- [x] 6.4 [GREEN] Update `IoBuild.Devices/Domain/Model/Aggregates/Device.cs` (§4.4): add `FloorNumber:int?` and `UnitId:int?` properties; extend ctor to accept them (nullable, default null).
+- [x] 6.5 [GREEN] Update EF config for `Device` (§4.4): map `FloorNumber` and `UnitId` as nullable; add unique index `(ProjectId, FloorNumber, Type)`.
+- [x] 6.6 Run `dotnet ef migrations add AddDeviceFloorPlacement -p IoBuild.Devices`; verify additive columns + unique index. Migration: `20260618183750_AddDeviceFloorPlacement.cs`.
+- [x] 6.7 [GREEN] Add `IoBuild.Devices/Domain/Constants/FloorDeviceDefaults.cs` (§4.2): static `Defaults` list with SmartMeter, WaterSensor, SmokeDetector.
+- [x] 6.8 [GREEN] Add `IoBuild.Devices/Infrastructure/Messaging/FloorProvisioningConsumer.cs` (§4.1–4.3): `BackgroundService`, topology `devices.provisioning / project.floor.defined`; idempotency pre-check `ExistsByProjectFloorType`; create 3 `Device` rows with `FloorNumber`; two-phase commit (devices, then outbox rows with `DeviceCreatedEvent.FloorNumber` set); catch unique-constraint `DbUpdateException` → ack as already-provisioned; transient/poison nack.
+- [x] 6.9 [GREEN] Register `FloorProvisioningConsumer` in `IoBuild.Devices/Program.cs`.
+- [x] 6.10 Verify all FD scenario tests and device command service fix tests are green; `dotnet build IoBuild.Devices` zero errors. **45/45 green.**
 
 ---
 

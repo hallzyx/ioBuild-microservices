@@ -46,4 +46,10 @@ public class DeviceRepository(DevicesDbContext context) : IDeviceRepository
     {
         await context.SaveChangesAsync();
     }
+
+    public async Task<bool> ExistsByProjectFloorTypeAsync(int projectId, int floorNumber, string type)
+    {
+        return await context.Devices.AnyAsync(
+            d => d.ProjectId == projectId && d.FloorNumber == floorNumber && d.Type == type);
+    }
 }

@@ -56,9 +56,12 @@ public class OutboxWriteInTransactionTests
     }
 
     [Fact]
-    public async Task HandleCreate_SaveChangesCalledOnce_CoveringBothRows()
+    public async Task HandleCreate_SaveChangesCalledTwice_TwoPhaseCommit()
     {
         // Arrange
+        // NOTE: Updated from "Times.Once" to "Times.Exactly(2)" as part of the ADR-A two-phase
+        // commit fix (PR 6, §7.3). The old single-commit behavior shipped DeviceId=0 in the outbox
+        // payload. The fix persists the device first (real Id assigned), then persists the outbox row.
         var deviceRepo = new Mock<IDeviceRepository>();
         var outboxRepo = new Mock<IOutboxMessageRepository>();
 
@@ -72,8 +75,8 @@ public class OutboxWriteInTransactionTests
         // Act
         await service.Handle(command);
 
-        // Assert — exactly one SaveChanges covers both writes (single transaction)
-        deviceRepo.Verify(r => r.SaveChangesAsync(), Times.Once);
+        // Assert — two SaveChanges: (1) device row, (2) outbox row (ADR-A two-phase commit)
+        deviceRepo.Verify(r => r.SaveChangesAsync(), Times.Exactly(2));
     }
 
     [Fact]

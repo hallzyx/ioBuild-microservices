@@ -5,6 +5,7 @@ using IoBuild.Devices.Application.Internal.QueryServices;
 using IoBuild.Devices.Domain.Repositories;
 using IoBuild.Devices.Domain.Services;
 using IoBuild.Devices.Infrastructure.InfluxDB;
+using IoBuild.Devices.Infrastructure.Messaging;
 using IoBuild.Devices.Infrastructure.Mqtt;
 using IoBuild.Devices.Infrastructure.Persistence.EFC.DbContext;
 using IoBuild.Devices.Infrastructure.Persistence.EFC.Repositories;
@@ -94,6 +95,9 @@ builder.Services.AddDomainEventPublishing(builder.Configuration);
 
 // ── OutboxWorker: polls pending outbox rows and publishes to RabbitMQ (ADR-2) ──
 builder.Services.AddHostedService<OutboxWorker>();
+
+// ── FloorProvisioningConsumer: seeds default devices when a floor is defined (PR 6, §4.1) ──
+builder.Services.AddHostedService<FloorProvisioningConsumer>();
 
 builder.Services.AddCors(options =>
 {

@@ -1,7 +1,7 @@
 # Apply Progress: project-structure-owner-linking
 
-> Last slice completed: **PR 5 — Projects Owner-Linking Consumer**
-> Branch (PR5): `feat/psol/pr5-owner-consumer`
+> Last slice completed: **PR 6 — Devices Floor Provisioning**
+> Branch (PR6): `feat/psol/pr6-devices-provisioning`
 > Last updated: 2026-06-18
 
 ## PR 1 Tasks — Status
@@ -279,3 +279,76 @@ IoBuild.Projects.Tests.dll (net9.0)
 ```
 
 dotnet build IoBuild.Projects: 0 Errores, 40 Advertencias (pre-existing CS8618 nullable resource warnings).
+
+---
+
+# PR 6 — Devices Floor Provisioning
+
+> PR slice: **PR 6 — Devices Floor Provisioning**
+> Branch: `feat/psol/pr6-devices-provisioning`
+> Last updated: 2026-06-18
+
+## PR 6 Tasks — Status
+
+- [x] 6.1 [RED] `DeviceCommandServiceOutboxTests` written: 3 tests — (1) EF-InMemory: outbox payload DeviceId matches persisted device Id; (2) Moq: SaveChangesAsync called exactly twice (two-phase commit); (3) Moq: call order AddDevice → SaveChanges → AddOutbox → SaveChanges. Tests 2 and 3 failed on pre-fix single-commit code. File: `tests/IoBuild.Devices.Tests/Application/DeviceCommandServiceOutboxTests.cs`
+- [x] 6.2 [GREEN] `DeviceCommandService.Handle(CreateDeviceCommand)` fixed: two-phase commit applied — Phase 1: `SaveChangesAsync()` persists device (real Id assigned); Phase 2: build `DeviceCreatedEvent` with `device.Id` and `device.FloorNumber`, add outbox row, second `SaveChangesAsync()`. File: `src/IoBuild.Devices/Application/Internal/CommandServices/DeviceCommandService.cs`
+- [x] 6.3 [RED] `FloorProvisioningConsumerTests` written: 6 tests using SQLite-in-memory so unique constraint is enforced — FD-S01 (3 devices, FloorNumber=2, Location="Floor 2", 3 outbox rows), FD-S02 (9 devices for 3 floors), FD-S03 (redelivery no-op via pre-check), FD-S04 (each DeviceCreatedEvent payload FloorNumber=3), FloorDeviceDefaults constant test. File: `tests/IoBuild.Devices.Tests/Application/FloorProvisioningConsumerTests.cs`
+- [x] 6.4 [GREEN] `Device.cs` updated: added `FloorNumber:int?` and `UnitId:int?` private properties; two constructors — existing 6-arg (floor=null,unit=null defaults) and new 8-arg (accepts floorNumber, unitId). File: `src/IoBuild.Devices/Domain/Model/Aggregates/Device.cs`
+- [x] 6.5 [GREEN] `DevicesDbContext.OnModelCreating` updated: mapped `FloorNumber` and `UnitId` as nullable columns; added unique index `(ProjectId, FloorNumber, Type)` for idempotency guard (ADR-C). File: `src/IoBuild.Devices/Infrastructure/Persistence/EFC/DbContext/DevicesDbContext.cs`
+- [x] 6.6 Migration generated: `20260618183750_AddDeviceFloorPlacement.cs`. Confirms: `AddColumn<int> name: "floor_number" nullable: true` and `AddColumn<int> name: "unit_id" nullable: true` on `devices` table. Unique index `IX_devices_project_id_floor_number_type` created. Additive migration only. File: `src/IoBuild.Devices/Migrations/20260618183750_AddDeviceFloorPlacement.cs`
+- [x] 6.7 [GREEN] `FloorDeviceDefaults.cs` created: `Defaults` static readonly list with `("SmartMeter","Smart Meter")`, `("WaterSensor","Water Sensor")`, `("SmokeDetector","Smoke Detector")`. File: `src/IoBuild.Devices/Domain/Constants/FloorDeviceDefaults.cs`
+- [x] 6.8 [GREEN] `FloorProvisioningConsumer.cs` created: `BackgroundService`; topology `devices.provisioning / project.floor.defined` on `iobuild.domain.events` exchange; internal test-seam constructor (direct `DevicesDbContext`); `ProvisionFloorAsync` with idempotency pre-check (`AnyAsync` for first type), two-phase commit (Phase1: 3 Device rows, Phase2: 3 DeviceCreatedEvent outbox rows with `FloorNumber=evt.Floor`); `DbUpdateException` unique-violation → ack as already-provisioned; transient/poison nack. File: `src/IoBuild.Devices/Infrastructure/Messaging/FloorProvisioningConsumer.cs`
+- [x] 6.9 [GREEN] `Program.cs` updated: added `using IoBuild.Devices.Infrastructure.Messaging`; `AddHostedService<FloorProvisioningConsumer>()`. `IoBuild.Devices.csproj` updated: `InternalsVisibleTo("IoBuild.Devices.Tests")`. Also extended `IDeviceRepository` with `ExistsByProjectFloorTypeAsync` + implemented in `DeviceRepository`. Updated `OutboxWriteInTransactionTests.HandleCreate_SaveChangesCalledOnce_CoveringBothRows` → renamed to `HandleCreate_SaveChangesCalledTwice_TwoPhaseCommit` (expected behavior now `Times.Exactly(2)`). Files: `src/IoBuild.Devices/Program.cs`, `src/IoBuild.Devices/IoBuild.Devices.csproj`, `src/IoBuild.Devices/Domain/Repositories/IDeviceRepository.cs`, `src/IoBuild.Devices/Infrastructure/Persistence/EFC/Repositories/DeviceRepository.cs`, `tests/IoBuild.Devices.Tests/Application/OutboxWriteInTransactionTests.cs`
+- [x] 6.10 **45/45 green**. `dotnet build IoBuild.Devices`: 0 Errors, pre-existing warnings only.
+
+## Notes / Discoveries (PR 6)
+
+### EF InMemory: same Id-before-save behavior (same as PR1 discovery)
+EF InMemory assigns sequential positive Ids after `AddAsync`, before `SaveChanges`. This means the EF-InMemory test for `DeviceCommandServiceOutboxTests` (task 6.1) passes even on the OLD single-commit code because `device.Id` is already non-zero after `AddAsync`. The canonical RED tests are the Moq-based seam tests (SaveChangesAsync called exactly 2 times; correct call order). The production bug (`Id=0` before MySQL SaveChanges) is real; the fix is correct.
+
+### OutboxWriteInTransactionTests — updated to reflect two-phase behavior
+The pre-existing test `HandleCreate_SaveChangesCalledOnce_CoveringBothRows` now fails (it asserted `Times.Once`). Updated to `HandleCreate_SaveChangesCalledTwice_TwoPhaseCommit` asserting `Times.Exactly(2)`. This is the expected update — the old test was documenting the buggy single-commit behavior. Updated test name and expectation match the ADR-A fix.
+
+### SQLite unique index enforcement
+SQLite-in-memory enforces unique constraints correctly. The idempotency test (FD-S03) works via the pre-check guard (`AnyAsync` for first type). The unique index `(ProjectId, FloorNumber, Type)` is a hard backstop for concurrent deliveries. Both mechanisms confirmed working in tests.
+
+### Seed data (FloorNumber=null) and unique index coexistence
+All 12 seeded devices have `FloorNumber=null`. MySQL and SQLite treat NULL values as distinct in unique indexes, so multiple seed rows with the same `(ProjectId, Type)` and NULL `FloorNumber` do not conflict. The test DB is shared with seed data — tests use ProjectIds 100+ to avoid collision with seed ProjectIds (1-3).
+
+### MAC address generation for floor-provisioned devices
+Used a deterministic hash of `(projectId, floor, type)` to generate MAC addresses in the format `F1:XX:XX:XX:XX:XX`. This avoids the unique MAC constraint conflict across multiple floor provisioning calls. Not production-ready (real hardware uses DHCP), but correct for testing and seed purposes.
+
+### `IDeviceRepository.ExistsByProjectFloorTypeAsync` added
+Extended the repository interface and implementation to support the idempotency pre-check without requiring the consumer to inject a raw `DbContext`. Consistent with the repository pattern already used in `IoBuild.Devices`.
+
+## Files Changed (PR 6)
+
+| File | Change |
+|---|---|
+| `tests/IoBuild.Devices.Tests/IoBuild.Devices.Tests.csproj` | UPDATED — added `Microsoft.EntityFrameworkCore.Sqlite 9.0.5` |
+| `tests/IoBuild.Devices.Tests/Application/DeviceCommandServiceOutboxTests.cs` | CREATED — 3 two-phase commit fix tests |
+| `tests/IoBuild.Devices.Tests/Application/FloorProvisioningConsumerTests.cs` | CREATED — 6 FD scenario tests (SQLite-in-memory) |
+| `tests/IoBuild.Devices.Tests/Application/OutboxWriteInTransactionTests.cs` | UPDATED — renamed/updated `HandleCreate_SaveChangesCalledTwice_TwoPhaseCommit` |
+| `src/IoBuild.Devices/IoBuild.Devices.csproj` | UPDATED — `InternalsVisibleTo("IoBuild.Devices.Tests")` |
+| `src/IoBuild.Devices/Domain/Model/Aggregates/Device.cs` | UPDATED — `FloorNumber:int?`, `UnitId:int?`, extended ctor |
+| `src/IoBuild.Devices/Domain/Constants/FloorDeviceDefaults.cs` | CREATED — SmartMeter, WaterSensor, SmokeDetector defaults |
+| `src/IoBuild.Devices/Domain/Repositories/IDeviceRepository.cs` | UPDATED — added `ExistsByProjectFloorTypeAsync` |
+| `src/IoBuild.Devices/Infrastructure/Persistence/EFC/Repositories/DeviceRepository.cs` | UPDATED — implemented `ExistsByProjectFloorTypeAsync` |
+| `src/IoBuild.Devices/Infrastructure/Persistence/EFC/DbContext/DevicesDbContext.cs` | UPDATED — `FloorNumber`/`UnitId` nullable mapping + unique index |
+| `src/IoBuild.Devices/Infrastructure/Messaging/FloorProvisioningConsumer.cs` | CREATED — BackgroundService consumer |
+| `src/IoBuild.Devices/Application/Internal/CommandServices/DeviceCommandService.cs` | UPDATED — two-phase commit fix (ADR-A, §7.3) |
+| `src/IoBuild.Devices/Program.cs` | UPDATED — `using` + `AddHostedService<FloorProvisioningConsumer>()` |
+| `src/IoBuild.Devices/Migrations/20260618183750_AddDeviceFloorPlacement.cs` | CREATED — EF migration |
+| `src/IoBuild.Devices/Migrations/20260618183750_AddDeviceFloorPlacement.Designer.cs` | CREATED — migration designer |
+| `src/IoBuild.Devices/Migrations/DevicesDbContextModelSnapshot.cs` | UPDATED — EF snapshot |
+
+## Test Run Summary (PR 6 final)
+
+```
+Correctas! - Con error: 0, Superado: 45, Omitido: 0, Total: 45, Duración: 1s
+IoBuild.Devices.Tests.dll (net9.0)
+```
+
+dotnet build IoBuild.Devices: 0 Errores, pre-existing MQTTnet NU1603 + CS1998 warnings only.
+Migration filename: 20260618183750_AddDeviceFloorPlacement.cs
+Package added: Microsoft.EntityFrameworkCore.Sqlite 9.0.5 (test project only)

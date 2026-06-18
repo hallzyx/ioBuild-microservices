@@ -25,7 +25,16 @@ public class DevicesDbContext(DbContextOptions<DevicesDbContext> options) : Micr
             entity.Property(d => d.Location).IsRequired().HasMaxLength(200);
             entity.Property(d => d.MacAddress).IsRequired().HasMaxLength(17);
             entity.Property(d => d.Status).IsRequired().HasMaxLength(50);
+            // Floor placement (PR 6, §4.4) — nullable columns
+            entity.Property(d => d.FloorNumber);   // nullable int
+            entity.Property(d => d.UnitId);         // nullable int (future per-unit placement)
             entity.HasIndex(d => d.MacAddress).IsUnique();
+            // Unique index for idempotency guard: (ProjectId, FloorNumber, Type) — ADR-C.
+            // Prevents duplicate floor-provisioned devices on RabbitMQ redelivery.
+            // MySQL and SQLite both treat NULL values as distinct in unique indexes,
+            // so rows with FloorNumber=null (manually-created devices) do not conflict.
+            entity.HasIndex(d => new { d.ProjectId, d.FloorNumber, d.Type })
+                  .IsUnique();
         });
 
         modelBuilder.Entity<DeviceLog>(entity =>
