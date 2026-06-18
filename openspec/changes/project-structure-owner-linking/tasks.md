@@ -61,15 +61,15 @@ Chain strategy: feature-branch-chain
 **Estimated lines**: ~120
 **Rollback**: revert `IoBuild.Shared`; no DB change
 
-- [ ] 2.1 [RED] Write serialisation tests in `IoBuild.Shared.Tests` (or equivalent) for `UserRegisteredEvent`, `UnitOwnerMatchedEvent`, `FloorStructureDefinedEvent` asserting `EventId != Guid.Empty`, correct `RoutingKey`, and JSON round-trip of all payload fields.
-- [ ] 2.2 [RED] Write tests for extended `UnitCreatedEvent` asserting `Floor`, `RoomNumber`, `OwnerEmail` fields serialise/deserialise; existing fields unchanged.
-- [ ] 2.3 [RED] Write test for `DeviceCreatedEvent` asserting `FloorNumber?` serialises as null when not set.
-- [ ] 2.4 [GREEN] Add `IoBuild.Shared/Domain/Model/Events/UserRegisteredEvent.cs` (§6.1): `UserId`, `Email` (lower-cased), `Role`; `RoutingKey = "iam.user.registered"`.
-- [ ] 2.5 [GREEN] Add `IoBuild.Shared/Domain/Model/Events/UnitOwnerMatchedEvent.cs` (§6.1): `UnitId`, `ProjectId`, `OwnerUserId`, `OwnerEmail`; `RoutingKey = "project.unit.owner-matched"`.
-- [ ] 2.6 [GREEN] Add `IoBuild.Shared/Domain/Model/Events/FloorStructureDefinedEvent.cs` (§6.1): `ProjectId`, `Floor`, `UnitCount`, `BuilderId`; `RoutingKey = "project.floor.defined"`.
-- [ ] 2.7 [GREEN] Extend `UnitCreatedEvent.cs`: add `Floor:int`, `RoomNumber:string`, `OwnerEmail:string?` init properties (§6.2).
-- [ ] 2.8 [GREEN] Extend `DeviceCreatedEvent.cs`: add `FloorNumber:int?` init property (§6.2).
-- [ ] 2.9 Verify all serialisation tests are green; `dotnet build IoBuild.Shared` zero errors.
+- [x] 2.1 [RED] Write serialisation tests in `IoBuild.Shared.Tests` (or equivalent) for `UserRegisteredEvent`, `UnitOwnerMatchedEvent`, `FloorStructureDefinedEvent` asserting `EventId != Guid.Empty`, correct `RoutingKey`, and JSON round-trip of all payload fields.
+- [x] 2.2 [RED] Write tests for extended `UnitCreatedEvent` asserting `Floor`, `RoomNumber`, `OwnerEmail` fields serialise/deserialise; existing fields unchanged.
+- [x] 2.3 [RED] Write test for `DeviceCreatedEvent` asserting `FloorNumber?` serialises as null when not set.
+- [x] 2.4 [GREEN] Add `IoBuild.Shared/Domain/Model/Events/UserRegisteredEvent.cs` (§6.1): `UserId`, `Email` (lower-cased), `Role`; `RoutingKey = "iam.user.registered"`.
+- [x] 2.5 [GREEN] Add `IoBuild.Shared/Domain/Model/Events/UnitOwnerMatchedEvent.cs` (§6.1): `UnitId`, `ProjectId`, `OwnerUserId`, `OwnerEmail`; `RoutingKey = "project.unit.owner-matched"`.
+- [x] 2.6 [GREEN] Add `IoBuild.Shared/Domain/Model/Events/FloorStructureDefinedEvent.cs` (§6.1): `ProjectId`, `Floor`, `UnitCount`, `BuilderId`; `RoutingKey = "project.floor.defined"`.
+- [x] 2.7 [GREEN] Extend `UnitCreatedEvent.cs`: add `Floor:int`, `RoomNumber:string`, `OwnerEmail:string?` init properties (§6.2).
+- [x] 2.8 [GREEN] Extend `DeviceCreatedEvent.cs`: add `FloorNumber:int?` init property (§6.2).
+- [x] 2.9 Verify all serialisation tests are green; `dotnet build IoBuild.Shared` zero errors.
 
 ---
 
