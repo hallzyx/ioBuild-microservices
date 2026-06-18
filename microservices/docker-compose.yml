@@ -62,8 +62,11 @@ services:
       test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
       interval: 10s
       timeout: 5s
-      retries: 5
-      start_period: 20s
+      retries: 10
+      # First boot does a cold .NET start + EF migration + seed under a tight
+      # mem_limit; give it generous headroom so it never flips to "unhealthy"
+      # (which would abort the whole `compose up` since everything gates on iam).
+      start_period: 90s
 
   # ──────────────────────────────────────────
   # IoBuild.Devices — Gestión IoT (5002)
@@ -103,8 +106,8 @@ services:
       test: ["CMD", "curl", "-f", "http://localhost:5002/health"]
       interval: 10s
       timeout: 5s
-      retries: 5
-      start_period: 20s
+      retries: 10
+      start_period: 60s
 
   # ──────────────────────────────────────────
   # IoBuild.Projects — Proyectos (5003)
@@ -137,8 +140,8 @@ services:
       test: ["CMD", "curl", "-f", "http://localhost:5003/health"]
       interval: 10s
       timeout: 5s
-      retries: 5
-      start_period: 20s
+      retries: 10
+      start_period: 60s
 
   # ──────────────────────────────────────────
   # IoBuild.Subscriptions — Pagos (5004)
@@ -171,8 +174,8 @@ services:
       test: ["CMD", "curl", "-f", "http://localhost:5004/health"]
       interval: 10s
       timeout: 5s
-      retries: 5
-      start_period: 20s
+      retries: 10
+      start_period: 60s
 
   # ──────────────────────────────────────────
   # IoBuild.Analytics — Dashboards (5005)
@@ -204,8 +207,8 @@ services:
       test: ["CMD", "curl", "-f", "http://localhost:5005/health"]
       interval: 10s
       timeout: 5s
-      retries: 5
-      start_period: 20s
+      retries: 10
+      start_period: 60s
 
   # ──────────────────────────────────────────
   # IoBuild.Profiles — User Profiles (5006)
@@ -235,8 +238,8 @@ services:
       test: ["CMD", "curl", "-f", "http://localhost:5006/health"]
       interval: 10s
       timeout: 5s
-      retries: 5
-      start_period: 20s
+      retries: 10
+      start_period: 60s
 
   # ──────────────────────────────────────────
   # IoBuild.Gateway — API Gateway (8080)
@@ -271,8 +274,8 @@ services:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 15s
       timeout: 5s
-      retries: 5
-      start_period: 30s
+      retries: 10
+      start_period: 90s
 
   # ──────────────────────────────────────────
   # RabbitMQ — Message Broker (5672 / 15672)
