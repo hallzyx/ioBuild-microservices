@@ -44,9 +44,13 @@ public class AnalyticsQueryService : IAnalyticsQueryService
         // Active projects (status = "OnGoing" or any non-null status — all are active)
         var activeProjectsCount = builderProjectIds.Count;
 
-        // Devices whose project_id belongs to this builder (via project_projection join)
+        // Devices whose project_id belongs to this builder (via project_projection join).
+        // Uses a correlated EXISTS subquery instead of an in-memory List.Contains so the
+        // expression is translatable by the MySQL provider (EF Core primitive-collection
+        // translation is not enabled for this provider/server combination).
         var devices = await _db.DeviceProjections
-            .Where(d => d.ProjectId != null && builderProjectIds.Contains(d.ProjectId!.Value))
+            .Where(d => d.ProjectId != null && _db.ProjectProjections
+                .Any(p => p.BuilderUserId == query.UserId && p.ProjectId == d.ProjectId!.Value))
             .ToListAsync();
 
         var totalDevices   = devices.Count;
@@ -148,10 +152,12 @@ public class AnalyticsQueryService : IAnalyticsQueryService
 
         var myUnitsCount = units.Count;
 
-        // Units details with project name
-        var projectIds = units.Select(u => u.ProjectId).Distinct().ToList();
+        // Units details with project name.
+        // Correlated EXISTS subquery instead of in-memory List.Contains (see builder
+        // dashboard note) so the MySQL provider can translate the expression.
         var projectNames = await _db.ProjectProjections
-            .Where(p => projectIds.Contains(p.ProjectId))
+            .Where(p => _db.UnitProjections
+                .Any(u => u.OwnerUserId == query.UserId && u.ProjectId == p.ProjectId))
             .ToDictionaryAsync(p => p.ProjectId, p => p.Name);
 
         var myUnitsDetails = units.Select(u => new Dictionary<string, object>
