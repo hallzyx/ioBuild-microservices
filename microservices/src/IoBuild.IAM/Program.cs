@@ -4,11 +4,14 @@ using IoBuild.IAM.Application.Internal.QueryServices;
 using IoBuild.IAM.Domain.Repositories;
 using IoBuild.IAM.Domain.Services;
 using IoBuild.IAM.Infrastructure.Hashing.BCrypt.Services;
+using IoBuild.IAM.Infrastructure.Persistence.EFC.DbContext;
 using IoBuild.IAM.Infrastructure.Persistence.EFC.Repositories;
 using IoBuild.IAM.Infrastructure.Pipeline.Middleware.Extensions;
 using IoBuild.IAM.Infrastructure.Tokens.JWT.Services;
+using IoBuild.IAM.Workers;
 using IoBuild.Shared.Domain.Repositories;
 using IoBuild.Shared.Infrastructure.ASP.Configuration;
+using IoBuild.Shared.Infrastructure.Messaging;
 using IoBuild.Shared.Infrastructure.Middleware;
 using IoBuild.Shared.Infrastructure.Tokens;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -34,10 +37,17 @@ builder.Services.AddScoped<IUnitOfWork>(sp =>
 
 builder.Services.AddScoped(typeof(IBaseRepository<>), typeof(BaseRepository<>));
 builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IIamOutboxMessageRepository, OutboxMessageRepository>();
 builder.Services.AddScoped<IUserCommandService, UserCommandService>();
 builder.Services.AddScoped<IUserQueryService, UserQueryService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IHashingService, HashingService>();
+
+// ── Domain-event publishing + outbox resilience pipeline (ADR-8, §2.4) ──
+builder.Services.AddDomainEventPublishing(builder.Configuration);
+
+// ── OutboxWorker: polls pending outbox rows and publishes to RabbitMQ (ADR-2) ──
+builder.Services.AddHostedService<OutboxWorker>();
 
 // ── JWT Revocation (QA-1) ──
 builder.Services.AddMemoryCache();
@@ -93,11 +103,14 @@ builder.Services.AddControllers(options =>
 
 var app = builder.Build();
 
-// ── Database Auto-Creation (Dev) ──
+// ── Database Migration + Outbox Backfill (§2.4) ──
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    db.Database.EnsureCreated();
+    db.Database.Migrate();
+    // Emit UserRegisteredEvent for seeded users so owner-linking works on demo first boot.
+    // No-op once the outbox has history (idempotent guard inside RunAsync).
+    await OutboxBackfill.RunAsync(db);
 }
 
 app.UseSwagger();

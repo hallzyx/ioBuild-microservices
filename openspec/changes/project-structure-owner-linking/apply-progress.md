@@ -1,7 +1,7 @@
 # Apply Progress: project-structure-owner-linking
 
-> Last slice completed: **PR 3 — Projects `Unit` Schema + Define-Structure Command**
-> Branch (PR3): `feat/psol/pr3-unit-schema`
+> Last slice completed: **PR 4 — IAM Outbox + UserRegisteredEvent**
+> Branch (PR4): `feat/psol/pr4-iam-outbox`
 > Last updated: 2026-06-18
 
 ## PR 1 Tasks — Status
@@ -159,3 +159,73 @@ IoBuild.Projects.Tests.dll (net9.0)
 ```
 
 dotnet build IoBuild.Projects: 0 Errores, 0 Advertencias.
+
+---
+
+# PR 4 — IAM Outbox + UserRegisteredEvent
+
+> PR slice: **PR 4 — IAM Outbox + UserRegisteredEvent**
+> Branch: `feat/psol/pr4-iam-outbox`
+> Last updated: 2026-06-18
+
+## PR 4 Tasks — Status
+
+- [x] 4.1 [RED] `IamSignUpOutboxTests` written with 3 test cases — one outbox row with `EventType=UserRegisteredEvent`, `UserId>0`, email lower-cased. File: `tests/IoBuild.IAM.Tests/Application/IamSignUpOutboxTests.cs`
+- [x] 4.2 [RED] `IamOutboxWorkerTests` written with 3 test cases mirroring Devices' `OutboxWorkerPublishTests` — publish success marks Processed, publish failure increments RetryCount without throwing, no pending messages skips publisher. File: `tests/IoBuild.IAM.Tests/Workers/IamOutboxWorkerTests.cs`
+- [x] 4.3 [GREEN] `OutboxMessage.cs` created in IAM (exact copy of Projects entity). File: `src/IoBuild.IAM/Domain/Model/Entities/OutboxMessage.cs`
+- [x] 4.4 [GREEN] `IIamOutboxMessageRepository.cs` created (interface: `GetPendingAsync`, `AddAsync`, `UpdateAsync`). File: `src/IoBuild.IAM/Domain/Repositories/IIamOutboxMessageRepository.cs`
+- [x] 4.5 [GREEN] `OutboxMessageRepository.cs` created (EF Core impl). File: `src/IoBuild.IAM/Infrastructure/Persistence/EFC/Repositories/OutboxMessageRepository.cs`
+- [x] 4.6 [GREEN] `OutboxWorker.cs` created: `EventTypeMap = { UserRegisteredEvent }`. File: `src/IoBuild.IAM/Workers/OutboxWorker.cs`
+- [x] 4.7 [GREEN] `ApplicationDbContext.cs` updated: added `DbSet<OutboxMessage>`, entity config (key, maxlens, `(Status,CreatedAt)` index). File: `src/IoBuild.IAM/Infrastructure/Persistence/EFC/Repositories/ApplicationDbContext.cs`
+- [x] 4.8 Migration generated: `20260618181433_AddOutbox.cs` — creates `outbox_messages` table + `IX_outbox_messages_status_created_at` index. Also added `ApplicationDbContextFactory.cs` (design-time factory).
+- [x] 4.9 [GREEN] `UserCommandService.cs` updated: injected `IIamOutboxMessageRepository`; two-phase commit (Phase1: user persisted, Phase2: outbox row with real `UserId` + lower-cased `Email`). File: `src/IoBuild.IAM/Application/Internal/CommandServices/UserCommandService.cs`
+- [x] 4.10 [GREEN] `Program.cs` updated: registered `IIamOutboxMessageRepository`, `AddDomainEventPublishing(builder.Configuration)`, `AddHostedService<OutboxWorker>()`, switched from `EnsureCreated` to `MigrateAsync + OutboxBackfill`. File: `src/IoBuild.IAM/Program.cs`
+- [x] 4.11 `OutboxBackfill.cs` added: emits `UserRegisteredEvent` for seeded IAM users on first boot; idempotent guard. File: `src/IoBuild.IAM/Infrastructure/Persistence/EFC/DbContext/OutboxBackfill.cs`
+- [x] 4.12 **9/9 green**. `dotnet build IoBuild.IAM`: 0 errors, 0 warnings.
+
+## Notes / Discoveries (PR 4)
+
+### Interface naming: IIamOutboxMessageRepository
+Used `IIamOutboxMessageRepository` instead of `IOutboxMessageRepository` to avoid namespace collision — IAM test project references both `IoBuild.IAM` and transitively `IoBuild.Shared`, and the type name would be ambiguous. This is a local naming choice that doesn't affect the wire contract.
+
+### Migration creates both outbox_messages AND users tables
+IAM was previously using `EnsureCreated` (no migrations). Adding the first EF migration creates ALL configured entities (users + outbox_messages). This is correct — the migration replaces `EnsureCreated` for production. For existing deployments with the DB already created, EF will apply only the diff (adding outbox_messages).
+
+### docker-compose.yml: iam depends_on rabbitmq
+Added `rabbitmq: condition: service_healthy` to `iam`'s `depends_on`. IAM already had `mysql: service_healthy`. Other services depend on `iam: service_healthy`, and RabbitMQ has no app dependencies — no cycle created.
+
+### EF InMemory Id assignment (same note as PR1)
+EF InMemory assigns sequential positive Ids immediately after `AddAsync`, before `SaveChanges`. The two-phase commit test passes under InMemory because `user.Id` is already set when `UserRegisteredEvent` is built. The production bug (Id=0 before MySQL SaveChanges) is correctly fixed by the reorder in `UserCommandService`.
+
+## Files Changed (PR 4)
+
+| File | Change |
+|---|---|
+| `tests/IoBuild.IAM.Tests/IoBuild.IAM.Tests.csproj` | UPDATED — added `Microsoft.EntityFrameworkCore.InMemory 9.0.5` |
+| `tests/IoBuild.IAM.Tests/Application/IamSignUpOutboxTests.cs` | CREATED — 3 signup outbox tests |
+| `tests/IoBuild.IAM.Tests/Workers/IamOutboxWorkerTests.cs` | CREATED — 3 worker publish tests |
+| `src/IoBuild.IAM/IoBuild.IAM.csproj` | UPDATED — added `Microsoft.EntityFrameworkCore.Design 9.0.5` |
+| `src/IoBuild.IAM/Domain/Model/Entities/OutboxMessage.cs` | CREATED — outbox entity |
+| `src/IoBuild.IAM/Domain/Repositories/IIamOutboxMessageRepository.cs` | CREATED — repository interface |
+| `src/IoBuild.IAM/Infrastructure/Persistence/EFC/Repositories/OutboxMessageRepository.cs` | CREATED — EF Core impl |
+| `src/IoBuild.IAM/Infrastructure/Persistence/EFC/Repositories/ApplicationDbContext.cs` | UPDATED — OutboxMessages DbSet + entity config |
+| `src/IoBuild.IAM/Infrastructure/Persistence/EFC/ApplicationDbContextFactory.cs` | CREATED — design-time factory for migrations |
+| `src/IoBuild.IAM/Infrastructure/Persistence/EFC/DbContext/OutboxBackfill.cs` | CREATED — seeded-user backfill |
+| `src/IoBuild.IAM/Workers/OutboxWorker.cs` | CREATED — OutboxWorker with UserRegisteredEvent EventTypeMap |
+| `src/IoBuild.IAM/Application/Internal/CommandServices/UserCommandService.cs` | UPDATED — two-phase commit + outbox row |
+| `src/IoBuild.IAM/Program.cs` | UPDATED — outbox services + MigrateAsync + BackfillRunAsync |
+| `src/IoBuild.IAM/Migrations/20260618181433_AddOutbox.cs` | CREATED — EF migration |
+| `src/IoBuild.IAM/Migrations/20260618181433_AddOutbox.Designer.cs` | CREATED — migration designer |
+| `src/IoBuild.IAM/Migrations/ApplicationDbContextModelSnapshot.cs` | CREATED — EF snapshot |
+| `microservices/docker-compose.yml` | UPDATED — iam depends_on rabbitmq + RabbitMq__ConnectionString env |
+
+## Test Run Summary (PR 4 final)
+
+```
+Correctas! - Con error: 0, Superado: 9, Omitido: 0, Total: 9, Duración: ~6s
+IoBuild.IAM.Tests.dll (net9.0)
+```
+
+dotnet build IoBuild.IAM: 0 Errores, 0 Advertencias.
+Migration filename: 20260618181433_AddOutbox.cs
+docker compose config -q: no output (valid YAML).

@@ -47,6 +47,8 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     environment:
       - ASPNETCORE_URLS=http://+:5001
       - ASPNETCORE_ENVIRONMENT=Production
@@ -56,6 +58,7 @@ services:
       - DB_PASSWORD=${DB_PASSWORD:-iobuild123}
       - DB_NAME=iobuild_iam
       - JWT_SECRET=${JWT_SECRET:-dev-fallback-key-minimum-32-characters!!}
+      - RabbitMq__ConnectionString=amqp://${RABBITMQ_USER:-iobuild}:${RABBITMQ_PASS:-iobuild}@rabbitmq:5672/
     networks:
       - iobuild-network
     healthcheck:

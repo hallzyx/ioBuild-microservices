@@ -103,18 +103,18 @@ Chain strategy: feature-branch-chain
 **Estimated lines**: ~300
 **Rollback**: `dotnet ef migrations remove -p IoBuild.IAM`; revert all 5 new IAM files + `UserCommandService` + `Program.cs`
 
-- [ ] 4.1 [RED] Write `IamSignUpOutboxTests` (EF-InMemory `ApplicationDbContext`): after `Handle(SignUpCommand)`, one `outbox_message` row exists with `EventType = "UserRegisteredEvent"`, payload `UserId > 0`, `Email` lower-cased.
-- [ ] 4.2 [RED] Write `IamOutboxWorkerTests` (mirror `OutboxWorkerPublishTests` from Devices): pending row is published to mock publisher, then marked Processed.
-- [ ] 4.3 [GREEN] Copy `IoBuild.Projects/Domain/Model/Entities/OutboxMessage.cs` → `IoBuild.IAM/Domain/Model/Entities/OutboxMessage.cs` (exact copy, §2.1).
-- [ ] 4.4 [GREEN] Add `IoBuild.IAM/Domain/Repositories/IOutboxMessageRepository.cs` (mirrors Projects interface).
-- [ ] 4.5 [GREEN] Add `IoBuild.IAM/Infrastructure/Persistence/EFC/Repositories/OutboxMessageRepository.cs` (mirrors Projects impl).
-- [ ] 4.6 [GREEN] Add `IoBuild.IAM/Workers/OutboxWorker.cs` (§2.1): `EventTypeMap` contains only `UserRegisteredEvent`.
-- [ ] 4.7 [GREEN] Update `IoBuild.IAM/Infrastructure/Persistence/EFC/ApplicationDbContext.cs` (§2.2): add `DbSet<OutboxMessage>`, configure entity (key, column lengths, index `(Status, CreatedAt)`).
-- [ ] 4.8 Run `dotnet ef migrations add AddOutbox -p IoBuild.IAM`; verify creates `outbox_message` table only.
-- [ ] 4.9 [GREEN] Update `IoBuild.IAM/Application/Services/UserCommandService.cs` (§2.3): inject `IOutboxMessageRepository`; two-phase commit — `CompleteAsync` (user), build `UserRegisteredEvent` with real `UserId` and lower-cased email, save outbox row, second `CompleteAsync`.
-- [ ] 4.10 [GREEN] Update `IoBuild.IAM/Program.cs` (§2.4): register `IOutboxMessageRepository`, `AddDomainEventPublishing(builder.Configuration)`, `AddHostedService<OutboxWorker>()`, run `OutboxBackfill` after `db.Database.Migrate()`.
-- [ ] 4.11 Add `OutboxBackfill.cs` to IAM (optional but recommended for seeded-user demo linking).
-- [ ] 4.12 Verify IAM outbox and worker tests are green; `dotnet build IoBuild.IAM` zero errors.
+- [x] 4.1 [RED] Write `IamSignUpOutboxTests` (EF-InMemory `ApplicationDbContext`): after `Handle(SignUpCommand)`, one `outbox_message` row exists with `EventType = "UserRegisteredEvent"`, payload `UserId > 0`, `Email` lower-cased.
+- [x] 4.2 [RED] Write `IamOutboxWorkerTests` (mirror `OutboxWorkerPublishTests` from Devices): pending row is published to mock publisher, then marked Processed.
+- [x] 4.3 [GREEN] Copy `IoBuild.Projects/Domain/Model/Entities/OutboxMessage.cs` → `IoBuild.IAM/Domain/Model/Entities/OutboxMessage.cs` (exact copy, §2.1).
+- [x] 4.4 [GREEN] Add `IoBuild.IAM/Domain/Repositories/IIamOutboxMessageRepository.cs` (mirrors Projects interface).
+- [x] 4.5 [GREEN] Add `IoBuild.IAM/Infrastructure/Persistence/EFC/Repositories/OutboxMessageRepository.cs` (mirrors Projects impl).
+- [x] 4.6 [GREEN] Add `IoBuild.IAM/Workers/OutboxWorker.cs` (§2.1): `EventTypeMap` contains only `UserRegisteredEvent`.
+- [x] 4.7 [GREEN] Update `IoBuild.IAM/Infrastructure/Persistence/EFC/Repositories/ApplicationDbContext.cs` (§2.2): add `DbSet<OutboxMessage>`, configure entity (key, column lengths, index `(Status, CreatedAt)`).
+- [x] 4.8 Run `dotnet ef migrations add AddOutbox --project src/IoBuild.IAM`; migration `20260618181433_AddOutbox.cs` generated; creates `outbox_messages` table + `IX_outbox_messages_status_created_at` index.
+- [x] 4.9 [GREEN] Update `IoBuild.IAM/Application/Internal/CommandServices/UserCommandService.cs` (§2.3): inject `IIamOutboxMessageRepository`; two-phase commit — `CompleteAsync` (user), build `UserRegisteredEvent` with real `UserId` and lower-cased email, save outbox row, second `CompleteAsync`.
+- [x] 4.10 [GREEN] Update `IoBuild.IAM/Program.cs` (§2.4): register `IIamOutboxMessageRepository`, `AddDomainEventPublishing(builder.Configuration)`, `AddHostedService<OutboxWorker>()`, run `OutboxBackfill` after `db.Database.Migrate()`.
+- [x] 4.11 Add `OutboxBackfill.cs` to IAM (`Infrastructure/Persistence/EFC/DbContext/OutboxBackfill.cs`): emits `UserRegisteredEvent` for seeded users; idempotent (skip if outbox has history).
+- [x] 4.12 Verify IAM outbox and worker tests are green; `dotnet build IoBuild.IAM` zero errors. **9/9 green.**
 
 ---
 
