@@ -18,4 +18,7 @@ public class DeviceProjection
     public string DeviceType { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
     public DateTime LastEventAt { get; set; }   // LWW guard (ADR-5)
+
+    // PR 7 — extended projection field (§5.1)
+    public int? FloorNumber { get; set; }
 }

@@ -12,4 +12,9 @@ public class UnitProjection
     public int? OwnerUserId { get; set; }       // Drives owner MyUnitsCount
     public string Status { get; set; } = string.Empty;
     public DateTime LastEventAt { get; set; }   // LWW guard (ADR-5)
+
+    // PR 7 — extended projection fields (§5.1)
+    public int? Floor { get; set; }
+    public string? RoomNumber { get; set; }
+    public string? OwnerEmail { get; set; }
 }

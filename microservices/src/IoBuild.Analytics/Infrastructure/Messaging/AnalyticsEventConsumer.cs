@@ -216,6 +216,9 @@ public class AnalyticsEventConsumer : BackgroundService
             case nameof(UnitCreatedEvent):
                 await UpsertUnitAsync(Deserialize<UnitCreatedEvent>(body), db);
                 break;
+            case nameof(UnitOwnerMatchedEvent):
+                await UpsertUnitOwnerAsync(Deserialize<UnitOwnerMatchedEvent>(body), db);
+                break;
             default:
                 _logger.LogWarning(
                     "AnalyticsEventConsumer: unknown EventType={EventType}. Nacking without requeue.",
@@ -258,12 +261,13 @@ public class AnalyticsEventConsumer : BackgroundService
 
     private Task ApplyEventWithDb(DomainEvent evt, AnalyticsDbContext db) => evt switch
     {
-        DeviceCreatedEvent e  => UpsertDeviceAsync(e, db),
-        DeviceUpdatedEvent e  => UpsertDeviceAsync(e, db),
-        DeviceDeletedEvent e  => DeleteDeviceAsync(e, db),
-        ProjectCreatedEvent e => UpsertProjectAsync(e, db),
-        ProjectUpdatedEvent e => UpsertProjectAsync(e, db),
-        UnitCreatedEvent e    => UpsertUnitAsync(e, db),
+        DeviceCreatedEvent e      => UpsertDeviceAsync(e, db),
+        DeviceUpdatedEvent e      => UpsertDeviceAsync(e, db),
+        DeviceDeletedEvent e      => DeleteDeviceAsync(e, db),
+        ProjectCreatedEvent e     => UpsertProjectAsync(e, db),
+        ProjectUpdatedEvent e     => UpsertProjectAsync(e, db),
+        UnitCreatedEvent e        => UpsertUnitAsync(e, db),
+        UnitOwnerMatchedEvent e   => UpsertUnitOwnerAsync(e, db),
         _ => throw new InvalidOperationException($"Unsupported event type: {evt.GetType().Name}")
     };
 
@@ -283,12 +287,13 @@ public class AnalyticsEventConsumer : BackgroundService
             return;
         }
 
-        row.OwnerUserId = evt.OwnerUserId;
-        row.ProjectId   = evt.ProjectId;
-        row.UnitId      = evt.UnitId;
-        row.DeviceType  = evt.DeviceType;
-        row.Status      = evt.Status;
-        row.LastEventAt = evt.OccurredOn;
+        row.OwnerUserId  = evt.OwnerUserId;
+        row.ProjectId    = evt.ProjectId;
+        row.UnitId       = evt.UnitId;
+        row.DeviceType   = evt.DeviceType;
+        row.Status       = evt.Status;
+        row.FloorNumber  = evt.FloorNumber;   // PR 7 — §5.2
+        row.LastEventAt  = evt.OccurredOn;
         await db.SaveChangesAsync();
     }
 
@@ -379,9 +384,48 @@ public class AnalyticsEventConsumer : BackgroundService
 
         row.ProjectId     = evt.ProjectId;
         row.BuilderUserId = evt.BuilderUserId;
-        row.OwnerUserId   = evt.OwnerUserId;
+        // LWW: only overwrite OwnerUserId if the event carries a non-null value.
+        // Preserves a value already set by UnitOwnerMatchedEvent in the out-of-order scenario.
+        if (evt.OwnerUserId.HasValue)
+            row.OwnerUserId = evt.OwnerUserId;
         row.Status        = evt.Status;
+        row.Floor         = evt.Floor;         // PR 7 — §5.2
+        row.RoomNumber    = evt.RoomNumber;    // PR 7 — §5.2
+        row.OwnerEmail    = evt.OwnerEmail;    // PR 7 — §5.2
         row.LastEventAt   = evt.OccurredOn;
+        await db.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Handles UnitOwnerMatchedEvent — sets OwnerUserId on the projection.
+    /// Creates a placeholder row if the projection does not exist yet (out-of-order delivery).
+    /// LWW guard on OccurredOn.
+    /// </summary>
+    private async Task UpsertUnitOwnerAsync(UnitOwnerMatchedEvent evt, AnalyticsDbContext db)
+    {
+        var row = await db.UnitProjections.FindAsync(evt.UnitId);
+        if (row is null)
+        {
+            // Out-of-order: projection not yet created — create a placeholder.
+            row = new UnitProjection
+            {
+                UnitId     = evt.UnitId,
+                ProjectId  = evt.ProjectId,
+                Status     = string.Empty,
+                LastEventAt = DateTime.MinValue   // placeholder; will be updated below
+            };
+            db.UnitProjections.Add(row);
+        }
+        else if (evt.OccurredOn < row.LastEventAt)
+        {
+            // LWW guard — stale event, discard
+            return;
+        }
+
+        row.OwnerUserId = evt.OwnerUserId;
+        if (!string.IsNullOrEmpty(evt.OwnerEmail))
+            row.OwnerEmail = evt.OwnerEmail;
+        row.LastEventAt = evt.OccurredOn;
         await db.SaveChangesAsync();
     }
 

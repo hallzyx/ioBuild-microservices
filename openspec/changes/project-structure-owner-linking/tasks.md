@@ -173,25 +173,25 @@ Chain strategy: feature-branch-chain
 **Estimated lines**: ~200
 **Rollback**: `dotnet ef migrations remove -p IoBuild.Analytics`; revert projection classes and consumer switch
 
-- [ ] 7.1 [RED] Write analytics consumer tests (use existing internal-constructor seam — §9.3):
+- [x] 7.1 [RED] Write analytics consumer tests (use existing internal-constructor seam — §9.3):
   - `UnitCreatedEvent` with `Floor=3`, `RoomNumber="301"`, `OwnerEmail="x@y.com"` → `UnitProjection.Floor=3`, `.RoomNumber="301"`, `.OwnerEmail="x@y.com"`.
   - `UnitOwnerMatchedEvent{UnitId:U,OwnerUserId:42}` where projection row already exists → `OwnerUserId=42` set.
   - Out-of-order: `UnitOwnerMatchedEvent` arrives before `UnitCreatedEvent` → projection row is created with `OwnerUserId`; later `UnitCreatedEvent` enriches it (LWW on `OccurredOn`).
   - `DeviceCreatedEvent` with `FloorNumber=2` → `DeviceProjection.FloorNumber=2`.
-- [ ] 7.2 [GREEN] Update `IoBuild.Analytics/Domain/Model/Aggregates/UnitProjection.cs` (§5.1): add `Floor:int?`, `RoomNumber:string?`, `OwnerEmail:string?`.
-- [ ] 7.3 [GREEN] Update `IoBuild.Analytics/Domain/Model/Aggregates/DeviceProjection.cs` (§5.1): add `FloorNumber:int?`.
-- [ ] 7.4 Run `dotnet ef migrations add AddUnitFloorAndOwnerEmailProjections -p IoBuild.Analytics`; verify adds 3 nullable columns to `unit_projections` and 1 to `device_projections`.
-- [ ] 7.5 [GREEN] Update `IoBuild.Analytics/Infrastructure/Messaging/AnalyticsEventConsumer.cs` (§5.2):
-  - In `UpsertUnitAsync(UnitCreatedEvent)`: map `row.Floor`, `row.RoomNumber`, `row.OwnerEmail`.
+- [x] 7.2 [GREEN] Update `IoBuild.Analytics/Domain/Model/Projections/UnitProjection.cs` (§5.1): add `Floor:int?`, `RoomNumber:string?`, `OwnerEmail:string?`.
+- [x] 7.3 [GREEN] Update `IoBuild.Analytics/Domain/Model/Projections/DeviceProjection.cs` (§5.1): add `FloorNumber:int?`.
+- [x] 7.4 Run `dotnet ef migrations add AddUnitFloorAndOwnerEmailProjections --project src/IoBuild.Analytics`; migration `20260618184424_AddUnitFloorAndOwnerEmailProjections.cs` generated. Adds 3 nullable columns to `unit_projections` (`floor`, `room_number`, `owner_email`) and 1 to `device_projections` (`floor_number`). Additive only.
+- [x] 7.5 [GREEN] Update `IoBuild.Analytics/Infrastructure/Messaging/AnalyticsEventConsumer.cs` (§5.2):
+  - In `UpsertUnitAsync(UnitCreatedEvent)`: map `row.Floor`, `row.RoomNumber`, `row.OwnerEmail`; preserve existing `OwnerUserId` if event carries null (out-of-order LWW).
   - In `UpsertDeviceAsync(DeviceCreatedEvent)`: map `row.FloorNumber`.
-  - Add `case nameof(UnitOwnerMatchedEvent)` in `ApplyEventByTypeAsync` and `ApplyEventWithDb`; implement `UpsertUnitOwnerAsync` — `FindAsync(evt.UnitId)` (create projection if absent), set `OwnerUserId = evt.OwnerUserId` with LWW guard on `OccurredOn`.
-- [ ] 7.6 Verify all analytics consumer tests are green; `dotnet build IoBuild.Analytics` zero errors.
+  - Added `case nameof(UnitOwnerMatchedEvent)` in `ApplyEventByTypeAsync` and `ApplyEventWithDb`; implemented `UpsertUnitOwnerAsync` — `FindAsync(evt.UnitId)` (create placeholder if absent), set `OwnerUserId = evt.OwnerUserId` with LWW guard on `OccurredOn`.
+- [x] 7.6 **15/15 green** (11 pre-existing + 4 new). `dotnet build IoBuild.Analytics`: 0 errors. `dotnet build IoBuild.sln`: 0 errors, 48 warnings (all pre-existing).
 
 ---
 
 ## Cross-Cutting Verification (after all PRs merged)
 
-- [ ] C.1 `dotnet build` solution-wide: zero errors.
+- [x] C.1 `dotnet build` solution-wide: zero errors. **Verified — `dotnet build IoBuild.sln` 0 Errors, 48 Warnings (all pre-existing), after PR7.**
 - [ ] C.2 `dotnet test` solution-wide: all tests pass.
 - [ ] C.3 Migration deploy order validated: Projects → IAM → Devices → Analytics.
 - [ ] C.4 RabbitMQ queue/binding topology matches §6.3 authoritative table (declared idempotently at consumer startup — no manual broker setup required).

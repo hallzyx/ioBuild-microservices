@@ -1,7 +1,7 @@
 # Apply Progress: project-structure-owner-linking
 
-> Last slice completed: **PR 6 — Devices Floor Provisioning**
-> Branch (PR6): `feat/psol/pr6-devices-provisioning`
+> Last slice completed: **PR 7 — Analytics Projection Updates** (ALL SLICES DONE)
+> Branch (PR7): `feat/psol/pr7-analytics`
 > Last updated: 2026-06-18
 
 ## PR 1 Tasks — Status
@@ -352,3 +352,70 @@ IoBuild.Devices.Tests.dll (net9.0)
 dotnet build IoBuild.Devices: 0 Errores, pre-existing MQTTnet NU1603 + CS1998 warnings only.
 Migration filename: 20260618183750_AddDeviceFloorPlacement.cs
 Package added: Microsoft.EntityFrameworkCore.Sqlite 9.0.5 (test project only)
+
+---
+
+# PR 7 — Analytics Projection Updates
+
+> PR slice: **PR 7 — Analytics Projection Updates**
+> Branch: `feat/psol/pr7-analytics`
+> Last updated: 2026-06-18
+
+## PR 7 Tasks — Status
+
+- [x] 7.1 [RED] `AnalyticsProjectionUpdateTests` written with 4 test cases — build failed (CS1061: UnitProjection missing Floor/RoomNumber/OwnerEmail; DeviceProjection missing FloorNumber). File: `tests/IoBuild.Analytics.Tests/Infrastructure/AnalyticsProjectionUpdateTests.cs`
+- [x] 7.2 [GREEN] `UnitProjection.cs` updated: added `Floor:int?`, `RoomNumber:string?`, `OwnerEmail:string?`. File: `src/IoBuild.Analytics/Domain/Model/Projections/UnitProjection.cs`
+- [x] 7.3 [GREEN] `DeviceProjection.cs` updated: added `FloorNumber:int?`. File: `src/IoBuild.Analytics/Domain/Model/Projections/DeviceProjection.cs`
+- [x] 7.4 Migration generated: `20260618184424_AddUnitFloorAndOwnerEmailProjections.cs`. Adds `floor` (int, nullable), `room_number` (longtext, nullable), `owner_email` (longtext, nullable) to `unit_projections`; `floor_number` (int, nullable) to `device_projections`. Additive only — no column drops or type changes.
+- [x] 7.5 [GREEN] `AnalyticsEventConsumer.cs` updated:
+  - `UpsertUnitAsync(UnitCreatedEvent)`: maps `Floor`, `RoomNumber`, `OwnerEmail`; uses conditional `OwnerUserId` update (only overwrites if event value is non-null — preserves value set by `UnitOwnerMatchedEvent` in out-of-order scenario).
+  - `UpsertDeviceAsync(DeviceCreatedEvent)`: maps `FloorNumber`.
+  - Added `case nameof(UnitOwnerMatchedEvent)` in `ApplyEventByTypeAsync` (byte[] path).
+  - Added `UnitOwnerMatchedEvent e => UpsertUnitOwnerAsync(e, db)` in `ApplyEventWithDb` (typed switch).
+  - Implemented `UpsertUnitOwnerAsync`: `FindAsync(evt.UnitId)` — creates placeholder row if absent (Status="", LastEventAt=DateTime.MinValue); sets `OwnerUserId` and `OwnerEmail` (if non-empty); updates `LastEventAt`; full LWW guard.
+- [x] 7.6 **15/15 green** (11 pre-existing + 4 new). `dotnet build IoBuild.Analytics`: 0 errors. `dotnet build IoBuild.sln`: 0 errors, 48 warnings (all pre-existing). C.1 marked.
+
+## Notes / Discoveries (PR 7)
+
+### Projection entity path: Projections/, not Aggregates/
+Tasks.md referenced `Domain/Model/Aggregates/` for projection classes — actual path is `Domain/Model/Projections/`. Corrected in task descriptions.
+
+### Out-of-order LWW strategy for UnitCreatedEvent
+When `UnitOwnerMatchedEvent` arrives before `UnitCreatedEvent`, `UpsertUnitOwnerAsync` creates a placeholder with `LastEventAt = evt.OccurredOn` (the owner-matched timestamp). When `UnitCreatedEvent` arrives later with a newer `OccurredOn`, it passes the LWW guard and enriches the row. To avoid clobbering the `OwnerUserId` already set (since `UnitCreatedEvent.OwnerUserId` may be null if the unit was created before an owner was assigned), `UpsertUnitAsync` only overwrites `OwnerUserId` when `evt.OwnerUserId.HasValue`. This is correct for both normal and out-of-order scenarios.
+
+### No new queue bindings needed
+Confirmed: `project.#` binding already covers `project.unit.owner-matched` routing key (declared in `ExecuteAsync` via `QueueBindAsync(QueueName, ExchangeName, "project.#")`). No `AnalyticsConsumerExtensions.cs` change needed.
+
+### C.1 (solution build) verified
+`dotnet build IoBuild.sln` after PR7 completes: 0 errors. PR7 is the final slice; C.1 is now checkable.
+
+## Files Changed (PR 7)
+
+| File | Change |
+|---|---|
+| `tests/IoBuild.Analytics.Tests/Infrastructure/AnalyticsProjectionUpdateTests.cs` | CREATED — 4 new tests (RED→GREEN) |
+| `src/IoBuild.Analytics/Domain/Model/Projections/UnitProjection.cs` | UPDATED — Floor?, RoomNumber?, OwnerEmail? |
+| `src/IoBuild.Analytics/Domain/Model/Projections/DeviceProjection.cs` | UPDATED — FloorNumber? |
+| `src/IoBuild.Analytics/Infrastructure/Messaging/AnalyticsEventConsumer.cs` | UPDATED — FloorNumber mapping, Floor/RoomNumber/OwnerEmail mapping, UnitOwnerMatchedEvent case + UpsertUnitOwnerAsync |
+| `src/IoBuild.Analytics/Migrations/20260618184424_AddUnitFloorAndOwnerEmailProjections.cs` | CREATED — EF migration |
+| `src/IoBuild.Analytics/Migrations/20260618184424_AddUnitFloorAndOwnerEmailProjections.Designer.cs` | CREATED — migration designer |
+| `src/IoBuild.Analytics/Migrations/AnalyticsDbContextModelSnapshot.cs` | UPDATED — EF snapshot |
+
+## Test Run Summary (PR 7 final)
+
+```
+Correctas! - Con error: 0, Superado: 15, Omitido: 0, Total: 15, Duración: ~1.6s
+IoBuild.Analytics.Tests.dll (net9.0)
+```
+
+dotnet build IoBuild.Analytics: 0 Errores, 0 Advertencias.
+Migration filename: 20260618184424_AddUnitFloorAndOwnerEmailProjections.cs
+
+Solution-wide build:
+```
+Compilación correcta.
+    48 Advertencia(s)
+    0 Errores
+IoBuild.sln (net9.0)
+```
+All 48 warnings are pre-existing (CS8618 nullable resources in IoBuild.Projects, CS1998, CS0414 in test steps). Zero warnings introduced by PR7.
