@@ -11,10 +11,6 @@ namespace IoBuild.Projects.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropIndex(
-                name: "IX_units_project_id",
-                table: "units");
-
             migrationBuilder.AlterColumn<int>(
                 name: "owner_id",
                 table: "units",
@@ -107,6 +103,14 @@ namespace IoBuild.Projects.Migrations
                 table: "units",
                 columns: new[] { "project_id", "floor", "room_number" },
                 unique: true);
+
+            // Drop the now-redundant single-column FK index AFTER the composite
+            // index exists. MySQL keeps the Unit->Project FK satisfied by the
+            // composite index (project_id is its leading column), so the drop is
+            // only valid once the composite index is in place.
+            migrationBuilder.DropIndex(
+                name: "IX_units_project_id",
+                table: "units");
         }
 
         /// <inheritdoc />

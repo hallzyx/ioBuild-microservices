@@ -64,16 +64,36 @@ export const useProjectStore = defineStore("projects", () => {
             .catch((error) => errors.value.push(error));
     }
 
+    const structureLoading = ref(false);
+    const structureError = ref(null);
+
+    async function defineProjectStructure(projectId, payload) {
+        structureLoading.value = true;
+        structureError.value = null;
+        try {
+            const response = await projectApi.defineStructure(projectId, payload);
+            return response;
+        } catch (error) {
+            structureError.value = error;
+            throw error;
+        } finally {
+            structureLoading.value = false;
+        }
+    }
+
     return {
         projects,
         errors,
         projectsLoaded,
         projectsCount,
+        structureLoading,
+        structureError,
         fetchProjects,
         getProjectById,
         addProject,
         updateProject,
         deleteProject,
+        defineProjectStructure,
     };
 });
 

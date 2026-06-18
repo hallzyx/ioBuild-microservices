@@ -33,4 +33,14 @@ export class ProjectApi extends BaseApi {
     deleteProject(id) {
         return this.#projectsEndpoint.delete(id);
     }
+
+    defineStructure(projectId, payload) {
+        return this.http.post(`${projectsEndpointPath}/${projectId}/structure`, payload);
+    }
+
+    async getUnitsByProject(projectId) {
+        const response = await this.http.get('/units');
+        const units = (response.data || []).filter(u => Number(u.projectId) === Number(projectId));
+        return units;
+    }
 }

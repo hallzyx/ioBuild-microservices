@@ -12,6 +12,9 @@ public class UnitResourceFromEntityAssembler
             Id = entity.Id,
             ProjectId = entity.ProjectId,
             UnitNumber = entity.UnitNumber,
+            Floor = entity.Floor,
+            RoomNumber = entity.RoomNumber,
+            OwnerEmail = entity.OwnerEmail,
             OwnerId = entity.OwnerId
         };
     }
