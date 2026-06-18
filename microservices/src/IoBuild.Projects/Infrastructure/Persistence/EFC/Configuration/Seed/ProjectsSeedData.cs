@@ -52,41 +52,61 @@ public static class ProjectsSeedData
         );
 
         // ==================== SEED UNITS ====================
+        // PR 3 reconciliation (§1.6 / design.md):
+        //  - Floor and RoomNumber are now required columns; all 5 rows get explicit values.
+        //  - OwnerId remains as int? (keep existing values — they point at seeded IAM users).
+        //  - OwnerEmail is null (pre-linking data; no IAM identity email known at seed time).
+        //  - UnitNumber labels are grandfathered (ADR-F: stored label ≠ ComposeUnitNumber).
         builder.Entity<Unit>().HasData(
             new
             {
                 Id = 1,
                 ProjectId = 1,
                 UnitNumber = "A-501",
-                OwnerId = 2
+                Floor = 5,
+                RoomNumber = "01",
+                OwnerEmail = (string?)null,
+                OwnerId = (int?)2
             },
             new
             {
                 Id = 2,
                 ProjectId = 1,
                 UnitNumber = "A-502",
-                OwnerId = 2
+                Floor = 5,
+                RoomNumber = "02",
+                OwnerEmail = (string?)null,
+                OwnerId = (int?)2
             },
             new
             {
                 Id = 3,
                 ProjectId = 1,
                 UnitNumber = "B-801",
-                OwnerId = 3
+                Floor = 8,
+                RoomNumber = "01",
+                OwnerEmail = (string?)null,
+                OwnerId = (int?)3
             },
             new
             {
                 Id = 4,
                 ProjectId = 2,
                 UnitNumber = "T1-1205",
-                OwnerId = 4
+                Floor = 12,
+                RoomNumber = "05",
+                OwnerEmail = (string?)null,
+                OwnerId = (int?)4
             },
             new
             {
                 Id = 5,
                 ProjectId = 2,
                 UnitNumber = "T2-0801",
-                OwnerId = 2
+                Floor = 8,
+                RoomNumber = "01-T2",
+                OwnerEmail = (string?)null,
+                OwnerId = (int?)2
             }
         );
 

@@ -31,11 +31,14 @@ public class OutboxWorker : BackgroundService
     private readonly int _pollIntervalMs;
 
     // Routing-key map from EventType string to DomainEvent deserialization type.
+    // PR 3 additions: FloorStructureDefinedEvent and UnitOwnerMatchedEvent (§6.3 / ADR-E).
     private static readonly Dictionary<string, Type> EventTypeMap = new()
     {
         [nameof(ProjectCreatedEvent)] = typeof(ProjectCreatedEvent),
         [nameof(ProjectUpdatedEvent)] = typeof(ProjectUpdatedEvent),
         [nameof(UnitCreatedEvent)] = typeof(UnitCreatedEvent),
+        [nameof(FloorStructureDefinedEvent)] = typeof(FloorStructureDefinedEvent),
+        [nameof(UnitOwnerMatchedEvent)] = typeof(UnitOwnerMatchedEvent),
     };
 
     public OutboxWorker(

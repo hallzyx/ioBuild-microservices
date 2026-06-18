@@ -1,7 +1,7 @@
 # Apply Progress: project-structure-owner-linking
 
-> PR slice: **PR 1 — Projects Test Fixture + `unit.Id==0` Bug Fix**
-> Branch: `feat/psol/pr1-test-fixture`
+> Last slice completed: **PR 3 — Projects `Unit` Schema + Define-Structure Command**
+> Branch (PR3): `feat/psol/pr3-unit-schema`
 > Last updated: 2026-06-18
 
 ## PR 1 Tasks — Status
@@ -92,3 +92,70 @@ IoBuild.Shared.Tests.dll (net9.0)
 ```
 
 dotnet build IoBuild.sln: 0 Errores, 4 Advertencias (pre-existing MQTTnet NU1603 only).
+
+---
+
+# PR 3 — Projects `Unit` Schema + Define-Structure Command
+
+> PR slice: **PR 3 — Projects `Unit` Schema + Define-Structure Command**
+> Branch: `feat/psol/pr3-unit-schema`
+> Last updated: 2026-06-18
+
+## PR 3 Tasks — Status
+
+- [x] 3.1 [RED] `UnitAggregateTests` written with 7 test cases — ComposeUnitNumber, nullable OwnerId, LinkOwner, AssignOwnerEmail lower-casing, Floor/RoomNumber fields, OwnerEmail lower-casing at ctor, legacy ctor shape. Build failed on missing `Floor`, `ComposeUnitNumber`, etc. File: `tests/IoBuild.Projects.Tests/Domain/UnitAggregateTests.cs`
+- [x] 3.2 [GREEN] `Unit.cs` updated: added `Floor:int`, `RoomNumber:string`, `OwnerEmail:string?`; changed `OwnerId` to `int?`; added `LinkOwner`, `AssignOwnerEmail` (lower-cases via ToLowerInvariant), `ComposeUnitNumber` static; new structure-definition ctor; legacy ctor kept (`Floor=0, RoomNumber=unitNumber`). File: `src/IoBuild.Projects/Domain/Model/Aggregates/Unit.cs`
+- [x] 3.3 [GREEN] `RegisteredOwner.cs` created: `Email` (PK, lower-cased in ctor), `UserId`, `LastEventAt`, `UpdateIfNewer` LWW guard. File: `src/IoBuild.Projects/Domain/Model/Entities/RegisteredOwner.cs`
+- [x] 3.4 [GREEN] `AppDbContext.cs` updated: extended Unit EF config (new columns, nullable OwnerId, unique index `(ProjectId,Floor,RoomNumber)`, index on `OwnerEmail`); added `RegisteredOwner` entity block (HasKey Email, maxlen 255, table `registered_owner`); added `DbSet<RegisteredOwner> RegisteredOwners`. File: `src/IoBuild.Projects/Infrastructure/Persistence/AppDbContext.cs`
+- [x] 3.5 [GREEN] Seed data reconciled: all 5 existing units got explicit `Floor`/`RoomNumber`/`OwnerEmail=null` values; `OwnerId` kept as `int?` with existing values preserved. File: `src/IoBuild.Projects/Infrastructure/Persistence/EFC/Configuration/Seed/ProjectsSeedData.cs`
+- [x] 3.6 Migration generated: `20260618180117_AddUnitStructureAndOwnerLinking.cs`. Adds `floor`/`room_number`/`owner_email` columns; alters `owner_id` to nullable; creates `registered_owner` table; drops old `IX_units_project_id`; adds unique index `IX_units_project_id_floor_room_number` and index `IX_units_owner_email`; UpdateData rows for all 5 seed units.
+- [x] 3.7 [RED] `DefineProjectStructureCommandTests` written with 9 test cases covering all PS scenarios: unit count, floor/room fields, null OwnerId, real UnitId in outbox, FloorStructureDefinedEvent per floor, 409 conflict, 422 on floors=0, 422 on unitsPerFloor=0, unit-first owner match (RegisteredOwner lookup), no match when no email. File: `tests/IoBuild.Projects.Tests/Application/DefineProjectStructureCommandTests.cs`
+- [x] 3.8 [GREEN] `DefineProjectStructureCommand.cs` created: records `RoomSpec(RoomNumber, OwnerEmail)`, `FloorSpec(Floor, Rooms)`, `DefineProjectStructureCommand(ProjectId, Floors, BuilderId)`. File: `src/IoBuild.Projects/Domain/Services/Commands/Projects/DefineProjectStructureCommand.cs`
+- [x] 3.9 [GREEN] `ProjectStructureCommandService.cs` created: validation (ArgumentException for floors<1/rooms<1), 409 guard (InvalidOperationException if units exist), two-phase commit (Phase1: persist units, Phase2: outbox rows), UnitCreatedEvent per unit with real Id, FloorStructureDefinedEvent per floor, unit-first RegisteredOwner lookup → LinkOwner + UnitOwnerMatchedEvent. File: `src/IoBuild.Projects/Application/Services/ProjectStructureCommandService.cs`
+- [x] 3.10 [GREEN] `ProjectsController.cs` updated: added `POST {id}/structure` action; Builder-role guard via `HttpContext.Items["UserRole"]`; expands uniform floors×unitsPerFloor into FloorSpec lists; maps OwnerEmails per-unit assignments; catches ArgumentException → 422, InvalidOperationException → 409. `ProjectStructureCommandService` registered in `Program.cs`. New resource: `DefineStructureResource.cs` and `OwnerEmailAssignment`. Also updated `OutboxWorker.EventTypeMap` to include `FloorStructureDefinedEvent` and `UnitOwnerMatchedEvent`. Files: `Interfaces/REST/ProjectsController.cs`, `Program.cs`, `Workers/OutboxWorker.cs`, `Interfaces/Resources/DefineStructureResource.cs`
+- [x] 3.11 All 28 tests green. `dotnet build IoBuild.Projects`: 0 Errors, 0 Warnings.
+
+## Notes / Discoveries (PR 3)
+
+### UnitResource.OwnerId changed to int?
+`UnitResource.OwnerId` was `int` — changed to `int?` to match the now-nullable aggregate property. Breaking change to the REST response shape (int → int?). Callers receiving this field as required should handle null.
+
+### Seed data: `HasData` requires anonymous types with ALL columns
+EF's `HasData` with anonymous objects requires every column that is NOT NULL to have an explicit value. Since `Floor` and `RoomNumber` are NOT NULL (no `HasDefaultValue` in CLR model), they must be in every seed row. The migration generated `UpdateData` rows for all 5 existing units — correct.
+
+### Unique index on (ProjectId, Floor, RoomNumber)
+The EF-InMemory provider does NOT enforce unique indexes. Tests assert the business logic guard (409 via InvalidOperationException) rather than the DB constraint — this is correct; the unique index is the hard DB-level backstop for concurrent writes.
+
+### RegisteredOwner table is empty at PR 3
+The `registered_owner` table is only populated by the `OwnerLinkingConsumer` (PR 5). Unit-first tests use `SeedRegisteredOwnerAsync` in the fixture to simulate a pre-existing owner row.
+
+## Files Changed (PR 3)
+
+| File | Change |
+|---|---|
+| `tests/IoBuild.Projects.Tests/Domain/UnitAggregateTests.cs` | CREATED — 7 aggregate unit tests |
+| `tests/IoBuild.Projects.Tests/Application/DefineProjectStructureCommandTests.cs` | CREATED — 9 command service tests |
+| `tests/IoBuild.Projects.Tests/Infrastructure/ProjectsDbFixture.cs` | UPDATED — added SeedRegisteredOwnerAsync, SeedStructuredUnitAsync helpers; added RegisteredOwner using |
+| `src/IoBuild.Projects/Domain/Model/Aggregates/Unit.cs` | UPDATED — Floor, RoomNumber, OwnerEmail, int? OwnerId, LinkOwner, AssignOwnerEmail, ComposeUnitNumber, structure ctor |
+| `src/IoBuild.Projects/Domain/Model/Entities/RegisteredOwner.cs` | CREATED — RegisteredOwner mirror entity |
+| `src/IoBuild.Projects/Infrastructure/Persistence/AppDbContext.cs` | UPDATED — extended Unit config, added RegisteredOwner config + DbSet |
+| `src/IoBuild.Projects/Infrastructure/Persistence/EFC/Configuration/Seed/ProjectsSeedData.cs` | UPDATED — seed reconciliation (Floor, RoomNumber, OwnerEmail=null for all 5 units) |
+| `src/IoBuild.Projects/Migrations/20260618180117_AddUnitStructureAndOwnerLinking.cs` | CREATED — EF migration |
+| `src/IoBuild.Projects/Migrations/20260618180117_AddUnitStructureAndOwnerLinking.Designer.cs` | CREATED — migration designer snapshot |
+| `src/IoBuild.Projects/Migrations/AppDbContextModelSnapshot.cs` | UPDATED — EF snapshot |
+| `src/IoBuild.Projects/Domain/Services/Commands/Projects/DefineProjectStructureCommand.cs` | CREATED — RoomSpec, FloorSpec, DefineProjectStructureCommand records |
+| `src/IoBuild.Projects/Application/Services/ProjectStructureCommandService.cs` | CREATED — command handler |
+| `src/IoBuild.Projects/Interfaces/REST/ProjectsController.cs` | UPDATED — POST {id}/structure endpoint |
+| `src/IoBuild.Projects/Interfaces/Resources/DefineStructureResource.cs` | CREATED — request DTO |
+| `src/IoBuild.Projects/Interfaces/Resources/UnitResource.cs` | UPDATED — OwnerId changed to int? |
+| `src/IoBuild.Projects/Workers/OutboxWorker.cs` | UPDATED — EventTypeMap + FloorStructureDefinedEvent + UnitOwnerMatchedEvent |
+| `src/IoBuild.Projects/Program.cs` | UPDATED — registered ProjectStructureCommandService |
+
+## Test Run Summary (PR 3 final)
+
+```
+Correctas! - Con error: 0, Superado: 28, Omitido: 0, Total: 28, Duración: ~1s
+IoBuild.Projects.Tests.dll (net9.0)
+```
+
+dotnet build IoBuild.Projects: 0 Errores, 0 Advertencias.

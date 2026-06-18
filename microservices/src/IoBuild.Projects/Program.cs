@@ -1,4 +1,5 @@
 using IoBuild.Projects.Application.Services;
+using IoBuild.Projects.Infrastructure.Persistence;
 using IoBuild.Projects.Domain.Repositories;
 using IoBuild.Projects.Domain.Services;
 using IoBuild.Projects.Infrastructure.Persistence;
@@ -81,6 +82,9 @@ builder.Services.AddScoped<IUnitCommandService, UnitCommandService>();
 builder.Services.AddScoped<IUnitQueryService, UnitQueryService>();
 builder.Services.AddScoped<IClientCommandService, ClientCommandService>();
 builder.Services.AddScoped<IClientQueryService, ClientQueryService>();
+
+// PR 3 — Project structure definition command service (§1.3)
+builder.Services.AddScoped<ProjectStructureCommandService>();
 
 // ── Domain-event publishing + outbox resilience pipeline (ADR-8) ──
 builder.Services.AddDomainEventPublishing(builder.Configuration);

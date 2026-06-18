@@ -1,3 +1,4 @@
+using IoBuild.Projects.Application.Services;
 using IoBuild.Projects.Domain.Services;
 using IoBuild.Projects.Domain.Services.Commands.Projects;
 using IoBuild.Projects.Domain.Services.Queries.Projects;
@@ -15,11 +16,16 @@ public class ProjectsController : ControllerBase
 {
     private readonly IProjectCommandService _commandService;
     private readonly IProjectQueryService _queryService;
+    private readonly ProjectStructureCommandService _structureService;
 
-    public ProjectsController(IProjectCommandService commandService, IProjectQueryService queryService)
+    public ProjectsController(
+        IProjectCommandService commandService,
+        IProjectQueryService queryService,
+        ProjectStructureCommandService structureService)
     {
         _commandService = commandService;
         _queryService = queryService;
+        _structureService = structureService;
     }
 
     [HttpGet]
@@ -64,5 +70,65 @@ public class ProjectsController : ControllerBase
     {
         await _commandService.Handle(new DeleteProjectCommand(id));
         return NoContent();
+    }
+
+    /// <summary>
+    /// POST /api/v1/projects/{id}/structure
+    /// Defines the physical floor/room structure of a project (REQ-PS-01 / PS-S01).
+    /// Requires the caller to have the Builder role (REQ-PS-06).
+    /// Returns 200 on success, 409 if structure already defined (REQ-PS-03), 422 on validation error.
+    /// </summary>
+    [HttpPost("{id}/structure")]
+    public async Task<IActionResult> DefineStructure(int id, [FromBody] DefineStructureResource resource)
+    {
+        // Builder-role guard (REQ-PS-06)
+        var role = HttpContext.Items["UserRole"] as string;
+        if (!string.Equals(role, "Builder", StringComparison.OrdinalIgnoreCase))
+            return StatusCode(403, new { error = "Only users with the Builder role may define project structure." });
+
+        var userId = HttpContext.Items["UserId"] is int uid ? uid : 0;
+
+        // Expand uniform floors × unitsPerFloor into explicit FloorSpec/RoomSpec lists
+        if (resource.Floors < 1)
+            return UnprocessableEntity(new { error = "floors must be at least 1." });
+        if (resource.UnitsPerFloor < 1)
+            return UnprocessableEntity(new { error = "unitsPerFloor must be at least 1." });
+
+        var floorSpecs = Enumerable.Range(1, resource.Floors)
+            .Select(f =>
+            {
+                var rooms = Enumerable.Range(1, resource.UnitsPerFloor)
+                    .Select(r =>
+                    {
+                        // Look up optional per-unit owner email from the request
+                        var email = resource.OwnerEmails?
+                            .FirstOrDefault(oe => oe.Floor == f && oe.RoomNumber == r.ToString("D2"))
+                            ?.Email;
+                        return new RoomSpec(RoomNumber: r.ToString("D2"), OwnerEmail: email);
+                    })
+                    .ToList();
+                return new FloorSpec(Floor: f, Rooms: rooms);
+            })
+            .ToList();
+
+        var command = new DefineProjectStructureCommand(
+            ProjectId: id,
+            Floors: floorSpecs,
+            BuilderId: userId);
+
+        try
+        {
+            await _structureService.Handle(command);
+        }
+        catch (ArgumentException ex)
+        {
+            return UnprocessableEntity(new { error = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { error = ex.Message });
+        }
+
+        return Ok(new { message = $"Project structure defined: {resource.Floors} floor(s), {resource.UnitsPerFloor} unit(s) per floor." });
     }
 }

@@ -1,4 +1,5 @@
 using IoBuild.Projects.Domain.Model.Aggregates;
+using IoBuild.Projects.Domain.Model.Entities;
 using IoBuild.Projects.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -47,7 +48,10 @@ public static class ProjectsDbFixture
         return project;
     }
 
-    /// <summary>Seeds a <see cref="Unit"/> row and saves it. Returns the saved entity.</summary>
+    /// <summary>
+    /// Seeds a <see cref="Unit"/> row using the legacy ctor and saves it. Returns the saved entity.
+    /// Use <see cref="SeedStructuredUnitAsync"/> for units with explicit Floor/RoomNumber.
+    /// </summary>
     public static async Task<Unit> SeedUnitAsync(
         AppDbContext ctx,
         int projectId,
@@ -60,8 +64,40 @@ public static class ProjectsDbFixture
         return unit;
     }
 
-    // NOTE: SeedRegisteredOwnerAsync is intentionally omitted from PR 1.
-    // The RegisteredOwner entity is introduced in PR 3 (Task 3.3). Adding it
-    // here before the entity exists would widen PR 1 scope beyond the agreed
-    // boundary. Add the helper in PR 3 alongside the entity.
+    /// <summary>
+    /// Seeds a <see cref="Unit"/> row using the structure-definition ctor (Floor + RoomNumber).
+    /// Returns the saved entity with a real Id.
+    /// </summary>
+    public static async Task<Unit> SeedStructuredUnitAsync(
+        AppDbContext ctx,
+        int projectId,
+        int floor,
+        string roomNumber,
+        string? ownerEmail = null)
+    {
+        var unit = new Unit(projectId, floor, roomNumber, ownerEmail);
+        await ctx.Units.AddAsync(unit);
+        await ctx.SaveChangesAsync();
+        return unit;
+    }
+
+    /// <summary>
+    /// Seeds a <see cref="RegisteredOwner"/> row and saves it.
+    /// Added in PR 3 alongside the RegisteredOwner entity (Task 3.3).
+    /// Email is lower-cased (ADR-D) before persisting.
+    /// </summary>
+    public static async Task<RegisteredOwner> SeedRegisteredOwnerAsync(
+        AppDbContext ctx,
+        string email,
+        int userId,
+        DateTime? lastEventAt = null)
+    {
+        var owner = new RegisteredOwner(
+            email,
+            userId,
+            lastEventAt ?? DateTime.UtcNow);
+        await ctx.RegisteredOwners.AddAsync(owner);
+        await ctx.SaveChangesAsync();
+        return owner;
+    }
 }
