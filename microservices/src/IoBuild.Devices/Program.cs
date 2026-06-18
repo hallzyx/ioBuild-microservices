@@ -110,7 +110,10 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<DevicesDbContext>();
-    db.Database.EnsureCreated();
+    db.Database.Migrate();
+    // Emit DeviceCreated events for seeded devices so the Analytics read model is populated
+    // (HasData seed bypasses the command services / outbox). No-op once outbox has history.
+    await OutboxBackfill.RunAsync(db);
 }
 
 app.UseMiddleware<GlobalExceptionHandlerMiddleware>();

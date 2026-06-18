@@ -103,7 +103,10 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    db.Database.EnsureCreated();
+    db.Database.Migrate();
+    // Emit Created events for seeded aggregates so the Analytics read model is populated
+    // (HasData seed bypasses the command services / outbox). No-op once outbox has history.
+    await OutboxBackfill.RunAsync(db);
 }
 
 if (app.Environment.IsDevelopment())
