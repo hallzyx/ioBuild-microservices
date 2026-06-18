@@ -32,10 +32,10 @@ onMounted(async () => {
   await loadUnits();
 });
 
-// Treat totalUnits > 0 as "structure already defined"
-const hasStructure = computed(() => {
-  return !!(project.value && project.value.totalUnits > 0);
-});
+// A project has a structure once it actually has units. Project.TotalUnits is a
+// separate stored field that the define-structure flow does not update, so derive
+// this from the fetched units instead.
+const hasStructure = computed(() => units.value.length > 0);
 
 // Group the project's units by floor for the structure display.
 const structureGrid = computed(() => {
@@ -158,7 +158,7 @@ function handleImageError(event) {
       <div class="flex items-center gap-2 mb-4">
         <i class="pi pi-building text-emerald-600 text-lg"></i>
         <h2 class="text-lg font-semibold text-gray-800">Project Structure</h2>
-        <pv-tag :value="`${project.totalUnits} units`" severity="success" />
+        <pv-tag :value="`${units.length} units`" severity="success" />
       </div>
 
       <!-- Per-floor unit grid from the units API -->
