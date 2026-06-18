@@ -10,10 +10,11 @@ public class AnalyticsDbContextInitializer(AnalyticsDbContext context, ILogger<A
         {
             if (context.Database.IsRelational())
             {
-                // Use EnsureCreated instead of MigrateAsync since we use HasData for seed
-                // and don't maintain EF Core migration files
-                await context.Database.EnsureCreatedAsync();
-                logger.LogInformation("Database created/verified successfully.");
+                // Apply EF Core migrations. Unlike EnsureCreated, Migrate() applies
+                // incremental schema changes to an existing database, so later schema
+                // changes (new tables/columns) are picked up without a volume reset.
+                await context.Database.MigrateAsync();
+                logger.LogInformation("Database migrated/verified successfully.");
             }
         }
         catch (Exception ex)

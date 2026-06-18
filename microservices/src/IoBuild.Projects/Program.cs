@@ -3,8 +3,10 @@ using IoBuild.Projects.Domain.Repositories;
 using IoBuild.Projects.Domain.Services;
 using IoBuild.Projects.Infrastructure.Persistence;
 using IoBuild.Projects.Infrastructure.Repositories;
+using IoBuild.Projects.Workers;
 using IoBuild.Shared.Domain.Repositories;
 using IoBuild.Shared.Infrastructure.ASP.Configuration;
+using IoBuild.Shared.Infrastructure.Messaging;
 using IoBuild.Shared.Infrastructure.Middleware;
 using IoBuild.Shared.Infrastructure.Tokens;
 using Microsoft.EntityFrameworkCore;
@@ -71,6 +73,7 @@ builder.Services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<AppDbContext
 builder.Services.AddScoped<IProjectRepository, ProjectRepository>();
 builder.Services.AddScoped<IUnitRepository, UnitRepository>();
 builder.Services.AddScoped<IClientRepository, ClientRepository>();
+builder.Services.AddScoped<IOutboxMessageRepository, OutboxMessageRepository>();
 
 builder.Services.AddScoped<IProjectCommandService, ProjectCommandService>();
 builder.Services.AddScoped<IProjectQueryService, ProjectQueryService>();
@@ -78,6 +81,12 @@ builder.Services.AddScoped<IUnitCommandService, UnitCommandService>();
 builder.Services.AddScoped<IUnitQueryService, UnitQueryService>();
 builder.Services.AddScoped<IClientCommandService, ClientCommandService>();
 builder.Services.AddScoped<IClientQueryService, ClientQueryService>();
+
+// ── Domain-event publishing + outbox resilience pipeline (ADR-8) ──
+builder.Services.AddDomainEventPublishing(builder.Configuration);
+
+// ── OutboxWorker: polls pending outbox rows and publishes to RabbitMQ (ADR-2) ──
+builder.Services.AddHostedService<OutboxWorker>();
 
 builder.Services.AddCors(options =>
 {
@@ -94,7 +103,10 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    db.Database.EnsureCreated();
+    db.Database.Migrate();
+    // Emit Created events for seeded aggregates so the Analytics read model is populated
+    // (HasData seed bypasses the command services / outbox). No-op once outbox has history.
+    await OutboxBackfill.RunAsync(db);
 }
 
 if (app.Environment.IsDevelopment())

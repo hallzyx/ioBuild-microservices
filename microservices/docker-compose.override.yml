@@ -48,3 +48,8 @@ services:
   influxdb:
     ports:
       - "8086:8086" # InfluxDB UI/API local
+
+  rabbitmq:
+    ports:
+      - "5672:5672"   # AMQP (already published in base, kept explicit for clarity)
+      - "15672:15672" # Management UI — http://localhost:15672 (guest/iobuild)

@@ -2,59 +2,63 @@ using Microsoft.EntityFrameworkCore;
 using IoBuild.Shared.Infrastructure.EFC.Extensions;
 using IoBuild.Analytics.Domain.Model.Aggregates;
 using IoBuild.Analytics.Domain.Model.Entities;
-using IoBuild.Analytics.Infrastructure.Persistence.EFC.Configuration.Seed;
+using IoBuild.Analytics.Domain.Model.Projections;
 
 namespace IoBuild.Analytics;
 
+/// <remarks>
+/// Metrics are eventually consistent with source services
+/// (Transactional Outbox, ~5 s lag).
+/// </remarks>
 public class AnalyticsDbContext(DbContextOptions<AnalyticsDbContext> options) : DbContext(options)
 {
-    public DbSet<BuilderMetrics> BuilderMetrics { get; init; }
-    public DbSet<OwnerMetrics> OwnerMetrics { get; init; }
+    // ── Projection tables (ADR-6) — populated by AnalyticsEventConsumer ──
+    public DbSet<DeviceProjection> DeviceProjections { get; init; }
+    public DbSet<ProjectProjection> ProjectProjections { get; init; }
+    public DbSet<UnitProjection> UnitProjections { get; init; }
+
+    // ── Response DTO types (retained for REST assemblers) ──
+    // BuilderMetrics and OwnerMetrics are NO longer EF-mapped tables.
+    // They are computed in-process by AnalyticsQueryService.
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
 
-        // ── BuilderMetrics: store scalar metrics, ignore runtime-only complex properties ──
-        modelBuilder.Entity<BuilderMetrics>(entity =>
+        // ── DeviceProjection: device_projection table ──
+        modelBuilder.Entity<DeviceProjection>(entity =>
         {
-            entity.Property<int>("Id").ValueGeneratedOnAdd();
-            entity.HasKey("Id");
-            entity.Property<int>("UserId");
-            entity.Property<DateTime>("SnapshotDate");
-
-            entity.Ignore(e => e.TemperatureHistory);
-            entity.Ignore(e => e.EnergyHistory);
-            entity.Ignore(e => e.HourlyEnergyData);
-            entity.Ignore(e => e.MonthlyOccupancy);
-            entity.Ignore(e => e.DevicesByType);
-            entity.Ignore(e => e.ProjectsOverview);
+            entity.HasKey(e => e.DeviceId);
+            entity.Property(e => e.DeviceType).HasMaxLength(64).IsRequired();
+            entity.Property(e => e.Status).HasMaxLength(32).IsRequired();
+            entity.HasIndex(e => e.OwnerUserId);
+            entity.HasIndex(e => e.ProjectId);
         });
 
-        // ── OwnerMetrics: store scalar metrics, ignore runtime-only complex properties ──
-        modelBuilder.Entity<OwnerMetrics>(entity =>
+        // ── ProjectProjection: project_projection table ──
+        modelBuilder.Entity<ProjectProjection>(entity =>
         {
-            entity.Property<int>("Id").ValueGeneratedOnAdd();
-            entity.HasKey("Id");
-            entity.Property<int>("UserId");
-            entity.Property<DateTime>("SnapshotDate");
-
-            entity.Ignore(e => e.TemperatureHistory);
-            entity.Ignore(e => e.EnergyHistory);
-            entity.Ignore(e => e.DailyEnergyConsumption);
-            entity.Ignore(e => e.WaterUsageWeekly);
-            entity.Ignore(e => e.DeviceHealthStatus);
-            entity.Ignore(e => e.MyUnitsDetails);
+            entity.HasKey(e => e.ProjectId);
+            entity.Property(e => e.Name).HasMaxLength(160).IsRequired();
+            entity.Property(e => e.Status).HasMaxLength(32).IsRequired();
+            entity.HasIndex(e => e.BuilderUserId);
         });
 
-        // Must come after entity configuration so shadow properties are known
-        modelBuilder.UseSnakeCaseNamingConvention();
+        // ── UnitProjection: unit_projection table ──
+        modelBuilder.Entity<UnitProjection>(entity =>
+        {
+            entity.HasKey(e => e.UnitId);
+            entity.Property(e => e.Status).HasMaxLength(32).IsRequired();
+            entity.HasIndex(e => e.BuilderUserId);
+            entity.HasIndex(e => e.OwnerUserId);
+            entity.HasIndex(e => e.ProjectId);
+        });
 
-        // Keyless entity types for runtime-only DTOs
+        // ── Keyless runtime-only DTOs ──
         modelBuilder.Entity<HistoricalDataPoint>().HasNoKey();
         modelBuilder.Entity<DeviceHealthStatus>().HasNoKey();
 
-        // ── Seed historical data for dashboards ──
-        modelBuilder.ApplyAnalyticsSeedData();
+        // snake_case naming — must come after all entity config
+        modelBuilder.UseSnakeCaseNamingConvention();
     }
 }

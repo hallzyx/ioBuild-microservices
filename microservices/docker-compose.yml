@@ -62,8 +62,11 @@ services:
       test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
       interval: 10s
       timeout: 5s
-      retries: 5
-      start_period: 20s
+      retries: 10
+      # First boot does a cold .NET start + EF migration + seed under a tight
+      # mem_limit; give it generous headroom so it never flips to "unhealthy"
+      # (which would abort the whole `compose up` since everything gates on iam).
+      start_period: 90s
 
   # ──────────────────────────────────────────
   # IoBuild.Devices — Gestión IoT (5002)
@@ -82,6 +85,8 @@ services:
         condition: service_healthy
       mosquitto:
         condition: service_started
+      rabbitmq:
+        condition: service_healthy
     environment:
       - ASPNETCORE_URLS=http://+:5002
       - ASPNETCORE_ENVIRONMENT=Production
@@ -94,14 +99,15 @@ services:
       - INFLUXDB_TOKEN=${INFLUXDB_TOKEN:-iobuild-telemetry-token}
       - MQTT_HOST=mosquitto
       - MQTT_PORT=1883
+      - RabbitMq__ConnectionString=amqp://${RABBITMQ_USER:-iobuild}:${RABBITMQ_PASS:-iobuild}@rabbitmq:5672/
     networks:
       - iobuild-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5002/health"]
       interval: 10s
       timeout: 5s
-      retries: 5
-      start_period: 20s
+      retries: 10
+      start_period: 60s
 
   # ──────────────────────────────────────────
   # IoBuild.Projects — Proyectos (5003)
@@ -116,6 +122,8 @@ services:
     depends_on:
       iam:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     environment:
       - ASPNETCORE_URLS=http://+:5003
       - ASPNETCORE_ENVIRONMENT=Production
@@ -125,14 +133,15 @@ services:
       - DB_PASSWORD=${DB_PASSWORD:-iobuild123}
       - DB_NAME=iobuild_projects
       - JWT_SECRET=${JWT_SECRET:-dev-fallback-key-minimum-32-characters!!}
+      - RabbitMq__ConnectionString=amqp://${RABBITMQ_USER:-iobuild}:${RABBITMQ_PASS:-iobuild}@rabbitmq:5672/
     networks:
       - iobuild-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5003/health"]
       interval: 10s
       timeout: 5s
-      retries: 5
-      start_period: 20s
+      retries: 10
+      start_period: 60s
 
   # ──────────────────────────────────────────
   # IoBuild.Subscriptions — Pagos (5004)
@@ -165,8 +174,8 @@ services:
       test: ["CMD", "curl", "-f", "http://localhost:5004/health"]
       interval: 10s
       timeout: 5s
-      retries: 5
-      start_period: 20s
+      retries: 10
+      start_period: 60s
 
   # ──────────────────────────────────────────
   # IoBuild.Analytics — Dashboards (5005)
@@ -181,6 +190,8 @@ services:
     depends_on:
       iam:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     environment:
       - ASPNETCORE_URLS=http://+:5005
       - ASPNETCORE_ENVIRONMENT=Production
@@ -189,16 +200,15 @@ services:
       - DB_USER=root
       - DB_PASSWORD=${DB_PASSWORD:-iobuild123}
       - DB_NAME=iobuild_analytics
-      - Services__DevicesApi=http://devices:5002
-      - Services__ProjectsApi=http://projects:5003
+      - RabbitMq__ConnectionString=amqp://${RABBITMQ_USER:-iobuild}:${RABBITMQ_PASS:-iobuild}@rabbitmq:5672/
     networks:
       - iobuild-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5005/health"]
       interval: 10s
       timeout: 5s
-      retries: 5
-      start_period: 20s
+      retries: 10
+      start_period: 60s
 
   # ──────────────────────────────────────────
   # IoBuild.Profiles — User Profiles (5006)
@@ -228,8 +238,8 @@ services:
       test: ["CMD", "curl", "-f", "http://localhost:5006/health"]
       interval: 10s
       timeout: 5s
-      retries: 5
-      start_period: 20s
+      retries: 10
+      start_period: 60s
 
   # ──────────────────────────────────────────
   # IoBuild.Gateway — API Gateway (8080)
@@ -264,8 +274,31 @@ services:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 15s
       timeout: 5s
+      retries: 10
+      start_period: 90s
+
+  # ──────────────────────────────────────────
+  # RabbitMQ — Message Broker (5672 / 15672)
+  # ──────────────────────────────────────────
+  rabbitmq:
+    image: rabbitmq:4-management
+    container_name: iobuild-rabbitmq
+    restart: unless-stopped
+    mem_limit: 256m
+    ports:
+      - "5672:5672"     # AMQP
+      - "15672:15672"   # Management UI
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER:-iobuild}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASS:-iobuild}
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 15s
+      timeout: 10s
       retries: 5
       start_period: 30s
+    networks:
+      - iobuild-network
 
   # ──────────────────────────────────────────
   # Mosquitto — MQTT Broker (1883)

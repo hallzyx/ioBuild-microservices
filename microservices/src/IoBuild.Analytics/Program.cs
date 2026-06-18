@@ -1,7 +1,6 @@
-using IoBuild.Analytics.Application.ACL;
 using IoBuild.Analytics.Application.Internal.QueryServices;
 using IoBuild.Analytics.Domain.Services;
-using IoBuild.Analytics.Interfaces.ACL;
+using IoBuild.Analytics.Infrastructure.Messaging;
 using Microsoft.EntityFrameworkCore;
 using IoBuild.Analytics;
 using IoBuild.Shared.Infrastructure.Middleware;
@@ -51,21 +50,18 @@ builder.Services.AddDbContext<AnalyticsDbContext>(options =>
     }
 });
 
-builder.Services.AddHttpClient<IDevicesContextFacade, DevicesContextFacade>(client =>
-{
-    client.BaseAddress = new Uri(builder.Configuration.GetValue<string>("Services:DevicesApi") ?? "http://localhost:5002");
-    client.Timeout = TimeSpan.FromSeconds(10);
-});
-
-builder.Services.AddHttpClient<IProjectsContextFacade, ProjectsContextFacade>(client =>
-{
-    client.BaseAddress = new Uri(builder.Configuration.GetValue<string>("Services:ProjectsApi") ?? "http://localhost:5003");
-    client.Timeout = TimeSpan.FromSeconds(10);
-});
+// ACL HTTP facade registrations removed (IDevicesContextFacade / IProjectsContextFacade).
+// Analytics now reads exclusively from local projection tables populated by
+// AnalyticsEventConsumer (ADR-6, REQ-AQ-01).
+// The facade classes are retained under Interfaces/ACL/ and Application/ACL/ for
+// rollback reference — they are orphaned and no longer registered in DI.
 
 builder.Services.AddScoped<IAnalyticsQueryService, AnalyticsQueryService>();
 
 builder.Services.AddScoped<AnalyticsDbContextInitializer>();
+
+// Register the RabbitMQ consumer that keeps the projection tables up to date (REQ-RM-02)
+builder.Services.AddAnalyticsEventConsumer(builder.Configuration);
 
 var app = builder.Build();
 
