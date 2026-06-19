@@ -30,6 +30,17 @@ public class ClientsController : ControllerBase
         return Ok(resources);
     }
 
+    [HttpGet("mine")]
+    public async Task<IActionResult> GetMine()
+    {
+        if (HttpContext.Items["UserId"] is not int builderId)
+            return Unauthorized();
+
+        var clients = await _queryService.Handle(new GetClientsByBuilderIdQuery(builderId));
+        var resources = ClientResourceFromEntityAssembler.ToResourceEnumerable(clients);
+        return Ok(resources);
+    }
+
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(int id)
     {
