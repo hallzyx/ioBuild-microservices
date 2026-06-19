@@ -84,4 +84,34 @@ public class UnitCommandService : IUnitCommandService
 
         return unit.Id;
     }
+
+    public async Task Handle(AssignUnitOwnerEmailCommand command)
+    {
+        var unit = await _repository.FindByIdAsync(command.UnitId);
+        if (unit == null)
+            throw new KeyNotFoundException($"Unit {command.UnitId} not found.");
+
+        unit.AssignOwnerEmail(command.OwnerEmail);
+        _repository.Update(unit);
+
+        // Recompute Project totals: OccupiedUnits = count of units with OwnerEmail != null
+        var project = await _projectRepository.FindByIdAsync(unit.ProjectId);
+        if (project != null)
+        {
+            var allUnits = await _repository.FindByProjectIdAsync(unit.ProjectId);
+            var totalUnits = allUnits.Count();
+            var occupiedUnits = allUnits.Count(u => u.OwnerEmail != null);
+            project.Update(
+                project.Name,
+                project.Description,
+                project.Location,
+                totalUnits,
+                occupiedUnits,
+                project.Status,
+                project.ImageUrl);
+            _projectRepository.Update(project);
+        }
+
+        await _unitOfWork.CompleteAsync();
+    }
 }

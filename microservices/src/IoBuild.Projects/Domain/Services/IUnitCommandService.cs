@@ -5,4 +5,5 @@ namespace IoBuild.Projects.Domain.Services;
 public interface IUnitCommandService
 {
     Task<int> Handle(CreateUnitCommand command);
+    Task Handle(AssignUnitOwnerEmailCommand command);
 }
