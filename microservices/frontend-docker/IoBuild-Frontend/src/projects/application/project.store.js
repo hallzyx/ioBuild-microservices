@@ -102,6 +102,11 @@ export const useProjectStore = defineStore("projects", () => {
         }
     }
 
+    async function assignUnitOwner(unitId, ownerEmail) {
+        const response = await projectApi.patchUnitOwner(unitId, ownerEmail);
+        return response.data;
+    }
+
     return {
         projects,
         errors,
@@ -115,6 +120,7 @@ export const useProjectStore = defineStore("projects", () => {
         updateProject,
         deleteProject,
         defineProjectStructure,
+        assignUnitOwner,
     };
 });
 
