@@ -15,14 +15,19 @@ const store = useProjectStore();
 const projectApi = new ProjectApi();
 const project = ref(null);
 const units = ref([]);
+const unitsError = ref(null);
 const showStructureDialog = ref(false);
+const editMode = ref(false);
+const pendingOwnerEmails = ref({});
+const savingUnit = ref(null);
 
 async function loadUnits() {
+  unitsError.value = null;
   try {
     units.value = await projectApi.getUnitsByProject(route.params.id);
   } catch (error) {
     console.error("Error loading units:", error);
-    units.value = [];
+    unitsError.value = error;
   }
 }
 
@@ -76,6 +81,24 @@ async function onStructureDefined() {
   await store.fetchProjects();
   project.value = store.getProjectById(route.params.id);
   await loadUnits();
+}
+
+async function saveUnitOwner(unit) {
+  const email = pendingOwnerEmails.value[unit.id];
+  if (!email || !email.trim()) return;
+  savingUnit.value = unit.id;
+  try {
+    const updated = await store.assignUnitOwner(unit.id, email.trim());
+    const idx = units.value.findIndex(u => u.id === unit.id);
+    if (idx !== -1) units.value[idx] = { ...units.value[idx], ...updated };
+    delete pendingOwnerEmails.value[unit.id];
+    await store.fetchProjects();
+    project.value = store.getProjectById(route.params.id);
+  } catch (error) {
+    console.error("Error assigning unit owner:", error);
+  } finally {
+    savingUnit.value = null;
+  }
 }
 
 function handleImageError(event) {
@@ -143,8 +166,8 @@ function handleImageError(event) {
           </p>
         </div>
 
-        <!-- Define Structure — only visible when no structure exists yet -->
-        <div v-if="!hasStructure" class="pt-2">
+        <!-- Define Structure — only visible when no structure exists yet AND fetch succeeded -->
+        <div v-if="!hasStructure && !unitsError" class="pt-2">
           <pv-button
               label="Define Structure"
               icon="pi pi-sitemap"
@@ -152,6 +175,12 @@ function handleImageError(event) {
               severity="success"
               @click="showStructureDialog = true"
           />
+        </div>
+
+        <!-- Units fetch error — prevents misreading a failed load as empty project -->
+        <div v-if="unitsError" class="pt-2 p-3 bg-red-50 rounded-lg border border-red-200 text-sm text-red-700">
+          <i class="pi pi-exclamation-circle mr-2"></i>
+          Could not load project structure. Please refresh and try again.
         </div>
       </div>
     </div>
@@ -162,6 +191,15 @@ function handleImageError(event) {
         <i class="pi pi-building text-emerald-600 text-lg"></i>
         <h2 class="text-lg font-semibold text-gray-800">Project Structure</h2>
         <pv-tag :value="`${units.length} units`" severity="success" />
+        <pv-button
+            :label="editMode ? 'Done' : 'Edit owners'"
+            :icon="editMode ? 'pi pi-check' : 'pi pi-pencil'"
+            :severity="editMode ? 'success' : 'secondary'"
+            text
+            size="small"
+            class="ml-auto"
+            @click="editMode = !editMode"
+        />
       </div>
 
       <!-- Per-floor unit grid from the units API -->
@@ -169,17 +207,43 @@ function handleImageError(event) {
         <div v-for="row in structureGrid" :key="row.floor" class="p-3 bg-gray-50 rounded-lg">
           <p class="font-semibold text-gray-700 text-sm mb-2">Floor {{ row.floor }}</p>
           <div class="flex flex-wrap gap-2">
-            <span
-                v-for="unit in row.units"
-                :key="unit.id"
-                class="px-3 py-1 text-xs font-mono rounded border"
-                :class="unit.ownerEmail
-                  ? 'bg-blue-100 text-blue-800 border-blue-200'
-                  : 'bg-emerald-100 text-emerald-800 border-emerald-200'"
-                :title="unit.ownerEmail || 'unassigned'"
-            >
-              {{ unit.roomNumber }}<span v-if="unit.ownerEmail"> · {{ unit.ownerEmail }}</span>
-            </span>
+            <template v-for="unit in row.units" :key="unit.id">
+              <!-- Edit mode: show inline input only for unassigned units -->
+              <div
+                  v-if="editMode && !unit.ownerEmail"
+                  class="flex items-center gap-1 px-2 py-1 bg-yellow-50 border border-yellow-300 rounded text-xs"
+              >
+                <span class="font-mono text-gray-600 shrink-0">{{ unit.roomNumber }}</span>
+                <pv-input-text
+                    v-model="pendingOwnerEmails[unit.id]"
+                    placeholder="owner@example.com"
+                    class="text-xs"
+                    style="width: 180px; padding: 2px 6px; font-size: 0.7rem;"
+                    type="email"
+                />
+                <pv-button
+                    icon="pi pi-check"
+                    severity="success"
+                    text
+                    rounded
+                    size="small"
+                    :loading="savingUnit === unit.id"
+                    :disabled="!pendingOwnerEmails[unit.id]"
+                    @click="saveUnitOwner(unit)"
+                />
+              </div>
+              <!-- Default badge (view mode, or assigned units in edit mode) -->
+              <span
+                  v-else
+                  class="px-3 py-1 text-xs font-mono rounded border"
+                  :class="unit.ownerEmail
+                    ? 'bg-blue-100 text-blue-800 border-blue-200'
+                    : 'bg-emerald-100 text-emerald-800 border-emerald-200'"
+                  :title="unit.ownerEmail || 'unassigned'"
+              >
+                {{ unit.roomNumber }}<span v-if="unit.ownerEmail"> · {{ unit.ownerEmail }}</span>
+              </span>
+            </template>
           </div>
         </div>
       </div>

@@ -2,6 +2,7 @@ import { BaseApi } from "../../shared/infrastructure/base-api.js";
 import { BaseEndpoint } from "../../shared/infrastructure/base-endpoint.js";
 
 const projectsEndpointPath = import.meta.env.VITE_PROJECTS_ENDPOINT_PATH;
+const unitsEndpointPath = import.meta.env.VITE_UNITS_ENDPOINT_PATH || '/units';
 
 export class ProjectApi extends BaseApi {
     #projectsEndpoint;
@@ -39,8 +40,11 @@ export class ProjectApi extends BaseApi {
     }
 
     async getUnitsByProject(projectId) {
-        const response = await this.http.get('/units');
-        const units = (response.data || []).filter(u => Number(u.projectId) === Number(projectId));
-        return units;
+        const response = await this.http.get(`${unitsEndpointPath}/by-project/${projectId}`);
+        return response.data;
+    }
+
+    patchUnitOwner(unitId, ownerEmail) {
+        return this.http.patch(`${unitsEndpointPath}/${unitId}`, { ownerEmail });
     }
 }
