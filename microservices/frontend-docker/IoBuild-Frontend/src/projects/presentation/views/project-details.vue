@@ -84,6 +84,9 @@ function handleImageError(event) {
 </script>
 
 <template>
+  <!-- Single root element: <transition mode="out-in"> in the layout requires one
+       root node, otherwise leaving this view leaves the next route blank. -->
+  <div>
   <div v-if="project" class="p-6 max-w-3xl mx-auto bg-white rounded-lg shadow">
     <div class="flex justify-between items-center mb-6">
       <pv-button
@@ -198,6 +201,7 @@ function handleImageError(event) {
       :project-id="route.params.id"
       @structure-defined="onStructureDefined"
   />
+  </div>
 </template>
 
 <style scoped>

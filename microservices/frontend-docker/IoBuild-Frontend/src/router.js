@@ -6,6 +6,24 @@ import projectsRoutes from "./projects/presentation/projects-routes.js";
 import analyticsRoutes from "./analytics/presentation/analytics-routes.js";
 import { clientsRoutes } from "./clients/presentation/clients-routes.js";
 import iamRoutes from "./iam/presentation/iam-routes.js";
+import { SubscriptionApi } from "./subscriptions/infrastructure/subscription-api.js";
+
+const subscriptionApi = new SubscriptionApi();
+
+// A builder may only use the platform once they hold an active subscription.
+// Returns true when the current builder has an active subscription (fail-closed
+// on error so paid features stay gated).
+async function builderHasActiveSubscription() {
+    try {
+        const currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
+        if (!currentUser?.id) return false;
+        const { data } = await subscriptionApi.getSubscriptionByBuilderId(currentUser.id);
+        return !!data && String(data.status).toLowerCase() === 'active';
+    } catch (error) {
+        console.error('[subscription-gate] check failed:', error);
+        return false;
+    }
+}
 
 const routes = [
 
@@ -71,38 +89,47 @@ const router = createRouter({
     routes: routes
 });
 
-router.beforeEach((to, from, next) => {
-    console.log(`Navigating from ${from.name} to ${to.name}`);
-    
+router.beforeEach(async (to, from, next) => {
     // Update page title
     let baseTitle = 'IoBuild';
     document.title = `${baseTitle} - ${to.meta['title'] || ''}`;
-    
+
     // Check if route requires authentication
     const isPublicRoute = to.meta?.public === true;
     const token = localStorage.getItem('token');
     const isAuthenticated = !!token;
-    
-    console.log('Route check:', { 
-        path: to.path, 
-        isPublic: isPublicRoute, 
-        isAuthenticated 
-    });
-    
+
     // If route is not public and user is not authenticated, redirect to login page
     if (!isPublicRoute && !isAuthenticated) {
-        console.log('Redirecting to login - not authenticated');
         next('/iam/login');
-    } 
-    // If user is authenticated and trying to access login, redirect to home
-    else if (to.path === '/iam/login' && isAuthenticated) {
-        console.log('Redirecting to home - already authenticated');
-        next('/home');
-    } 
-    // Otherwise, allow navigation
-    else {
-        next();
+        return;
     }
+    // If user is authenticated and trying to access login, redirect to home
+    if (to.path === '/iam/login' && isAuthenticated) {
+        next('/home');
+        return;
+    }
+
+    // ── Subscription gate (builders only) ──────────────────────────────
+    // A builder without an active subscription may only reach the subscriptions
+    // section (and iam, to log in/out). Everything else redirects there, since
+    // those features are part of what the subscription pays for.
+    if (isAuthenticated) {
+        const currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
+        const isBuilder = String(currentUser?.role).toLowerCase() === 'builder';
+        const isAllowedWithoutSub = to.path.startsWith('/subscriptions')
+            || to.path.startsWith('/iam');
+
+        if (isBuilder && !isAllowedWithoutSub) {
+            const active = await builderHasActiveSubscription();
+            if (!active) {
+                next('/subscriptions/my-subscription');
+                return;
+            }
+        }
+    }
+
+    next();
 });
 
 export default router;

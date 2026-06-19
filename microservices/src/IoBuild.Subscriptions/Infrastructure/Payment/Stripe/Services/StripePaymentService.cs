@@ -2,6 +2,7 @@ using IoBuild.Shared.Domain.Repositories;
 using IoBuild.Subscriptions.Domain.Model.Aggregates;
 using IoBuild.Subscriptions.Domain.Repositories;
 using IoBuild.Subscriptions.Infrastructure.Payment.Stripe.Configuration;
+using Microsoft.Extensions.Logging;
 using Stripe;
 using Stripe.Checkout;
 
@@ -17,17 +18,20 @@ public class StripePaymentService
     private readonly IPlanRepository _planRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly StripeSettings _stripeSettings;
+    private readonly ILogger<StripePaymentService> _logger;
 
     public StripePaymentService(
         ISubscriptionRepository subscriptionRepository,
         IPlanRepository planRepository,
         IUnitOfWork unitOfWork,
-        StripeSettings stripeSettings)
+        StripeSettings stripeSettings,
+        ILogger<StripePaymentService> logger)
     {
         _subscriptionRepository = subscriptionRepository;
         _planRepository = planRepository;
         _unitOfWork = unitOfWork;
         _stripeSettings = stripeSettings;
+        _logger = logger;
 
         StripeConfiguration.ApiKey = _stripeSettings.SecretKey;
     }
@@ -157,5 +161,46 @@ public class StripePaymentService
         await _unitOfWork.CompleteAsync();
 
         return ("paid", subscriptionId, isNewSubscription);
+    }
+
+    /// <summary>
+    /// Lists Stripe Checkout Session receipts for a specific builder, ordered by date descending.
+    /// Returns an empty list if a Stripe error occurs.
+    /// </summary>
+    public async Task<IReadOnlyList<(DateTime Date, long AmountInCents, string Currency, string? ReceiptUrl, string Description, string Status)>> ListReceiptsAsync(int builderId)
+    {
+        try
+        {
+            var service = new SessionService();
+            var sessions = await service.ListAsync(new SessionListOptions
+            {
+                Limit = 100,
+                Expand = new List<string> { "data.payment_intent.latest_charge" }
+            });
+
+            var results = sessions.Data
+                .Where(s =>
+                    s.Metadata != null &&
+                    s.Metadata.TryGetValue("builder_id", out var bid) &&
+                    bid == builderId.ToString() &&
+                    s.PaymentStatus == "paid")
+                .OrderByDescending(s => s.Created)
+                .Select(s => (
+                    Date: s.Created,
+                    AmountInCents: s.AmountTotal ?? 0L,
+                    Currency: (s.Currency ?? "pen").ToUpperInvariant(),
+                    ReceiptUrl: s.PaymentIntent?.LatestCharge?.ReceiptUrl,
+                    Description: "Plan payment",
+                    Status: s.PaymentStatus
+                ))
+                .ToList();
+
+            return results;
+        }
+        catch (StripeException ex)
+        {
+            _logger.LogError(ex, "Stripe error while listing receipts for builder {BuilderId}", builderId);
+            return Array.Empty<(DateTime, long, string, string?, string, string)>();
+        }
     }
 }

@@ -5,15 +5,33 @@ import { ProjectAssembler } from "../infrastructure/project.assembler.js";
 
 const projectApi = new ProjectApi();
 
+// Resolve the authenticated builder's id from the session (IAM stores it in
+// localStorage after login). Returns null when there's no valid session, so
+// callers can fail closed instead of falling back to another builder's data.
+function getCurrentBuilderId() {
+    try {
+        const currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
+        return currentUser?.id ?? null;
+    } catch (error) {
+        console.error('[projects] could not read current user:', error);
+        return null;
+    }
+}
+
 export const useProjectStore = defineStore("projects", () => {
     const projects = ref([]);
     const errors = ref([]);
     const projectsLoaded = ref(false);
-    const builderId = 1;
 
     const projectsCount = computed(() => (projectsLoaded ? projects.value.length : 0));
 
     function fetchProjects() {
+        const builderId = getCurrentBuilderId();
+        if (!builderId) {
+            projects.value = [];
+            projectsLoaded.value = true;
+            return Promise.resolve();
+        }
         return projectApi
             .getProjectsByBuilderId(builderId)
             .then((response) => {
@@ -31,8 +49,11 @@ export const useProjectStore = defineStore("projects", () => {
     }
 
     function addProject(project) {
+        // Stamp ownership with the authenticated builder so the project belongs
+        // to its creator (not the entity's default builderId).
+        const builderId = getCurrentBuilderId();
         projectApi
-            .createProject(project)
+            .createProject({ ...project, builderId })
             .then((response) => {
                 const resource = response.data;
                 const newProject = ProjectAssembler.toEntityFromResource(resource);

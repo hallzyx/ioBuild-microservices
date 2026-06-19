@@ -73,4 +73,8 @@ export class SubscriptionApi extends BaseApi {
             sessionId
         });
     }
+
+    getInvoicesByBuilder(builderId) {
+        return this.http.get(`${subscriptionsEndpointPath}/payments/invoices`, { params: { builderId } });
+    }
 }

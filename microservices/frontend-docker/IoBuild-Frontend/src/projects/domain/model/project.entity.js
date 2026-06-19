@@ -7,7 +7,7 @@ export class Project {
                     totalUnits = 0,
                     occupiedUnits = 0,
                     status = "active",
-                    builderId = 1,
+                    builderId = null,
                     createdDate = null,
                     imageUrl = "",
                 }) {

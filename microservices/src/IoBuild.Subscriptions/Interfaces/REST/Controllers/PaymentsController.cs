@@ -44,4 +44,24 @@ public class PaymentsController : ControllerBase
 
         return Ok(response);
     }
+
+    // builderId is a query parameter (not a route segment) on purpose: the global
+    // kebab-case route convention rewrites camelCase route tokens (e.g. {builderId}
+    // -> {builder-id}), which breaks binding to the camelCase action parameter.
+    [HttpGet("invoices")]
+    public async Task<IActionResult> GetInvoices([FromQuery] int builderId)
+    {
+        var receipts = await _stripePaymentService.ListReceiptsAsync(builderId);
+
+        var list = receipts.Select(r => new InvoiceResource(
+            Date: r.Date.ToString("o"),
+            Amount: r.AmountInCents / 100m,
+            Currency: r.Currency,
+            ReceiptUrl: r.ReceiptUrl,
+            Description: r.Description,
+            Status: r.Status
+        )).ToList();
+
+        return Ok(list);
+    }
 }

@@ -8,6 +8,7 @@ import useSubscriptionStore from "../../application/subscription.store.js";
 import { IamFacade } from "../../infrastructure/iam.facade.js";
 import PlanCard from "../components/plan-card.vue";
 import CurrentPlanCard from "../components/current-plan-card.vue";
+import PreviousInvoicesModal from "../components/previous-invoices-modal.vue";
 import { SubscriptionApi } from "../../infrastructure/subscription-api.js";
 
 // Stripe
@@ -22,6 +23,40 @@ const subscriptionApi = new SubscriptionApi();
 // Stripe setup - simplified like Profile.jsx
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 const isProcessing = ref(false);
+
+// Invoices dialog state
+const invoicesVisible = ref(false);
+const invoicesLoading = ref(false);
+const invoices = ref([]);
+const invoicesError = ref('');
+
+const openInvoicesDialog = async () => {
+  invoicesVisible.value = true;
+  invoicesLoading.value = true;
+  invoicesError.value = '';
+  invoices.value = [];
+
+  try {
+    const builderId = getBuilderId();
+    const { data } = await subscriptionApi.getInvoicesByBuilder(builderId);
+    // Map backend receiptUrl -> downloadUrl for the modal component
+    invoices.value = (data || []).map(r => ({
+      ...r,
+      downloadUrl: r.receiptUrl ?? null,
+      date: new Date(r.date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+    }));
+  } catch (error) {
+    invoicesError.value = 'Could not load invoices. Please try again.';
+    toast.add({
+      severity: 'error',
+      summary: 'Error',
+      detail: 'Could not load invoices.',
+      life: 4000
+    });
+  } finally {
+    invoicesLoading.value = false;
+  }
+};
 
 // Helper function to get builderId from authenticated user using Facade (ACL)
 const getBuilderId = () => {
@@ -188,6 +223,15 @@ const handlePayPlan = async (plan) => {
             </span>
           </p>
         </div>
+        <div v-if="store.currentPlan" class="header-right">
+          <pv-button
+            label="View My Invoices"
+            icon="pi pi-receipt"
+            severity="secondary"
+            outlined
+            @click="openInvoicesDialog"
+          />
+        </div>
       </div>
 
       <div v-if="store.isLoading" class="flex justify-center items-center py-8">
@@ -239,6 +283,14 @@ const handlePayPlan = async (plan) => {
         </div>
       </div>
     </div>
+
+    <PreviousInvoicesModal
+      :visible="invoicesVisible"
+      :invoices="invoices"
+      :loading="invoicesLoading"
+      :error="invoicesError"
+      @close="invoicesVisible = false"
+    />
   </div>
 </template>
 
