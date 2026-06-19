@@ -37,9 +37,9 @@ onMounted(async () => {
   await loadUnits();
 });
 
-// A project has a structure once it actually has units. Project.TotalUnits is a
-// separate stored field that the define-structure flow does not update, so derive
-// this from the fetched units instead.
+// A project has a structure once it actually has units. Deriving this from the
+// fetched units (rather than project.totalUnits) keeps the check robust even if
+// the stored totals lag behind for legacy projects.
 const hasStructure = computed(() => units.value.length > 0);
 
 // Group the project's units by floor for the structure display.
@@ -96,6 +96,24 @@ async function saveUnitOwner(unit) {
     project.value = store.getProjectById(route.params.id);
   } catch (error) {
     console.error("Error assigning unit owner:", error);
+  } finally {
+    savingUnit.value = null;
+  }
+}
+
+// Clear a unit's owner email (PATCH with null). Frees the room so the project's
+// occupied-units count decreases, mirroring the increment on assignment.
+async function clearUnitOwner(unit) {
+  savingUnit.value = unit.id;
+  try {
+    const updated = await store.assignUnitOwner(unit.id, null);
+    const idx = units.value.findIndex(u => u.id === unit.id);
+    // Force ownerEmail to null in case the API omits null fields from the resource.
+    if (idx !== -1) units.value[idx] = { ...units.value[idx], ...updated, ownerEmail: null };
+    await store.fetchProjects();
+    project.value = store.getProjectById(route.params.id);
+  } catch (error) {
+    console.error("Error clearing unit owner:", error);
   } finally {
     savingUnit.value = null;
   }
@@ -232,7 +250,25 @@ function handleImageError(event) {
                     @click="saveUnitOwner(unit)"
                 />
               </div>
-              <!-- Default badge (view mode, or assigned units in edit mode) -->
+              <!-- Edit mode: assigned unit shows its email plus a clear button -->
+              <div
+                  v-else-if="editMode && unit.ownerEmail"
+                  class="flex items-center gap-1 px-2 py-1 bg-blue-100 border border-blue-200 rounded text-xs"
+              >
+                <span class="font-mono text-blue-800 shrink-0">{{ unit.roomNumber }}</span>
+                <span class="text-blue-700 truncate" style="max-width: 140px;">{{ unit.ownerEmail }}</span>
+                <pv-button
+                    icon="pi pi-times"
+                    severity="danger"
+                    text
+                    rounded
+                    size="small"
+                    :loading="savingUnit === unit.id"
+                    :title="t('common.clear') || 'Clear owner'"
+                    @click="clearUnitOwner(unit)"
+                />
+              </div>
+              <!-- Default badge (view mode) -->
               <span
                   v-else
                   class="px-3 py-1 text-xs font-mono rounded border"
