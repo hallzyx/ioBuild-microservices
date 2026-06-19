@@ -5,4 +5,5 @@ namespace IoBuild.Projects.Domain.Repositories;
 
 public interface IUnitRepository : IBaseRepository<Unit>
 {
+    Task<IEnumerable<Unit>> FindByProjectIdAsync(int projectId);
 }

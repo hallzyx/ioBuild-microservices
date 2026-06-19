@@ -30,6 +30,14 @@ public class UnitsController : ControllerBase
         return Ok(resources);
     }
 
+    [HttpGet("by-project/{projectId}")]
+    public async Task<IActionResult> GetByProjectId(int projectId)
+    {
+        var units = await _queryService.Handle(new GetUnitsByProjectIdQuery(projectId));
+        var resources = UnitResourceFromEntityAssembler.ToResourceEnumerable(units);
+        return Ok(resources);
+    }
+
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(int id)
     {

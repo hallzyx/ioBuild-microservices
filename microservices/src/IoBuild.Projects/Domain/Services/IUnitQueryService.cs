@@ -7,4 +7,5 @@ public interface IUnitQueryService
 {
     Task<IEnumerable<Unit>> Handle(GetAllUnitsQuery query);
     Task<Unit?> Handle(GetUnitByIdQuery query);
+    Task<IEnumerable<Unit>> Handle(GetUnitsByProjectIdQuery query);
 }

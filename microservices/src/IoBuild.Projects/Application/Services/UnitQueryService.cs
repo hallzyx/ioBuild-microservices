@@ -23,4 +23,9 @@ public class UnitQueryService : IUnitQueryService
     {
         return await _repository.FindByIdAsync(query.Id);
     }
+
+    public async Task<IEnumerable<Unit>> Handle(GetUnitsByProjectIdQuery query)
+    {
+        return await _repository.FindByProjectIdAsync(query.ProjectId);
+    }
 }
