@@ -175,6 +175,26 @@ public class ProjectStructureCommandService
         foreach (var msg in outboxMessages)
             await _outboxRepository.AddAsync(msg);
 
-        await _unitOfWork.CompleteAsync(); // Phase 2 — outbox + owner links committed
+        // ── Project totals sync (B2) ────────────────────────────────────
+        // Recompute TotalUnits and OccupiedUnits from the created units.
+        // OccupiedUnits = count of units where OwnerEmail != null (not OwnerId —
+        // owner linking is async; a pre-assigned email IS occupied regardless of OwnerId state).
+        var project = await _projectRepository.FindByIdAsync(command.ProjectId);
+        if (project != null)
+        {
+            var totalUnits = createdUnits.Count;
+            var occupiedUnits = createdUnits.Count(u => u.OwnerEmail != null);
+            project.Update(
+                project.Name,
+                project.Description,
+                project.Location,
+                totalUnits,
+                occupiedUnits,
+                project.Status,
+                project.ImageUrl);
+            _projectRepository.Update(project);
+        }
+
+        await _unitOfWork.CompleteAsync(); // Phase 2 — outbox + owner links + totals committed
     }
 }
