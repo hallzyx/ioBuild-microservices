@@ -9,13 +9,12 @@ export const useClientStore = defineStore("clients", () => {
     const clients = ref([]);
     const errors = ref([]);
     const clientsLoaded = ref(false);
-    const builderId = parseInt(import.meta.env.VITE_USER_ID || '1');
 
     const clientsCount = computed(() => (clientsLoaded.value ? clients.value.length : 0));
 
     function fetchClients() {
         return clientApi
-            .getAllClients()
+            .getMyClients()
             .then((response) => {
                 clients.value = ClientAssembler.toEntitiesFromResponse(response);
                 clientsLoaded.value = true;

@@ -15,6 +15,10 @@ export class ClientApi extends BaseApi {
         return this.#clientsEndpoint.getAll();
     }
 
+    async getMyClients() {
+        return this.http.get(`${clientsEndpointPath}/mine`);
+    }
+
     async getClientsByBuilderId(builderId) {
         const response = await this.#clientsEndpoint.getAll();
         const allClients = response.data;
