@@ -30,6 +30,14 @@ public class UnitsController : ControllerBase
         return Ok(resources);
     }
 
+    [HttpGet("by-project/{projectId}")]
+    public async Task<IActionResult> GetByProjectId(int projectId)
+    {
+        var units = await _queryService.Handle(new GetUnitsByProjectIdQuery(projectId));
+        var resources = UnitResourceFromEntityAssembler.ToResourceEnumerable(units);
+        return Ok(resources);
+    }
+
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(int id)
     {
@@ -49,6 +57,23 @@ public class UnitsController : ControllerBase
         var unit = await _queryService.Handle(new GetUnitByIdQuery(id));
         var result = UnitResourceFromEntityAssembler.ToResource(unit!);
         return CreatedAtAction(nameof(GetById), new { id }, result);
+    }
+
+    [HttpPatch("{id}")]
+    public async Task<IActionResult> AssignOwnerEmail(int id, [FromBody] AssignUnitOwnerResource resource)
+    {
+        var command = AssignUnitOwnerCommandFromResourceAssembler.ToCommand(id, resource);
+        try
+        {
+            await _commandService.Handle(command);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+
+        var unit = await _queryService.Handle(new GetUnitByIdQuery(id));
+        return Ok(UnitResourceFromEntityAssembler.ToResource(unit!));
     }
 
     [HttpDelete("{id}")]

@@ -38,4 +38,11 @@ public class UnitRepository : IUnitRepository
     {
         return await _context.Units.ToListAsync();
     }
+
+    public async Task<IEnumerable<Unit>> FindByProjectIdAsync(int projectId)
+    {
+        return await _context.Units
+            .Where(u => u.ProjectId == projectId)
+            .ToListAsync();
+    }
 }
