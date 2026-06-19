@@ -8,4 +8,5 @@ public interface IClientQueryService
     Task<IEnumerable<Client>> Handle(GetAllClientsQuery query);
     Task<Client?> Handle(GetClientByIdQuery query);
     Task<IEnumerable<Client>> Handle(GetClientsByProjectIdQuery query);
+    Task<IEnumerable<Client>> Handle(GetClientsByBuilderIdQuery query);
 }

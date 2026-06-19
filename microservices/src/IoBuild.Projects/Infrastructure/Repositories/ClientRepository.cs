@@ -43,4 +43,14 @@ public class ClientRepository : IClientRepository
     {
         return await _context.Clients.Where(c => c.ProjectId == projectId).ToListAsync();
     }
+
+    public async Task<IEnumerable<Client>> FindByBuilderIdAsync(int builderId)
+    {
+        return await (
+            from client in _context.Clients
+            join project in _context.Projects on client.ProjectId equals project.Id
+            where project.BuilderId == builderId
+            select client
+        ).ToListAsync();
+    }
 }

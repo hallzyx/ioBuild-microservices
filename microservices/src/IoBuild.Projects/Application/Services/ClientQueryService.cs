@@ -28,4 +28,9 @@ public class ClientQueryService : IClientQueryService
     {
         return await _repository.FindByProjectIdAsync(query.ProjectId);
     }
+
+    public async Task<IEnumerable<Client>> Handle(GetClientsByBuilderIdQuery query)
+    {
+        return await _repository.FindByBuilderIdAsync(query.BuilderId);
+    }
 }
