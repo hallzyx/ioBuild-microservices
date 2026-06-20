@@ -1,18 +1,15 @@
 <script setup>
 import { onMounted, computed } from 'vue';
 import { useAnalyticsStore } from '../../application/analytics.store.js';
+import { useIamStore } from '../../../iam/application/iam.store.js';
 import BuilderDashboard from '../components/builder-dashboard.component.vue';
 import OwnerDashboard from '../components/owner-dashboard.component.vue';
 
 const analyticsStore = useAnalyticsStore();
+const iamStore = useIamStore();
 
-// Get user from localStorage (this should come from your auth store)
-const currentUser = computed(() => {
-  const user = localStorage.getItem('currentUser');
-  return user ? JSON.parse(user) : null;
-});
-
-const userRole = computed(() => currentUser.value?.role || 'owner');
+const currentUser = computed(() => iamStore.currentUser);
+const userRole = computed(() => currentUser.value?.role?.toLowerCase() || 'owner');
 const userId = computed(() => currentUser.value?.id || 1);
 
 onMounted(async () => {

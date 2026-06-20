@@ -63,13 +63,17 @@ export const useProjectStore = defineStore("projects", () => {
     }
 
     function updateProject(project) {
-        projectApi
+        return projectApi
             .updateProject(project)
             .then((response) => {
-                const resource = response.data;
-                const updated = ProjectAssembler.toEntityFromResource(resource);
-                const index = projects.value.findIndex((p) => p.id === updated.id);
-                if (index !== -1) projects.value[index] = updated;
+                // Patch in place when the API echoes the entity; the backend may
+                // return 204 (no body), so the refetch below is the real fix.
+                if (response?.data) {
+                    const updated = ProjectAssembler.toEntityFromResource(response.data);
+                    const index = projects.value.findIndex((p) => p.id === updated.id);
+                    if (index !== -1) projects.value[index] = updated;
+                }
+                projectsLoaded.value = false;
             })
             .catch((error) => errors.value.push(error));
     }

@@ -28,7 +28,7 @@ function handleImageError(event) {
       </div>
       <h3 class="text-[9px] font-semibold mb-0.5 text-gray-800 truncate w-full mb-4" :title="project.name">{{ project.name }}</h3>
       <div class="text-[8px] text-gray-600 leading-tight space-y-0.5 mb-1 w-full flex-shrink-0">
-        <p class="truncate mb-1"><strong>{{ t("projects.fields.status") }}:</strong> {{ project.status }}</p>
+        <p class="truncate mb-1"><strong>{{ t("projects.fields.status") }}:</strong> {{ project.statusLabel }}</p>
         <p class="truncate mb-1"><strong>{{ t("projects.fields.occupancy-rate") }}:</strong> {{ project.occupiedUnits }}/{{ project.totalUnits }}</p>
         <p class="truncate mb-1"><strong>{{ t("projects.fields.created-date") }}:</strong> {{ project.createdDate?.slice(0,10) }}</p>
       </div>

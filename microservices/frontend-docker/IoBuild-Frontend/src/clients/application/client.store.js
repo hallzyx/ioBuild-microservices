@@ -49,11 +49,10 @@ export const useClientStore = defineStore("clients", () => {
         const resource = ClientAssembler.toResourceFromEntity(client);
         return clientApi
             .updateClient(resource)
-            .then((response) => {
-                const updated = ClientAssembler.toEntityFromResource(response.data);
-                const index = clients.value.findIndex((c) => c.id === updated.id);
-                if (index !== -1) clients.value[index] = updated;
-                return updated;
+            .then(() => {
+                // Backend returns 204 (no body); refetch instead of trusting the response.
+                clientsLoaded.value = false;
+                return fetchClients();
             })
             .catch((error) => {
                 errors.value.push(error);

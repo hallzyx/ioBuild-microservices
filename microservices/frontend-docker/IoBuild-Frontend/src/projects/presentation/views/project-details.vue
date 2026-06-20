@@ -159,7 +159,7 @@ function handleImageError(event) {
       <div class="lg:col-span-1 space-y-4 text-gray-700 order-2">
         <div class="flex items-center justify-between p-3 bg-green-50 rounded-lg border-l-4 border-green-500 shadow-sm justify-content-center">
           <span class="font-semibold">{{ t("projects.fields.status") }}:</span>
-          <span class="px-3 py-1 text-sm font-bold rounded-full bg-green-600 text-white">{{ project.status }}</span>
+          <span class="px-3 py-1 text-sm font-bold rounded-full bg-green-600 text-white">{{ project.statusLabel }}</span>
         </div>
 
         <div class="space-y-3 p-3 bg-gray-50 rounded-lg shadow-sm">

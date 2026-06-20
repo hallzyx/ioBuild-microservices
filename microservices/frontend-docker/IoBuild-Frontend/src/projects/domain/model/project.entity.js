@@ -1,3 +1,5 @@
+const PROJECT_STATUS_LABELS = { 0: 'Planned', 1: 'On going', 2: 'On hold', 3: 'Completed', 4: 'Cancelled' };
+
 export class Project {
     constructor({
                     id = null,
@@ -21,5 +23,13 @@ export class Project {
         this.builderId = builderId;
         this.createdDate = createdDate;
         this.imageUrl = imageUrl;
+    }
+
+    // Display-only label for the numeric backend status enum. Keeps `status`
+    // raw (numeric) so it round-trips correctly on update (PUT expects an int).
+    get statusLabel() {
+        return typeof this.status === 'number'
+            ? (PROJECT_STATUS_LABELS[this.status] ?? 'Unknown')
+            : this.status;
     }
 }

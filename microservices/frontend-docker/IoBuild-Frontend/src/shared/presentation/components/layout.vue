@@ -5,12 +5,14 @@ import { useRouter } from "vue-router";
 import LanguageSwitcher from "./language-switcher.vue";
 import { useProfileStore } from "../../../profiles/application/profile.store.js";
 import { useIamStore } from "../../../iam/application/iam.store.js";
+import { useSubscriptionStore } from "../../../subscriptions/application/subscription.store.js";
 
 const { t } = useI18n();
 const router = useRouter();
 const drawer = ref(false);
 const profileStore = useProfileStore();
 const iamStore = useIamStore();
+const subscriptionStore = useSubscriptionStore();
 
 const toggleDrawer = () => {
   drawer.value = !drawer.value;
@@ -19,6 +21,7 @@ const toggleDrawer = () => {
 
 const currentUser = computed(() => iamStore.currentUser);
 const userRole = computed(() => currentUser.value?.role?.toLowerCase() || 'builder');
+const hasActiveSubscription = computed(() => subscriptionStore.currentSubscription?.status?.toLowerCase() === 'active');
 
 
 onMounted(async () => {
@@ -38,6 +41,12 @@ onMounted(async () => {
       iamStore.updateUserProfile(payload);
       console.log('layout: currentUser after update', iamStore.currentUser);
     }
+  }
+
+  // Builders need their subscription state so the sidebar can gate
+  // subscription-only sections (Projects, Clients).
+  if (userRole.value === 'builder' && !subscriptionStore.currentSubscription) {
+    try { await subscriptionStore.fetchCurrentSubscription(); } catch (_) { /* no active subscription */ }
   }
 });
 
@@ -60,8 +69,8 @@ const items = [
 
   { label: 'option.home', to: '/analytics/dashboard', use_role: 'builder', type: 'builder', icon: 'pi pi-home' },
   { label: 'option.profile', to: '/profiles/profile', use_role: 'builder', type: 'builder', icon: 'pi pi-user' },
-  { label: 'option.projects', to: '/projects', use_role: 'builder', type: 'builder', icon: 'pi pi-folder' },
-  { label: 'option.clients', to: '/clients', use_role: 'builder', type: 'builder', icon: 'pi pi-users' },
+  { label: 'option.projects', to: '/projects', use_role: 'builder', type: 'builder', icon: 'pi pi-folder', requiresSubscription: true },
+  { label: 'option.clients', to: '/clients', use_role: 'builder', type: 'builder', icon: 'pi pi-users', requiresSubscription: true },
   { label: 'option.subscription', to: '/subscriptions/my-subscription', use_role: 'builder', type: 'builder', icon: 'pi pi-credit-card' },
   { label: 'option.configuration', to: '/configuration', use_role: 'builder', type: 'builder', icon: 'pi pi-cog' },
 
@@ -75,6 +84,7 @@ const items = [
 const filteredItems = computed(() => {
   const currentRole = userRole.value;
   return items.filter(item => {
+    if (item.requiresSubscription && !hasActiveSubscription.value) return false;
     const itemRole = String(item.use_role || 'builder').trim().toLowerCase();
     return itemRole === currentRole;
   });
