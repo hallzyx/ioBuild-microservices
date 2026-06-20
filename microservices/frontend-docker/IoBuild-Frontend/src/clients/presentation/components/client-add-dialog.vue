@@ -67,10 +67,18 @@ watch(() => formData.value.projectId, (newProjectId) => {
   }
 });
 
+const isValid = computed(() =>
+  !!formData.value.fullName && !!formData.value.email && !!formData.value.projectId
+);
+
 const handleSave = () => {
-  // Validar que el nombre y email no estén vacíos
+  // A client must belong to a project — the backend requires ProjectId/ProjectName.
   if (!formData.value.fullName || !formData.value.email) {
     alert('Please fill in at least Full Name and Email');
+    return;
+  }
+  if (!formData.value.projectId) {
+    alert('Please select a project');
     return;
   }
 
@@ -134,7 +142,7 @@ const handleCancel = () => {
       </div>
 
       <div class="col-12 mb-3">
-        <label for="projectId" class="block mb-2 font-semibold">Project</label>
+        <label for="projectId" class="block mb-2 font-semibold">Project *</label>
         <pv-select
           id="projectId"
           v-model="formData.projectId"
@@ -161,6 +169,7 @@ const handleCancel = () => {
         icon="pi pi-check"
         @click="handleSave"
         severity="success"
+        :disabled="!isValid"
       />
     </template>
   </pv-dialog>

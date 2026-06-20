@@ -23,7 +23,9 @@ export class Subscription {
      * Check if subscription is active
      */
     isActive() {
-        return this.status === 'active';
+        // Backend serializes the status enum as PascalCase ("Active"); compare
+        // case-insensitively so this doesn't silently always return false.
+        return this.status?.toLowerCase() === 'active';
     }
 
     /**
