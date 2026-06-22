@@ -39,6 +39,7 @@ public class OutboxWorker : BackgroundService
         [nameof(UnitCreatedEvent)] = typeof(UnitCreatedEvent),
         [nameof(FloorStructureDefinedEvent)] = typeof(FloorStructureDefinedEvent),
         [nameof(UnitOwnerMatchedEvent)] = typeof(UnitOwnerMatchedEvent),
+        [nameof(UnitDevicesDefinedEvent)] = typeof(UnitDevicesDefinedEvent),
     };
 
     public OutboxWorker(
