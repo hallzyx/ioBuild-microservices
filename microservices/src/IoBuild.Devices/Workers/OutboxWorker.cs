@@ -37,6 +37,8 @@ public class OutboxWorker : BackgroundService
         [nameof(DeviceCreatedEvent)] = typeof(DeviceCreatedEvent),
         [nameof(DeviceUpdatedEvent)] = typeof(DeviceUpdatedEvent),
         [nameof(DeviceDeletedEvent)] = typeof(DeviceDeletedEvent),
+        // Change B: audit event for owner-issued device commands (ADR-B2)
+        [nameof(DeviceCommandIssuedEvent)] = typeof(DeviceCommandIssuedEvent),
     };
 
     public OutboxWorker(

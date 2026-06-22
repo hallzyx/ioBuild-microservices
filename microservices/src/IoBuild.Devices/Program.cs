@@ -49,6 +49,12 @@ builder.Services.PostConfigure<InfluxDbOptions>(options =>
 builder.Services.AddSingleton<ITelemetryWriteService, TelemetryWriteService>();
 // ── MQTT ──
 builder.Services.Configure<MqttOptions>(builder.Configuration.GetSection(MqttOptions.SectionName));
+// ── MQTT Publisher: singleton channel-backed publish service (ADR-B1) ──
+// Registered as BOTH the hosted service AND the IMqttPublisher interface so handlers
+// can inject the facade without a dependency on the concrete BackgroundService.
+builder.Services.AddSingleton<MqttPublisherService>();
+builder.Services.AddSingleton<IMqttPublisher>(sp => sp.GetRequiredService<MqttPublisherService>());
+builder.Services.AddHostedService(sp => sp.GetRequiredService<MqttPublisherService>());
 // ── Telemetry Query ──
 builder.Services.AddScoped<ITelemetryQueryService, TelemetryQueryService>();
 // ── Telemetry Worker ──

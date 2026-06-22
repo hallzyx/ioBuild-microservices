@@ -11,6 +11,8 @@ public class DevicesDbContext(DbContextOptions<DevicesDbContext> options) : Micr
     public DbSet<Device> Devices { get; set; }
     public DbSet<DeviceLog> DeviceLogs { get; set; }
     public DbSet<OutboxMessage> OutboxMessages { get; set; }
+    public DbSet<DeviceShadow> DeviceShadows { get; set; }
+    public DbSet<UnitOwnerProjection> UnitOwnerProjections { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -99,6 +101,27 @@ public class DevicesDbContext(DbContextOptions<DevicesDbContext> options) : Micr
             entity.Property(e => e.EventId);
             entity.Property(e => e.CreatedAt);
             entity.HasIndex(e => new { e.Status, e.CreatedAt });
+        });
+
+        // ── DeviceShadow (ADR-B3): plain PK, no filtered indexes, LONGTEXT columns ──
+        modelBuilder.Entity<DeviceShadow>(entity =>
+        {
+            entity.HasKey(s => s.DeviceId);
+            entity.Property(s => s.DesiredJson).IsRequired().HasColumnType("longtext");
+            entity.Property(s => s.ReportedJson).HasColumnType("longtext");
+            entity.Property(s => s.UpdatedByUserId).IsRequired();
+            entity.Property(s => s.UpdatedAt).IsRequired();
+        });
+
+        // ── UnitOwnerProjection (ADR-B4): plain PK, plain unique constraint, no filtered indexes ──
+        modelBuilder.Entity<UnitOwnerProjection>(entity =>
+        {
+            entity.HasKey(p => p.UnitId);
+            entity.Property(p => p.OwnerUserId).IsRequired();
+            entity.Property(p => p.UpdatedAt).IsRequired();
+            entity.HasIndex(p => new { p.UnitId, p.OwnerUserId })
+                  .IsUnique()
+                  .HasDatabaseName("IX_unit_owner_projections_unit_id_owner_user_id");
         });
 
         // Apply seed data AFTER entity configuration and naming conventions
