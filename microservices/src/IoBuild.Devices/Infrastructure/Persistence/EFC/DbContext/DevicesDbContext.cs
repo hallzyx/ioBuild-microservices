@@ -104,19 +104,30 @@ public class DevicesDbContext(DbContextOptions<DevicesDbContext> options) : Micr
         });
 
         // ── DeviceShadow (ADR-B3): plain PK, no filtered indexes, LONGTEXT columns ──
+        // W-1 fix: DeviceId is a NATURAL key (FK to Devices), NOT a surrogate/auto-increment.
+        // ValueGeneratedNever() removes the IdentityColumn annotation from the migration so
+        // MySQL does not auto-increment it. The FK constraint to devices enforces referential
+        // integrity — orphaned shadow rows are impossible.
         modelBuilder.Entity<DeviceShadow>(entity =>
         {
             entity.HasKey(s => s.DeviceId);
+            entity.Property(s => s.DeviceId).ValueGeneratedNever();
             entity.Property(s => s.DesiredJson).IsRequired().HasColumnType("longtext");
             entity.Property(s => s.ReportedJson).HasColumnType("longtext");
             entity.Property(s => s.UpdatedByUserId).IsRequired();
             entity.Property(s => s.UpdatedAt).IsRequired();
+            // FK to Devices.Id — referential integrity prevents orphaned shadow rows.
+            entity.HasOne<Device>().WithMany()
+                  .HasForeignKey(s => s.DeviceId)
+                  .OnDelete(DeleteBehavior.Cascade);
         });
 
         // ── UnitOwnerProjection (ADR-B4): plain PK, plain unique constraint, no filtered indexes ──
+        // UnitId is a natural key from Projects service — NOT auto-generated.
         modelBuilder.Entity<UnitOwnerProjection>(entity =>
         {
             entity.HasKey(p => p.UnitId);
+            entity.Property(p => p.UnitId).ValueGeneratedNever();
             entity.Property(p => p.OwnerUserId).IsRequired();
             entity.Property(p => p.UpdatedAt).IsRequired();
             entity.HasIndex(p => new { p.UnitId, p.OwnerUserId })
