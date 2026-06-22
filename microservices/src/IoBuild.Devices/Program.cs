@@ -95,6 +95,8 @@ builder.Services.AddScoped<IDeviceLogRepository, DeviceLogRepository>();
 builder.Services.AddScoped<IOutboxMessageRepository, OutboxMessageRepository>();
 builder.Services.AddScoped<IDeviceCommandService, DeviceCommandService>();
 builder.Services.AddScoped<IDeviceQueryService, DeviceQueryService>();
+// ── Device Actuation: owner-gated command handler (T-2.13, ADR-B5) ──
+builder.Services.AddScoped<IDeviceActuationService, DeviceActuationService>();
 
 // ── Domain-event publishing + outbox resilience pipeline (ADR-8) ──
 builder.Services.AddDomainEventPublishing(builder.Configuration);
@@ -107,6 +109,9 @@ builder.Services.AddHostedService<FloorProvisioningConsumer>();
 
 // ── UnitDeviceProvisioningConsumer: provisions selected devices per unit (T-17, ADR-2/D2) ──
 builder.Services.AddHostedService<UnitDeviceProvisioningConsumer>();
+
+// ── UnitOwnerProjectionConsumer: consumes UnitOwnerMatchedEvent → upserts projection (T-2.18, ADR-B4) ──
+builder.Services.AddHostedService<UnitOwnerProjectionConsumer>();
 
 builder.Services.AddCors(options =>
 {

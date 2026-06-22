@@ -1,33 +1,29 @@
 using IoBuild.Devices.Domain.Constants;
-using IoBuild.Shared.Infrastructure.ASP.Configuration;
-using Microsoft.AspNetCore.Mvc;
-using IoBuild.Devices.Domain.Model.Queries;
+using IoBuild.Devices.Domain.Model.Commands;
 using IoBuild.Devices.Domain.Services;
 using IoBuild.Devices.Interfaces.REST.Resources;
 using IoBuild.Devices.Interfaces.REST.Transform;
+using IoBuild.Shared.Domain.Model;
+using IoBuild.Shared.Infrastructure.ASP.Configuration;
+using Microsoft.AspNetCore.Mvc;
+using IoBuild.Devices.Domain.Model.Queries;
 
 namespace IoBuild.Devices.Interfaces.REST;
 
 [ApiController]
 [Route("api/v1/devices")]
 [Authorize]
-public class DevicesController(IDeviceCommandService commandService, IDeviceQueryService queryService) : ControllerBase
+public class DevicesController(
+    IDeviceCommandService commandService,
+    IDeviceQueryService queryService,
+    IDeviceActuationService? actuationService = null) : ControllerBase
 {
     /// <summary>
     /// GET /api/v1/devices/types
-    /// Returns the device-type catalog used for per-floor provisioning (S1.1, SC-1.1).
-    /// No authentication required (spec S8 — "No new auth").
-    /// Reads from FloorDeviceDefaults.Catalog — the intended named accessor for this
-    /// endpoint (SG1 / W3 fix). Catalog projects Defaults to (Type, DisplayName) tuples.
-    /// Alignment with DeviceTypeCatalog.KnownTypes is test-asserted in
-    /// DeviceTypeCatalogControllerTests.GetDeviceTypes_Codes_MatchSharedDeviceTypeCatalogKnownTypes.
-    /// </summary>
-    /// <summary>
-    /// GET /api/v1/devices/types
-    /// Returns the full device-type catalog: floor-level defaults (3 types) unioned with
-    /// unit-level types (2 types) for a total of 5. The set of codes MUST match
-    /// DeviceTypeCatalog.KnownTypes (alignment test-asserted). New types are served via
-    /// UnitDeviceCatalog.Catalog rather than FloorDeviceDefaults.Defaults (ADR-4).
+    /// Returns the full device-type catalog (floor-level + unit-level = 5 types) with
+    /// controllable attributes populated from DeviceCapabilityCatalog (R-3, task 3.3).
+    /// Telemetry-only types return an empty ControllableAttributes list.
+    /// No authentication required (spec S8).
     /// </summary>
     [HttpGet("types")]
     [Microsoft.AspNetCore.Authorization.AllowAnonymous]
@@ -35,9 +31,63 @@ public class DevicesController(IDeviceCommandService commandService, IDeviceQuer
     {
         var entries = FloorDeviceDefaults.Catalog
             .Concat(UnitDeviceCatalog.Catalog)
-            .Select(d => new DeviceTypeResource(d.Type, d.DisplayName))
+            .Select(d =>
+            {
+                // Populate ControllableAttributes from DeviceCapabilityCatalog (R-3)
+                IReadOnlyList<ControllableAttributeResource> controllableAttrs = [];
+
+                if (DeviceCapabilityCatalog.ByType.TryGetValue(d.Type, out var capability))
+                {
+                    controllableAttrs = capability.ControllableAttributes
+                        .Select(a => new ControllableAttributeResource(a.Name, a.Type, a.Min, a.Max, a.Unit))
+                        .ToList();
+                }
+
+                return new DeviceTypeResource(d.Type, d.DisplayName, controllableAttrs);
+            })
             .ToList();
+
         return Ok(new DeviceTypeCatalogResource(entries));
+    }
+
+    /// <summary>
+    /// POST /api/v1/devices/{id}/command
+    /// Owner-gated endpoint to send a command to a controllable device (D-3, ADR-B5).
+    /// Reads UserId + UserRole from HttpContext.Items (set by JWT middleware).
+    /// Returns 200 on success, 400 on invalid attribute/range, 403 on missing ownership,
+    /// 404 on missing device.
+    /// </summary>
+    [HttpPost("{id}/command")]
+    public async Task<IActionResult> SendDeviceCommand(int id, [FromBody] SendCommandResource resource)
+    {
+        if (actuationService is null)
+            return StatusCode(503, "Actuation service not configured.");
+
+        var userId = HttpContext.Items.TryGetValue("UserId", out var rawUserId) && rawUserId is int uid
+            ? uid
+            : 0;
+
+        var userRole = HttpContext.Items.TryGetValue("UserRole", out var rawRole)
+            ? rawRole?.ToString()
+            : null;
+
+        var command = new SendDeviceCommandCommand(
+            DeviceId: id,
+            Attribute: resource.Attribute,
+            Value: resource.Value,
+            RequestingUserId: userId,
+            RequestingUserRole: userRole);
+
+        var result = await actuationService.Handle(command);
+
+        return result.StatusCode switch
+        {
+            200 => Ok(new CommandResultResource(id, resource.Attribute, resource.Value, result.AcceptedAt!.Value)),
+            400 => BadRequest(new { error = result.ErrorMessage }),
+            403 => StatusCode(403, new { error = result.ErrorMessage }),
+            404 => NotFound(new { error = result.ErrorMessage }),
+            _   => StatusCode(500, new { error = "Unexpected error." })
+        };
     }
 
     [HttpGet]
