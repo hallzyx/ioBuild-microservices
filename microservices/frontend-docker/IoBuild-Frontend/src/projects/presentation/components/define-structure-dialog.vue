@@ -2,6 +2,7 @@
 import { ref, computed, watch } from 'vue';
 import { useToast } from 'primevue/usetoast';
 import useProjectStore from '../../application/project.store.js';
+import { useDeviceStore } from '../../../devices/application/device.store.js';
 
 const props = defineProps({
     visible: {
@@ -17,6 +18,7 @@ const props = defineProps({
 const emit = defineEmits(['update:visible', 'structure-defined']);
 
 const store = useProjectStore();
+const deviceStore = useDeviceStore();
 const toast = useToast();
 
 const localVisible = ref(props.visible);
@@ -25,6 +27,9 @@ const unitsPerFloor = ref(1);
 const showOwnerAssignment = ref(false);
 const submitting = ref(false);
 
+// Per-floor device-type selections — keyed by floor number (integer)
+const deviceTypesByFloor = ref({});
+
 watch(() => props.visible, (val) => {
     localVisible.value = val;
     if (val) {
@@ -32,6 +37,8 @@ watch(() => props.visible, (val) => {
         unitsPerFloor.value = 1;
         showOwnerAssignment.value = false;
         ownerEmails.value = {};
+        deviceTypesByFloor.value = {};
+        deviceStore.loadDeviceTypes();
     }
 });
 
@@ -58,7 +65,12 @@ const unitGrid = computed(() => {
 
 watch([floors, unitsPerFloor], () => {
     const next = {};
+    const nextDeviceTypes = {};
     for (let f = 1; f <= floors.value; f++) {
+        // Preserve device-type selections for floors still in range
+        if (deviceTypesByFloor.value[f] !== undefined) {
+            nextDeviceTypes[f] = deviceTypesByFloor.value[f];
+        }
         for (let u = 1; u <= unitsPerFloor.value; u++) {
             const room = String(u).padStart(2, '0');
             const key = `${f}-${room}`;
@@ -68,6 +80,7 @@ watch([floors, unitsPerFloor], () => {
         }
     }
     ownerEmails.value = next;
+    deviceTypesByFloor.value = nextDeviceTypes;
 });
 
 function ownerKey(floor, roomNumber) {
@@ -86,10 +99,22 @@ function buildPayload() {
             });
         }
     }
+
+    // Include all floors in deviceTypesPerFloor; empty selection is valid
+    // (backend treats empty array as "use legacy defaults" per S6.3 / SC-6.3).
+    const deviceTypesPerFloor = [];
+    for (let f = 1; f <= floors.value; f++) {
+        deviceTypesPerFloor.push({
+            floor: f,
+            deviceTypes: deviceTypesByFloor.value[f] ?? []
+        });
+    }
+
     return {
         floors: floors.value,
         unitsPerFloor: unitsPerFloor.value,
-        ownerEmails: ownerAssignments
+        ownerEmails: ownerAssignments,
+        deviceTypesPerFloor
     };
 }
 
@@ -203,6 +228,28 @@ function handleCancel() {
                 <i class="pi pi-info-circle mr-2"></i>
                 This will create <strong>{{ (floors || 0) * (unitsPerFloor || 0) }}</strong> unit(s):
                 {{ floors || 0 }} floor(s) × {{ unitsPerFloor || 0 }} unit(s) per floor.
+            </div>
+
+            <!-- Per-floor device types -->
+            <div v-if="deviceStore.deviceTypes.length > 0">
+                <p class="font-semibold text-gray-700 text-sm mb-3">
+                    <i class="pi pi-wifi text-emerald-600 mr-2"></i>
+                    IoT devices per floor
+                </p>
+                <div class="space-y-3 max-h-48 overflow-y-auto pr-1">
+                    <div v-for="row in unitGrid" :key="row.floor" class="flex items-center gap-3">
+                        <span class="text-xs font-semibold text-gray-500 w-20 shrink-0">Floor {{ row.floor }}</span>
+                        <pv-multi-select
+                            v-model="deviceTypesByFloor[row.floor]"
+                            :options="deviceStore.deviceTypes"
+                            option-label="displayName"
+                            option-value="code"
+                            placeholder="Default devices (3)"
+                            class="w-full"
+                            display="chip"
+                        />
+                    </div>
+                </div>
             </div>
 
             <!-- Optional owner assignment -->

@@ -4,6 +4,7 @@ import { DeviceApi } from '../infrastructure/device-api.js';
 export const useDeviceStore = defineStore('device', {
   state: () => ({
     devices: [],
+    deviceTypes: [],
     loading: false,
     error: null,
     selectedDevice: null
@@ -129,6 +130,16 @@ export const useDeviceStore = defineStore('device', {
         return false;
       } finally {
         this.loading = false;
+      }
+    },
+
+    async loadDeviceTypes() {
+      try {
+        const deviceApi = new DeviceApi();
+        this.deviceTypes = await deviceApi.getDeviceTypes();
+      } catch (error) {
+        console.error('Error in loadDeviceTypes:', error);
+        this.deviceTypes = [];
       }
     },
 

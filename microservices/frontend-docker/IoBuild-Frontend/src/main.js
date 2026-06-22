@@ -14,7 +14,7 @@ import {
     ConfirmationService,
     ConfirmDialog, DataTable, Dialog,
     DialogService, Divider, Drawer, Fieldset, FileUpload, FloatLabel, IconField, InputIcon, InputNumber, InputText, Menu,
-    Message, Password, ProgressSpinner,
+    Message, MultiSelect, Password, ProgressSpinner,
     Rating, Row, Select, SelectButton, Stepper, Step, StepList, StepPanel, StepPanels, Tag, Textarea, Toast,
     ToastService, Toolbar, Tooltip
 } from "primevue";
@@ -52,6 +52,7 @@ createApp(App)
     .component('pv-input-text', InputText)
     .component('pv-menu', Menu)
     .component('pv-message', Message)
+    .component('pv-multi-select', MultiSelect)
     .component('pv-password', Password)
     .component('pv-progress-spinner', ProgressSpinner)
     .component('pv-rating', Rating)

@@ -58,4 +58,15 @@ export class DeviceApi extends BaseApi {
       throw new Error('No se pudo eliminar el dispositivo');
     }
   }
+
+  async getDeviceTypes() {
+    try {
+      const response = await this.http.get(`${this.devicesEndpoint}/types`);
+      // Response shape: { deviceTypes: [{ code, displayName }, ...] }
+      return response.data.deviceTypes ?? [];
+    } catch (error) {
+      console.error('Error fetching device types:', error);
+      throw new Error('Could not load device type catalog');
+    }
+  }
 }
