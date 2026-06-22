@@ -116,20 +116,33 @@ public class AnalyticsQueryService : IAnalyticsQueryService
     }
 
     /// <summary>
-    /// Computes owner metrics from local projection tables (ADR-6, REQ-AQ-02).
-    /// Note: Device.OwnerUserId is always 0 (Device aggregate has no owner concept —
-    /// known source-data limitation; owner device counts will be 0 until the Devices
-    /// aggregate is extended). Unit counts are accurate.
+    /// Computes owner metrics from local projection tables (ADR-6, REQ-AQ-02, REQ-D1).
+    ///
+    /// Device visibility is derived via a read-side join:
+    ///   DeviceProjection.UnitId == UnitProjection.UnitId WHERE UnitProjection.OwnerUserId == requestingUser
+    ///
+    /// DeviceProjection.OwnerUserId is always 0 (Device aggregate has no owner concept —
+    /// owner identity is tracked exclusively in UnitProjection.OwnerUserId, populated by
+    /// UnitOwnerMatchedEvent). Devices whose unit is not yet owner-matched are correctly
+    /// excluded until the projection is updated (eventual-consistency, ADR-6).
+    ///
+    /// Uses a correlated EXISTS subquery (Any()) instead of in-memory List.Contains so the
+    /// expression is translatable by the MySQL EF Core provider (same convention as the
+    /// builder dashboard join above, lines ~51-54).
+    ///
     /// Returns zeroed metrics when tables are empty — no exceptions (ADR-7).
     /// </summary>
     public async Task<OwnerMetrics?> Handle(GetOwnerDashboardQuery query)
     {
         _logger.LogInformation("Building owner dashboard for user {UserId}", query.UserId);
 
-        // Devices where owner_user_id = UserId
-        // Note: Always 0 due to Device aggregate gap (see class remarks)
+        // Devices whose UnitId maps to a unit owned by this user.
+        // Correlated EXISTS subquery — do NOT use List.Contains (MySQL primitive-collection
+        // translation limitation; same constraint documented at builder dashboard, line ~51).
+        // DeviceProjection.OwnerUserId is always 0 — do NOT filter on it.
         var devices = await _db.DeviceProjections
-            .Where(d => d.OwnerUserId == query.UserId)
+            .Where(d => d.UnitId != null && _db.UnitProjections
+                .Any(u => u.OwnerUserId == query.UserId && u.UnitId == d.UnitId!.Value))
             .ToListAsync();
 
         var totalDevices   = devices.Count;
