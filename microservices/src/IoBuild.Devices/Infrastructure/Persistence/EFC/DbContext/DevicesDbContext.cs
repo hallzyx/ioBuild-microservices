@@ -28,6 +28,9 @@ public class DevicesDbContext(DbContextOptions<DevicesDbContext> options) : Micr
             // Floor placement (PR 6, §4.4) — nullable columns
             entity.Property(d => d.FloorNumber);   // nullable int
             entity.Property(d => d.UnitId);         // nullable int (future per-unit placement)
+            // Source discriminator (S5.1) — nullable, max 30 chars.
+            // Nullable so existing rows and EnsureCreated InMemory test paths stay valid (S5.2).
+            entity.Property(d => d.Source).HasMaxLength(30);
             entity.HasIndex(d => d.MacAddress).IsUnique();
             // Unique index for idempotency guard: (ProjectId, FloorNumber, Type) — ADR-C.
             // Prevents duplicate floor-provisioned devices on RabbitMQ redelivery.

@@ -94,6 +94,23 @@ public class ProjectsController : ControllerBase
         if (resource.UnitsPerFloor < 1)
             return UnprocessableEntity(new { error = "unitsPerFloor must be at least 1." });
 
+        // SC-2.4: validate that floorDeviceTypes entries reference floors within [1, Floors].
+        // Out-of-range floor numbers must return HTTP 400 (not be silently ignored).
+        if (resource.DeviceTypesPerFloor is { Count: > 0 })
+        {
+            var outOfRange = resource.DeviceTypesPerFloor
+                .Where(s => s.Floor < 1 || s.Floor > resource.Floors)
+                .Select(s => s.Floor)
+                .ToList();
+
+            if (outOfRange.Count > 0)
+                return BadRequest(new
+                {
+                    error = $"floorDeviceTypes references floor(s) out of range [1, {resource.Floors}]: " +
+                            string.Join(", ", outOfRange) + "."
+                });
+        }
+
         var floorSpecs = Enumerable.Range(1, resource.Floors)
             .Select(f =>
             {

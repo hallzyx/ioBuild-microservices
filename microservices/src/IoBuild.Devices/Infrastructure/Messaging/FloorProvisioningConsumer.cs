@@ -217,23 +217,47 @@ public class FloorProvisioningConsumer : BackgroundService
 
     private async Task ProvisionFloorAsync(FloorStructureDefinedEvent evt, DevicesDbContext db)
     {
-        // Idempotency pre-check: if ANY of the default devices already exists for this
-        // (ProjectId, Floor), skip entirely (REQ-FD-03, ADR-C).
-        var firstType = FloorDeviceDefaults.Defaults[0].Type;
-        var alreadyProvisioned = await db.Devices.AnyAsync(
-            d => d.ProjectId == evt.ProjectId && d.FloorNumber == evt.Floor && d.Type == firstType);
+        // Resolve the set of (Type, DisplayName) tuples to provision.
+        // evt.DeviceTypes is set by the producer (Projects) for selective provisioning (S4.1).
+        // null or empty → fall back to the 3 legacy defaults (S4.2, S4.3, ADR-4).
+        List<(string Type, string NamePrefix)> selected;
+        if (evt.DeviceTypes is { Count: > 0 })
+        {
+            selected = evt.DeviceTypes
+                .Select(t =>
+                {
+                    // Resolve display name from Defaults catalog; fall back to the code itself
+                    // if the type is not in the catalog (consumer is tolerant of future additions).
+                    var entry = FloorDeviceDefaults.Defaults.FirstOrDefault(d => d.Type == t);
+                    return (Type: t, NamePrefix: entry.NamePrefix ?? t);
+                })
+                .ToList();
+        }
+        else
+        {
+            selected = FloorDeviceDefaults.Defaults.ToList();
+        }
 
-        if (alreadyProvisioned)
+        // Idempotency pre-check (count-based, replaces SmartMeter sentinel — ADR-7 / SC-4.4).
+        // If existing device count >= selected count, floor is already provisioned → skip.
+        // The unique index (ProjectId, FloorNumber, Type) remains the hard backstop for
+        // concurrent redelivery that sneaks past this pre-check (ADR-C).
+        var existingCount = await db.Devices.CountAsync(
+            d => d.ProjectId == evt.ProjectId && d.FloorNumber == evt.Floor);
+
+        if (existingCount >= selected.Count)
         {
             _logger.LogInformation(
-                "FloorProvisioningConsumer: floor {Floor} of project {ProjectId} already provisioned — skipping.",
-                evt.Floor, evt.ProjectId);
+                "FloorProvisioningConsumer: floor {Floor} of project {ProjectId} already provisioned " +
+                "(existingCount={Existing} >= expectedCount={Expected}) — skipping.",
+                evt.Floor, evt.ProjectId, existingCount, selected.Count);
             return;
         }
 
         // Phase 1: create and persist device rows → real Ids assigned by DB (ADR-A).
+        // Each device uses the floor-provisioned constructor so Source="FloorProvisioned" (S5.1).
         var devices = new List<Device>();
-        foreach (var (type, namePrefix) in FloorDeviceDefaults.Defaults)
+        foreach (var (type, namePrefix) in selected)
         {
             var mac = GenerateMac(evt.ProjectId, evt.Floor, type);
             var device = new Device(

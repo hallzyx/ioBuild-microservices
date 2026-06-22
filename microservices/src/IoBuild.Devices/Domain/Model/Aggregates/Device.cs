@@ -17,6 +17,15 @@ public class Device
     public int? UnitId { get; private set; }
 
     /// <summary>
+    /// Provenance discriminator (S5.1). Values:
+    ///   "FloorProvisioned" — created by FloorProvisioningConsumer via event-driven provisioning.
+    ///   "OwnerCustom"      — reserved for future owner-created devices (not set in this change).
+    ///   null               — legacy devices created before this field existed, or manual POST devices.
+    /// Nullable column: existing rows and EnsureCreated test paths remain valid without backfill (S5.2).
+    /// </summary>
+    public string? Source { get; private set; }
+
+    /// <summary>
     /// Standard constructor for manually-created devices (no floor placement).
     /// </summary>
     public Device(string name, string type, string location, string macAddress, int projectId, string status)
@@ -33,6 +42,7 @@ public class Device
 
     /// <summary>
     /// Extended constructor for floor-provisioned devices. Accepts nullable FloorNumber and UnitId (§4.4).
+    /// Sets Source = "FloorProvisioned" to mark provenance (S5.1).
     /// </summary>
     public Device(string name, string type, string location, string macAddress, int projectId, string status,
         int? floorNumber, int? unitId = null)
@@ -45,6 +55,7 @@ public class Device
         Status = status;
         FloorNumber = floorNumber;
         UnitId = unitId;
+        Source = "FloorProvisioned";
     }
 
     public void Update(string name, string type, string location, string macAddress, int projectId, string status)

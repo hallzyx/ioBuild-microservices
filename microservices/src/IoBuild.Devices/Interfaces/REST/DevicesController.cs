@@ -1,3 +1,4 @@
+using IoBuild.Devices.Domain.Constants;
 using IoBuild.Shared.Infrastructure.ASP.Configuration;
 using Microsoft.AspNetCore.Mvc;
 using IoBuild.Devices.Domain.Model.Queries;
@@ -12,6 +13,23 @@ namespace IoBuild.Devices.Interfaces.REST;
 [Authorize]
 public class DevicesController(IDeviceCommandService commandService, IDeviceQueryService queryService) : ControllerBase
 {
+    /// <summary>
+    /// GET /api/v1/devices/types
+    /// Returns the device-type catalog used for per-floor provisioning (S1.1, SC-1.1).
+    /// No authentication required (spec S8 — "No new auth").
+    /// Serves from FloorDeviceDefaults.Defaults, which is aligned with
+    /// DeviceTypeCatalog.KnownTypes (single source of truth — catalog reconciliation).
+    /// </summary>
+    [HttpGet("types")]
+    [Microsoft.AspNetCore.Authorization.AllowAnonymous]
+    public IActionResult GetDeviceTypes()
+    {
+        var entries = FloorDeviceDefaults.Defaults
+            .Select(d => new DeviceTypeResource(d.Type, d.NamePrefix))
+            .ToList();
+        return Ok(new DeviceTypeCatalogResource(entries));
+    }
+
     [HttpGet]
     public async Task<IActionResult> GetAllDevices()
     {
