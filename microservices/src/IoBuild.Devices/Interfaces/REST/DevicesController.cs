@@ -22,11 +22,19 @@ public class DevicesController(IDeviceCommandService commandService, IDeviceQuer
     /// Alignment with DeviceTypeCatalog.KnownTypes is test-asserted in
     /// DeviceTypeCatalogControllerTests.GetDeviceTypes_Codes_MatchSharedDeviceTypeCatalogKnownTypes.
     /// </summary>
+    /// <summary>
+    /// GET /api/v1/devices/types
+    /// Returns the full device-type catalog: floor-level defaults (3 types) unioned with
+    /// unit-level types (2 types) for a total of 5. The set of codes MUST match
+    /// DeviceTypeCatalog.KnownTypes (alignment test-asserted). New types are served via
+    /// UnitDeviceCatalog.Catalog rather than FloorDeviceDefaults.Defaults (ADR-4).
+    /// </summary>
     [HttpGet("types")]
     [Microsoft.AspNetCore.Authorization.AllowAnonymous]
     public IActionResult GetDeviceTypes()
     {
         var entries = FloorDeviceDefaults.Catalog
+            .Concat(UnitDeviceCatalog.Catalog)
             .Select(d => new DeviceTypeResource(d.Type, d.DisplayName))
             .ToList();
         return Ok(new DeviceTypeCatalogResource(entries));

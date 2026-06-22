@@ -17,5 +17,9 @@ public static class DeviceTypeCatalog
             "SmartMeter",
             "WaterSensor",
             "SmokeDetector",
+            // Unit-level controllable device types — added for Change A (unit-device-packages).
+            // These MUST NOT be added to FloorDeviceDefaults.Defaults (floor legacy defaults only — ADR-4).
+            "AirConditioner",
+            "SmartLight",
         };
 }

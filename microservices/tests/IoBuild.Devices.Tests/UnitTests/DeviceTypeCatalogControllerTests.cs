@@ -13,10 +13,11 @@ namespace IoBuild.Devices.Tests.UnitTests;
 /// </summary>
 public class DeviceTypeCatalogControllerTests
 {
-    // ── SC-1.1: happy path — 200 with exactly 3 entries, each having code + displayName ──
+    // ── SC-1.1: happy path — 200 with exactly 5 entries, each having code + displayName ──
+    // Updated for Change A (unit-device-packages): AirConditioner + SmartLight added.
 
     [Fact]
-    public void GetDeviceTypes_Returns200_WithThreeEntries()
+    public void GetDeviceTypes_Returns200_WithFiveEntries()
     {
         // Arrange
         var controller = new DevicesController(
@@ -32,7 +33,8 @@ public class DeviceTypeCatalogControllerTests
 
         var body = result.Value as DeviceTypeCatalogResource;
         body.Should().NotBeNull("response body must be a DeviceTypeCatalogResource");
-        body!.DeviceTypes.Should().HaveCount(3, "catalog must have exactly 3 device types (SC-1.1)");
+        body!.DeviceTypes.Should().HaveCount(5,
+            "catalog must have 5 types: 3 floor-level + 2 unit-level (AirConditioner, SmartLight)");
     }
 
     [Fact]
@@ -49,16 +51,21 @@ public class DeviceTypeCatalogControllerTests
     }
 
     [Fact]
-    public void GetDeviceTypes_ContainsSmartMeter_WaterSensor_SmokeDetector()
+    public void GetDeviceTypes_ContainsAllFiveTypes()
     {
         var controller = new DevicesController(null!, null!);
 
         var result = (controller.GetDeviceTypes() as OkObjectResult)!;
         var body = (result.Value as DeviceTypeCatalogResource)!;
 
-        body.DeviceTypes.Select(t => t.Code).Should().BeEquivalentTo(
-            new[] { "SmartMeter", "WaterSensor", "SmokeDetector" },
-            "catalog must contain the three canonical device type codes (SC-1.1)");
+        var codes = body.DeviceTypes.Select(t => t.Code).ToList();
+        // 3 legacy floor-level types
+        codes.Should().Contain("SmartMeter");
+        codes.Should().Contain("WaterSensor");
+        codes.Should().Contain("SmokeDetector");
+        // 2 new unit-level types (Change A)
+        codes.Should().Contain("AirConditioner");
+        codes.Should().Contain("SmartLight");
     }
 
     // ── SC-1.2: stability — two calls return same order ──
