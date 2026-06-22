@@ -107,7 +107,14 @@ public class ProjectsController : ControllerBase
                         return new RoomSpec(RoomNumber: r.ToString("D2"), OwnerEmail: email);
                     })
                     .ToList();
-                return new FloorSpec(Floor: f, Rooms: rooms);
+
+                // Look up optional per-floor device type selection (S2.1)
+                // Mirrors the OwnerEmails FirstOrDefault lookup pattern above.
+                var deviceTypes = resource.DeviceTypesPerFloor?
+                    .FirstOrDefault(s => s.Floor == f)
+                    ?.DeviceTypes;
+
+                return new FloorSpec(Floor: f, Rooms: rooms, DeviceTypes: deviceTypes);
             })
             .ToList();
 

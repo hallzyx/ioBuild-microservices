@@ -4,6 +4,7 @@ using IoBuild.Projects.Domain.Model.Entities;
 using IoBuild.Projects.Domain.Repositories;
 using IoBuild.Projects.Domain.Services.Commands.Projects;
 using IoBuild.Projects.Infrastructure.Persistence;
+using IoBuild.Shared.Domain.Model;
 using IoBuild.Shared.Domain.Model.Events;
 using IoBuild.Shared.Domain.Repositories;
 using Microsoft.EntityFrameworkCore;
@@ -60,6 +61,23 @@ public class ProjectStructureCommandService
                 throw new ArgumentException(
                     $"Floor {floorSpec.Floor} must have at least 1 room (unitsPerFloor ≥ 1).",
                     nameof(command.Floors));
+
+            // ── Device-type validation (S2.3 / S2.4) ────────────────────
+            // Reject unknown device type codes with ArgumentException → HTTP 422/400.
+            if (floorSpec.DeviceTypes is { Count: > 0 })
+            {
+                var unknownTypes = floorSpec.DeviceTypes
+                    .Where(t => !DeviceTypeCatalog.KnownTypes.Contains(t))
+                    .Distinct()
+                    .ToList();
+
+                if (unknownTypes.Count > 0)
+                    throw new ArgumentException(
+                        $"Floor {floorSpec.Floor} contains unknown device type(s): " +
+                        $"{string.Join(", ", unknownTypes)}. " +
+                        $"Valid types are: {string.Join(", ", DeviceTypeCatalog.KnownTypes)}.",
+                        nameof(command.Floors));
+            }
         }
 
         // ── Guard: 409 if project already has units (REQ-PS-03) ─────────
@@ -115,12 +133,21 @@ public class ProjectStructureCommandService
         // One FloorStructureDefinedEvent per distinct floor (REQ-PS-05 / §6.1)
         foreach (var floorSpec in command.Floors)
         {
+            // Resolve per-floor device types: deduplicate, normalize empty → null (S2.3 / S2.5 / S2.6)
+            IReadOnlyList<string>? resolvedDeviceTypes = null;
+            if (floorSpec.DeviceTypes is { Count: > 0 })
+            {
+                var deduped = floorSpec.DeviceTypes.Distinct().ToList();
+                resolvedDeviceTypes = deduped.Count > 0 ? deduped : null;
+            }
+
             var floorEvt = new FloorStructureDefinedEvent
             {
                 ProjectId = command.ProjectId,
                 Floor = floorSpec.Floor,
                 UnitCount = floorSpec.Rooms.Count,
-                BuilderId = command.BuilderId
+                BuilderId = command.BuilderId,
+                DeviceTypes = resolvedDeviceTypes
             };
             outboxMessages.Add(new OutboxMessage(nameof(FloorStructureDefinedEvent), JsonSerializer.Serialize(floorEvt))
             {

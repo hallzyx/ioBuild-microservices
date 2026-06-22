@@ -10,8 +10,11 @@ public record RoomSpec(string RoomNumber, string? OwnerEmail);
 /// <summary>
 /// Specification for a single floor in the project (§1.3 design.md).
 /// Rooms is the ordered list of room specs for this floor.
+/// DeviceTypes is the optional per-floor device-type selection (S2.1).
+/// Null or empty = use legacy defaults (SmartMeter, WaterSensor, SmokeDetector).
+/// Default null keeps existing call sites compiling without changes (T-C2).
 /// </summary>
-public record FloorSpec(int Floor, IReadOnlyList<RoomSpec> Rooms);
+public record FloorSpec(int Floor, IReadOnlyList<RoomSpec> Rooms, IReadOnlyList<string>? DeviceTypes = null);
 
 /// <summary>
 /// Command to define the physical floor/room structure of a project in a single operation
