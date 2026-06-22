@@ -17,15 +17,17 @@ public class DevicesController(IDeviceCommandService commandService, IDeviceQuer
     /// GET /api/v1/devices/types
     /// Returns the device-type catalog used for per-floor provisioning (S1.1, SC-1.1).
     /// No authentication required (spec S8 — "No new auth").
-    /// Serves from FloorDeviceDefaults.Defaults, which is aligned with
-    /// DeviceTypeCatalog.KnownTypes (single source of truth — catalog reconciliation).
+    /// Reads from FloorDeviceDefaults.Catalog — the intended named accessor for this
+    /// endpoint (SG1 / W3 fix). Catalog projects Defaults to (Type, DisplayName) tuples.
+    /// Alignment with DeviceTypeCatalog.KnownTypes is test-asserted in
+    /// DeviceTypeCatalogControllerTests.GetDeviceTypes_Codes_MatchSharedDeviceTypeCatalogKnownTypes.
     /// </summary>
     [HttpGet("types")]
     [Microsoft.AspNetCore.Authorization.AllowAnonymous]
     public IActionResult GetDeviceTypes()
     {
-        var entries = FloorDeviceDefaults.Defaults
-            .Select(d => new DeviceTypeResource(d.Type, d.NamePrefix))
+        var entries = FloorDeviceDefaults.Catalog
+            .Select(d => new DeviceTypeResource(d.Type, d.DisplayName))
             .ToList();
         return Ok(new DeviceTypeCatalogResource(entries));
     }
