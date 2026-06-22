@@ -25,10 +25,14 @@ const localVisible = ref(props.visible);
 const floors = ref(1);
 const unitsPerFloor = ref(1);
 const showOwnerAssignment = ref(false);
+const showUnitPackages = ref(false);
 const submitting = ref(false);
 
 // Per-floor device-type selections — keyed by floor number (integer)
 const deviceTypesByFloor = ref({});
+
+// Per-unit device package selections — keyed by "floor-roomNumber" e.g. "1-01"
+const unitDevicePackages = ref({});
 
 watch(() => props.visible, (val) => {
     localVisible.value = val;
@@ -36,8 +40,10 @@ watch(() => props.visible, (val) => {
         floors.value = 1;
         unitsPerFloor.value = 1;
         showOwnerAssignment.value = false;
+        showUnitPackages.value = false;
         ownerEmails.value = {};
         deviceTypesByFloor.value = {};
+        unitDevicePackages.value = {};
         deviceStore.loadDeviceTypes();
     }
 });
@@ -66,6 +72,7 @@ const unitGrid = computed(() => {
 watch([floors, unitsPerFloor], () => {
     const next = {};
     const nextDeviceTypes = {};
+    const nextUnitPackages = {};
     for (let f = 1; f <= floors.value; f++) {
         // Preserve device-type selections for floors still in range
         if (deviceTypesByFloor.value[f] !== undefined) {
@@ -77,10 +84,14 @@ watch([floors, unitsPerFloor], () => {
             if (ownerEmails.value[key] !== undefined) {
                 next[key] = ownerEmails.value[key];
             }
+            if (unitDevicePackages.value[key] !== undefined) {
+                nextUnitPackages[key] = unitDevicePackages.value[key];
+            }
         }
     }
     ownerEmails.value = next;
     deviceTypesByFloor.value = nextDeviceTypes;
+    unitDevicePackages.value = nextUnitPackages;
 });
 
 function ownerKey(floor, roomNumber) {
@@ -110,11 +121,25 @@ function buildPayload() {
         });
     }
 
+    // Unit device packages — only include units with at least one type selected
+    const unitPackages = [];
+    for (const [key, deviceTypes] of Object.entries(unitDevicePackages.value)) {
+        if (deviceTypes && deviceTypes.length > 0) {
+            const [floorStr, roomNumber] = key.split('-');
+            unitPackages.push({
+                floor: parseInt(floorStr),
+                roomNumber,
+                deviceTypes
+            });
+        }
+    }
+
     return {
         floors: floors.value,
         unitsPerFloor: unitsPerFloor.value,
         ownerEmails: ownerAssignments,
-        deviceTypesPerFloor
+        deviceTypesPerFloor,
+        unitDevicePackages: unitPackages
     };
 }
 
@@ -279,6 +304,43 @@ function handleCancel() {
                                     class="w-full"
                                     type="email"
                                     placeholder="owner@example.com"
+                                />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Optional unit device packages -->
+            <div v-if="deviceStore.deviceTypes.length > 0">
+                <div
+                    class="flex items-center gap-2 cursor-pointer select-none text-emerald-700 font-semibold text-sm"
+                    @click="showUnitPackages = !showUnitPackages"
+                >
+                    <i :class="showUnitPackages ? 'pi pi-chevron-down' : 'pi pi-chevron-right'"></i>
+                    Assign unit device packages (optional)
+                </div>
+
+                <div v-if="showUnitPackages" class="mt-3 space-y-4 max-h-64 overflow-y-auto pr-1">
+                    <div v-for="row in unitGrid" :key="row.floor">
+                        <p class="font-semibold text-gray-600 text-sm mb-2">Floor {{ row.floor }}</p>
+                        <div class="grid grid-cols-1 gap-2">
+                            <div
+                                v-for="unit in row.units"
+                                :key="ownerKey(unit.floor, unit.roomNumber)"
+                                class="flex items-center gap-3"
+                            >
+                                <span class="text-xs font-mono text-gray-500 w-16 shrink-0">
+                                    F{{ unit.floor }}-{{ unit.roomNumber }}
+                                </span>
+                                <pv-multi-select
+                                    v-model="unitDevicePackages[ownerKey(unit.floor, unit.roomNumber)]"
+                                    :options="deviceStore.deviceTypes"
+                                    option-label="displayName"
+                                    option-value="code"
+                                    placeholder="No devices"
+                                    class="w-full"
+                                    display="chip"
                                 />
                             </div>
                         </div>

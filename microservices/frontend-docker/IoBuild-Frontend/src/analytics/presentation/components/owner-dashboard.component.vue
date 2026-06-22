@@ -410,6 +410,34 @@ const getHealthColor = (health) => {
       <p v-if="!dashboard.deviceHealthStatus?.length" class="no-data">{{ $t('analytics.owner.noData.deviceHealth') }}</p>
     </div>
     
+    <!-- My Unit Devices -->
+    <div class="section">
+      <h3 class="section-title">My Unit Devices</h3>
+      <pv-data-table
+        v-if="dashboard.deviceHealthStatus?.length"
+        :value="dashboard.deviceHealthStatus"
+        class="unit-devices-table"
+        striped-rows
+        size="small"
+      >
+        <pv-column field="deviceName" header="Name" />
+        <pv-column header="Status">
+          <template #body="{ data }">
+            <pv-tag
+              :value="getStatusLabel(data.status)"
+              :severity="getStatusSeverity(data.status)"
+            />
+          </template>
+        </pv-column>
+        <pv-column header="Last Online">
+          <template #body="{ data }">
+            <span>{{ formatLastSeen(data.lastOnline) }}</span>
+          </template>
+        </pv-column>
+      </pv-data-table>
+      <p v-else class="no-data">No unit devices provisioned yet.</p>
+    </div>
+
     <!-- My Units Overview -->
     <div class="section">
       <h3 class="section-title">{{ $t('analytics.owner.sections.myUnitsOverview') }}</h3>
