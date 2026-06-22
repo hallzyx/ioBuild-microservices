@@ -33,37 +33,47 @@ public class DevicesDbContext(DbContextOptions<DevicesDbContext> options) : Micr
             entity.Property(d => d.Source).HasMaxLength(30);
             entity.HasIndex(d => d.MacAddress).IsUnique();
 
-            // ── ADR-7-unit: Two filtered unique index domains (T-14/T-15) ────────────────
+            // ── ADR-7-unit-v2: Computed column + composite unique index (MySQL-compatible) ──
             //
-            // PROBLEM: the original unfiltered (ProjectId, FloorNumber, Type) index collides
-            // when two units on the same floor both have an AirConditioner, because both set
-            // FloorNumber. The fix: split into two filtered domains that never overlap.
+            // PROBLEM with v1 (filtered indexes): MySQL does NOT support partial/filtered indexes.
+            // Pomelo silently drops the HasFilter() clause, generating a plain unique index on
+            // (project_id, floor_number, type). Two units on the same floor with the same device
+            // type both set FloorNumber, so MySQL raised ERROR 1062 (duplicate entry) even though
+            // they have different UnitIds. The SQLite/InMemory tests passed because SQLite DOES
+            // honour filtered indexes — the divergence was invisible until docker e2e on MySQL.
             //
-            // Floor domain  : (ProjectId, FloorNumber, Type) WHERE unit_id IS NULL
-            //   → covers FloorProvisioningConsumer devices (UnitId never set there)
-            // Unit domain   : (ProjectId, UnitId, Type)      WHERE unit_id IS NOT NULL
-            //   → covers UnitDeviceProvisioningConsumer devices (UnitId always set)
+            // FIX: stored computed column  unit_key = COALESCE(unit_id, 0)
+            //   → Floor devices (unit_id IS NULL): unit_key = 0
+            //   → Unit  devices (unit_id IS SET ): unit_key = unit_id
             //
-            // PROVIDER GUARD: EF InMemory does not honor HasFilter; wrap relational-only
-            // config so EnsureCreated / InMemory test paths survive without modification.
-            // SQLite (used in integration tests) DOES enforce filtered indexes — tests
-            // that validate uniqueness use SQLite, not InMemory.
+            // Single composite unique index: (project_id, floor_number, unit_key, type)
+            //   Floor: (project, floor, 0,       type) — one per (project, floor, type) ✓
+            //   Unit : (project, floor, unit_id, type) — one per (project, floor, unit, type) ✓
+            //          two units same floor + same type → distinct unit_key → NO collision ✓
+            //          same unit, same type twice       → same unit_key     → BLOCKED ✓
+            //
+            // PROVIDER GUARD: EF InMemory does not support computed columns (HasComputedColumnSql).
+            // Relational path (SQLite + MySQL): computed column + composite index.
+            // InMemory path: fallback unfiltered indexes that keep InMemory/EnsureCreated tests valid.
+            // NOTE: SQLite IS relational, so it exercises the real computed-column + composite-index
+            // path — no more SQLite/MySQL divergence.
             if (Database.IsRelational())
             {
-                // Floor index — only for rows WITHOUT a unit link
-                entity.HasIndex(d => new { d.ProjectId, d.FloorNumber, d.Type })
-                      .IsUnique()
-                      .HasFilter("unit_id IS NULL");
+                // Stored computed column: unit_key = COALESCE(unit_id, 0)
+                // 'stored: true' → persisted/generated column (supported by SQLite and MySQL).
+                entity.Property<int>("UnitKey")
+                      .HasColumnName("unit_key")
+                      .HasComputedColumnSql("COALESCE(unit_id, 0)", stored: true);
 
-                // Unit index — only for rows WITH a unit link (prevents same type twice per unit)
-                entity.HasIndex(d => new { d.ProjectId, d.UnitId, d.Type })
+                // Single composite unique index — no filter clause, MySQL-valid.
+                entity.HasIndex("ProjectId", "FloorNumber", "UnitKey", "Type")
                       .IsUnique()
-                      .HasFilter("unit_id IS NOT NULL");
+                      .HasDatabaseName("IX_devices_project_id_floor_number_unit_key_type");
             }
             else
             {
-                // InMemory / EnsureCreated test path: apply unfiltered indexes.
-                // NULL-distinctness keeps them valid since test rows rarely collide across domains.
+                // InMemory / EnsureCreated test path: plain unfiltered indexes.
+                // These keep InMemory-backed unit tests alive without any schema changes.
                 entity.HasIndex(d => new { d.ProjectId, d.FloorNumber, d.Type })
                       .IsUnique();
                 entity.HasIndex(d => new { d.ProjectId, d.UnitId, d.Type })

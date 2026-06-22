@@ -7,14 +7,24 @@ using Microsoft.EntityFrameworkCore;
 namespace IoBuild.Devices.Tests.Application;
 
 /// <summary>
-/// T-14 (RED): Tests for DevicesDbContext filtered unique indexes (ADR-7-unit).
+/// T-14 (revised for ADR-7-unit-v2): Tests for DevicesDbContext composite unique index
+/// based on stored computed column <c>unit_key = COALESCE(unit_id, 0)</c>.
 ///
-/// Two index domains (never overlap):
-///   Floor index : (ProjectId, FloorNumber, Type) WHERE unit_id IS NULL
-///   Unit index  : (ProjectId, UnitId, Type)      WHERE unit_id IS NOT NULL
+/// Single composite index: (project_id, floor_number, unit_key, type) — NO filter clauses.
+/// This replaces the previous filtered-index approach (ADR-7-unit v1) which MySQL silently
+/// dropped (MySQL does not support partial/filtered indexes).
+///
+/// Semantic guarantees:
+///   Floor devices : unit_id IS NULL → unit_key = 0
+///     → (project_id, floor_number, 0,       type) — one per (project, floor, type)
+///   Unit devices  : unit_id IS SET  → unit_key = unit_id
+///     → (project_id, floor_number, unit_id, type) — one per (project, floor, unit, type)
+///     Two units on the same floor with the same type are DISTINCT (different unit_key).
 ///
 /// Uses SQLite so unique constraints are actually enforced.
 /// EF InMemory does NOT enforce unique indexes — SQLite is required here.
+/// SQLite IS relational and DOES support stored generated columns; the computed column
+/// path is exercised in these tests (same code path as MySQL).
 /// </summary>
 public class DevicesDbContextFilteredIndexTests : IDisposable
 {
@@ -39,7 +49,8 @@ public class DevicesDbContextFilteredIndexTests : IDisposable
     }
 
     // ── FI-01: Two units on the SAME floor with the SAME type — must NOT collide ──
-    // This is the key scenario that proves the filtered index fix works.
+    // Key regression test for the MySQL collision bug:
+    //   unit_key(unit1) = 1, unit_key(unit2) = 2 → composite (500,1,1,"AC") vs (500,1,2,"AC") — distinct.
 
     [Fact]
     public async Task TwoUnits_SameFloor_SameType_BothPersistWithoutCollision()
@@ -71,14 +82,17 @@ public class DevicesDbContextFilteredIndexTests : IDisposable
         await ctx.Devices.AddAsync(device1);
         await ctx.Devices.AddAsync(device2);
 
-        // Must NOT throw — these are different units so (ProjectId, UnitId, Type) is distinct
+        // Must NOT throw — unit_key(1) != unit_key(2) so the composite index does not collide.
+        // This was the MySQL bug: with filtered indexes MySQL made the plain index
+        // (project_id, floor_number, type) which DID collide for two units on the same floor.
         var act = async () => await ctx.SaveChangesAsync();
         await act.Should().NotThrowAsync(
             "two units on the same floor with the same device type must coexist — " +
-            "they have different UnitIds so the unit index (ProjectId,UnitId,Type) does not collide");
+            "unit_key = COALESCE(unit_id, 0) gives each unit a distinct composite key");
     }
 
-    // ── FI-02: Same unit, same type — MUST be rejected (unit unique index) ──
+    // ── FI-02: Same unit, same type — MUST be rejected ──
+    // unit_key(10) = 10 both times → (501,1,10,"AC") duplicate → blocked.
 
     [Fact]
     public async Task SameUnit_SameType_Twice_ThrowsUniqueConstraintViolation()
@@ -103,7 +117,7 @@ public class DevicesDbContextFilteredIndexTests : IDisposable
             projectId: 501,
             status: "Active",
             floorNumber: 1,
-            unitId: 10);  // SAME unit
+            unitId: 10);  // SAME unit → same unit_key → composite collision
 
         await ctx.Devices.AddAsync(device1);
         await ctx.SaveChangesAsync();
@@ -112,10 +126,12 @@ public class DevicesDbContextFilteredIndexTests : IDisposable
         var act = async () => await ctx.SaveChangesAsync();
 
         await act.Should().ThrowAsync<DbUpdateException>(
-            "inserting the same type for the same unit twice must violate (ProjectId,UnitId,Type) unique index");
+            "inserting the same type for the same unit twice must violate the composite unique index " +
+            "(project_id, floor_number, unit_key, type) — unit_key is the same for both rows");
     }
 
     // ── FI-03: Floor devices (UnitId=null) still work correctly ──────────────
+    // unit_key = COALESCE(null, 0) = 0 → composite (502,1,0,"SmartMeter") — one row, no collision.
 
     [Fact]
     public async Task FloorDevices_UnitIdNull_StillPersistedCorrectly()
@@ -140,7 +156,8 @@ public class DevicesDbContextFilteredIndexTests : IDisposable
         loaded.Source.Should().Be("FloorProvisioned");
     }
 
-    // ── FI-04: Floor device idempotency still enforced (same floor+type → collision) ──
+    // ── FI-04: Floor device idempotency still enforced ──────────────────────
+    // Both rows: unit_key = 0 → composite (503,2,0,"SmartMeter") duplicate → blocked.
 
     [Fact]
     public async Task FloorDevices_SameFloorAndType_StillCollide()
@@ -172,19 +189,18 @@ public class DevicesDbContextFilteredIndexTests : IDisposable
         var act = async () => await ctx.SaveChangesAsync();
 
         await act.Should().ThrowAsync<DbUpdateException>(
-            "floor devices: same (ProjectId, FloorNumber, Type) with UnitId=null must still collide " +
-            "on the floor-filtered index (WHERE unit_id IS NULL)");
+            "floor devices: same (project_id, floor_number, type) both have unit_key=0 — " +
+            "the composite unique index (project_id, floor_number, unit_key, type) must block this");
     }
 
     // ── FI-05: Unit device and floor device with same type on same floor coexist ──
+    // Floor: unit_key=0 → (504,1,0,"SmartMeter"). Unit: unit_key=20 → (504,1,20,"SmartMeter"). Distinct.
 
     [Fact]
     public async Task UnitDevice_And_FloorDevice_SameFloor_SameType_Coexist()
     {
         await using var ctx = BuildContext();
 
-        // A floor-level SmartMeter (hypothetical scenario — floor devices are SmartMeter/WaterSensor/SmokeDetector
-        // but testing the index boundary is valuable regardless of real catalog)
         var floorDevice = new Device(
             name: "Smart Meter - Floor 1",
             type: "SmartMeter",
@@ -194,7 +210,7 @@ public class DevicesDbContextFilteredIndexTests : IDisposable
             status: "Active",
             floorNumber: 1);
 
-        // A unit-level device with same type — in different index domain
+        // A unit-level device with same type — unit_key = 20, distinct from 0
         var unitDevice = Device.ForUnitPackage(
             name: "Smart Meter - Unit 01",
             type: "SmartMeter",
@@ -210,7 +226,8 @@ public class DevicesDbContextFilteredIndexTests : IDisposable
 
         var act = async () => await ctx.SaveChangesAsync();
         await act.Should().NotThrowAsync(
-            "a floor device and a unit device with the same type on the same floor must coexist — " +
-            "they live in separate index domains (unit_id IS NULL vs IS NOT NULL)");
+            "a floor device (unit_key=0) and a unit device (unit_key=20) with the same type " +
+            "on the same floor must coexist — the composite index (project_id,floor_number,unit_key,type) " +
+            "is distinct because unit_key differs");
     }
 }
