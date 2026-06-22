@@ -207,4 +207,206 @@ public class FloorProvisioningConsumerTests : IDisposable
         FloorDeviceDefaults.Defaults.Select(d => d.Type).Should().BeEquivalentTo(
             new[] { "SmartMeter", "WaterSensor", "SmokeDetector" });
     }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // T-B7 / PR2: Selective provisioning + idempotency fix + Source field
+    // Spec: S4 (SC-4.1 .. SC-4.8), S5 (SC-5.1)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    // ── SC-4.1: selected types only — WaterSensor absent ────────────────────
+
+    [Fact]
+    public async Task SC41_SelectedTypes_ProvisionExactly_RequestedTypes_Only()
+    {
+        await using var ctx = BuildSqliteContext();
+        var consumer = BuildConsumer(ctx);
+
+        var evt = new FloorStructureDefinedEvent
+        {
+            ProjectId = 1000,
+            Floor = 2,
+            UnitCount = 4,
+            BuilderId = 1,
+            DeviceTypes = new List<string> { "SmartMeter", "SmokeDetector" }
+        };
+
+        await consumer.ProvisionFloorAsync(evt);
+
+        var devices = ctx.Devices.Where(d => d.ProjectId == 1000).ToList();
+        devices.Should().HaveCount(2, "SC-4.1: exactly the 2 selected types must be provisioned");
+        devices.Select(d => d.Type).Should().BeEquivalentTo(
+            new[] { "SmartMeter", "SmokeDetector" },
+            "SC-4.1: no WaterSensor should be created when not selected");
+    }
+
+    // ── SC-4.2: null DeviceTypes → 3 legacy defaults ─────────────────────────
+
+    [Fact]
+    public async Task SC42_NullDeviceTypes_Provisions3LegacyDefaults()
+    {
+        await using var ctx = BuildSqliteContext();
+        var consumer = BuildConsumer(ctx);
+
+        var evt = new FloorStructureDefinedEvent
+        {
+            ProjectId = 1001,
+            Floor = 1,
+            UnitCount = 2,
+            BuilderId = 1,
+            DeviceTypes = null   // legacy / null → 3 defaults
+        };
+
+        await consumer.ProvisionFloorAsync(evt);
+
+        var devices = ctx.Devices.Where(d => d.ProjectId == 1001).ToList();
+        devices.Should().HaveCount(3, "SC-4.2: null DeviceTypes must provision all 3 legacy defaults");
+        devices.Select(d => d.Type).Should().BeEquivalentTo(
+            new[] { "SmartMeter", "WaterSensor", "SmokeDetector" });
+    }
+
+    // ── SC-4.3: empty list DeviceTypes → 3 legacy defaults ───────────────────
+
+    [Fact]
+    public async Task SC43_EmptyDeviceTypes_Provisions3LegacyDefaults()
+    {
+        await using var ctx = BuildSqliteContext();
+        var consumer = BuildConsumer(ctx);
+
+        var evt = new FloorStructureDefinedEvent
+        {
+            ProjectId = 1002,
+            Floor = 1,
+            UnitCount = 2,
+            BuilderId = 1,
+            DeviceTypes = new List<string>()  // empty → treat as null → 3 defaults
+        };
+
+        await consumer.ProvisionFloorAsync(evt);
+
+        var devices = ctx.Devices.Where(d => d.ProjectId == 1002).ToList();
+        devices.Should().HaveCount(3, "SC-4.3: empty DeviceTypes must provision all 3 legacy defaults");
+    }
+
+    // ── SC-4.4: idempotency on selected types — re-delivery is a no-op ───────
+
+    [Fact]
+    public async Task SC44_Idempotency_SelectedTypes_RedeliveryDoesNotDuplicate()
+    {
+        await using var ctx = BuildSqliteContext();
+        var consumer = BuildConsumer(ctx);
+
+        var evt = new FloorStructureDefinedEvent
+        {
+            ProjectId = 1003,
+            Floor = 1,
+            UnitCount = 2,
+            BuilderId = 1,
+            DeviceTypes = new List<string> { "WaterSensor" }
+        };
+
+        await consumer.ProvisionFloorAsync(evt); // first delivery → 1 device
+        await consumer.ProvisionFloorAsync(evt); // redelivery → must be no-op
+
+        var devices = ctx.Devices.Where(d => d.ProjectId == 1003).ToList();
+        devices.Should().HaveCount(1, "SC-4.4: re-delivery of a single-type selection must not duplicate");
+    }
+
+    // ── SC-4.5: idempotency on defaults (null) — re-delivery is a no-op ──────
+
+    [Fact]
+    public async Task SC45_Idempotency_DefaultTypes_RedeliveryDoesNotDuplicate()
+    {
+        await using var ctx = BuildSqliteContext();
+        var consumer = BuildConsumer(ctx);
+
+        var evt = new FloorStructureDefinedEvent
+        {
+            ProjectId = 1004,
+            Floor = 1,
+            UnitCount = 2,
+            BuilderId = 1,
+            DeviceTypes = null
+        };
+
+        await consumer.ProvisionFloorAsync(evt);
+        await consumer.ProvisionFloorAsync(evt);
+
+        var devices = ctx.Devices.Where(d => d.ProjectId == 1004).ToList();
+        devices.Should().HaveCount(3, "SC-4.5: re-delivery of defaults must not duplicate devices");
+    }
+
+    // ── SC-4.6: selection WITHOUT SmartMeter does NOT false-trigger old sentinel ──
+
+    [Fact]
+    public async Task SC46_SelectionWithoutSmartMeter_DoesNotFalseTriggerSentinel()
+    {
+        await using var ctx = BuildSqliteContext();
+        var consumer = BuildConsumer(ctx);
+
+        var evt = new FloorStructureDefinedEvent
+        {
+            ProjectId = 1005,
+            Floor = 1,
+            UnitCount = 2,
+            BuilderId = 1,
+            DeviceTypes = new List<string> { "WaterSensor", "SmokeDetector" }
+        };
+
+        await consumer.ProvisionFloorAsync(evt);
+
+        var devices = ctx.Devices.Where(d => d.ProjectId == 1005).ToList();
+        devices.Should().HaveCount(2,
+            "SC-4.6: a selection without SmartMeter must still provision correctly " +
+            "(the old SmartMeter sentinel would have caused 0 devices to be created)");
+        devices.Select(d => d.Type).Should().BeEquivalentTo(new[] { "WaterSensor", "SmokeDetector" });
+    }
+
+    // ── SC-4.7: Source field is set to "FloorProvisioned" on each provisioned device ──
+
+    [Fact]
+    public async Task SC47_ProvisionedDevices_Source_IsFloorProvisioned()
+    {
+        await using var ctx = BuildSqliteContext();
+        var consumer = BuildConsumer(ctx);
+
+        var evt = new FloorStructureDefinedEvent
+        {
+            ProjectId = 1006,
+            Floor = 1,
+            UnitCount = 2,
+            BuilderId = 1,
+            DeviceTypes = null
+        };
+
+        await consumer.ProvisionFloorAsync(evt);
+
+        var devices = ctx.Devices.Where(d => d.ProjectId == 1006).ToList();
+        devices.Should().OnlyContain(d => d.Source == "FloorProvisioned",
+            "SC-4.7: every device provisioned by FloorProvisioningConsumer must have Source='FloorProvisioned'");
+    }
+
+    // ── SC-4.8: MAC uniqueness across the full catalog ───────────────────────
+
+    [Fact]
+    public async Task SC48_MacAddresses_AreUnique_AcrossFullCatalog()
+    {
+        await using var ctx = BuildSqliteContext();
+        var consumer = BuildConsumer(ctx);
+
+        var evt = new FloorStructureDefinedEvent
+        {
+            ProjectId = 1007,
+            Floor = 1,
+            UnitCount = 2,
+            BuilderId = 1,
+            DeviceTypes = null  // all 3 defaults
+        };
+
+        await consumer.ProvisionFloorAsync(evt);
+
+        var devices = ctx.Devices.Where(d => d.ProjectId == 1007).ToList();
+        var macs = devices.Select(d => d.MacAddress).ToList();
+        macs.Should().OnlyHaveUniqueItems(
+            "SC-4.8: MAC addresses must be distinct for each device type in the full catalog");
+    }
 }
