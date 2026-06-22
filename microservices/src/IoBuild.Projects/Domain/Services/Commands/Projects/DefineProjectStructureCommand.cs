@@ -4,8 +4,11 @@ namespace IoBuild.Projects.Domain.Services.Commands.Projects;
 /// Individual room/unit assignment within a floor (§1.3 design.md).
 /// OwnerEmail is optional — set at structure-definition time when the builder
 /// knows the assigned owner's email; null otherwise (linked later by the consumer).
+/// DeviceTypes is the optional per-unit device package (ADR-9 / T-08).
+/// Null or empty = no unit-level device package for this room (no UnitDevicesDefinedEvent emitted).
+/// Default null keeps all existing call sites compiling without changes.
 /// </summary>
-public record RoomSpec(string RoomNumber, string? OwnerEmail);
+public record RoomSpec(string RoomNumber, string? OwnerEmail, IReadOnlyList<string>? DeviceTypes = null);
 
 /// <summary>
 /// Specification for a single floor in the project (§1.3 design.md).

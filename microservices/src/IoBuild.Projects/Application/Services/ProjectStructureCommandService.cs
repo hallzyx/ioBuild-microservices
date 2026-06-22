@@ -78,6 +78,41 @@ public class ProjectStructureCommandService
                         $"Valid types are: {string.Join(", ", DeviceTypeCatalog.KnownTypes)}.",
                         nameof(command.Floors));
             }
+
+            // ── Per-unit package validation (ADR-9 / T-11) ───────────────
+            // Reject unknown type codes and duplicate types within a single unit.
+            foreach (var roomSpec in floorSpec.Rooms)
+            {
+                if (roomSpec.DeviceTypes is not { Count: > 0 })
+                    continue;
+
+                // Reject unknown types
+                var unknownUnitTypes = roomSpec.DeviceTypes
+                    .Where(t => !DeviceTypeCatalog.KnownTypes.Contains(t))
+                    .Distinct()
+                    .ToList();
+
+                if (unknownUnitTypes.Count > 0)
+                    throw new ArgumentException(
+                        $"Floor {floorSpec.Floor} room {roomSpec.RoomNumber} contains unknown " +
+                        $"device type(s) in unit package: {string.Join(", ", unknownUnitTypes)}. " +
+                        $"Valid types are: {string.Join(", ", DeviceTypeCatalog.KnownTypes)}.",
+                        nameof(command.Floors));
+
+                // Reject duplicate types within the same unit package (spec: C5 / edge-case register)
+                var duplicates = roomSpec.DeviceTypes
+                    .GroupBy(t => t, StringComparer.Ordinal)
+                    .Where(g => g.Count() > 1)
+                    .Select(g => g.Key)
+                    .ToList();
+
+                if (duplicates.Count > 0)
+                    throw new ArgumentException(
+                        $"Floor {floorSpec.Floor} room {roomSpec.RoomNumber} has duplicate " +
+                        $"device type(s) in unit package: {string.Join(", ", duplicates)}. " +
+                        "Each type may appear at most once per unit.",
+                        nameof(command.Floors));
+            }
         }
 
         // ── Guard: 409 if project already has units (REQ-PS-03) ─────────
@@ -88,7 +123,11 @@ public class ProjectStructureCommandService
                 "Structure re-definition is not allowed (REQ-PS-03 / 409 Conflict).");
 
         // ── Phase 1: create all Unit rows ───────────────────────────────
+        // Track (Unit, RoomSpec) pairs so Phase 2 can access RoomSpec.DeviceTypes for
+        // per-unit package events without a second lookup (ADR-9 / T-11).
         var createdUnits = new List<Unit>();
+        var unitRoomSpecPairs = new List<(Unit Unit, RoomSpec Room, int Floor)>();
+
         foreach (var floorSpec in command.Floors)
         {
             foreach (var roomSpec in floorSpec.Rooms)
@@ -101,6 +140,7 @@ public class ProjectStructureCommandService
 
                 await _unitRepository.AddAsync(unit);
                 createdUnits.Add(unit);
+                unitRoomSpecPairs.Add((unit, roomSpec, floorSpec.Floor));
             }
         }
 
@@ -127,6 +167,30 @@ public class ProjectStructureCommandService
             outboxMessages.Add(new OutboxMessage(nameof(UnitCreatedEvent), JsonSerializer.Serialize(unitEvt))
             {
                 EventId = unitEvt.EventId
+            });
+        }
+
+        // One UnitDevicesDefinedEvent per unit that has a non-empty device package (ADR-9 / T-11)
+        // Package types were already validated above (unknown codes and duplicates rejected).
+        foreach (var (unit, roomSpec, floor) in unitRoomSpecPairs)
+        {
+            // Skip units with no package or empty package
+            if (roomSpec.DeviceTypes is not { Count: > 0 })
+                continue;
+
+            // Types are already validated (no unknowns, no duplicates) — emit directly
+            var unitPkgEvt = new UnitDevicesDefinedEvent
+            {
+                UnitId = unit.Id,               // real Phase-1 id (ADR-9)
+                ProjectId = command.ProjectId,
+                Floor = floor,
+                RoomNumber = roomSpec.RoomNumber,
+                BuilderId = command.BuilderId,
+                DeviceTypes = roomSpec.DeviceTypes.ToList()
+            };
+            outboxMessages.Add(new OutboxMessage(nameof(UnitDevicesDefinedEvent), JsonSerializer.Serialize(unitPkgEvt))
+            {
+                EventId = unitPkgEvt.EventId
             });
         }
 
