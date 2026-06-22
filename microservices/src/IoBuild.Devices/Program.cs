@@ -99,6 +99,9 @@ builder.Services.AddHostedService<OutboxWorker>();
 // ── FloorProvisioningConsumer: seeds default devices when a floor is defined (PR 6, §4.1) ──
 builder.Services.AddHostedService<FloorProvisioningConsumer>();
 
+// ── UnitDeviceProvisioningConsumer: provisions selected devices per unit (T-17, ADR-2/D2) ──
+builder.Services.AddHostedService<UnitDeviceProvisioningConsumer>();
+
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>

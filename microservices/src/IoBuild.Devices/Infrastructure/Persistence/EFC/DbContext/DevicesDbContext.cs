@@ -32,12 +32,43 @@ public class DevicesDbContext(DbContextOptions<DevicesDbContext> options) : Micr
             // Nullable so existing rows and EnsureCreated InMemory test paths stay valid (S5.2).
             entity.Property(d => d.Source).HasMaxLength(30);
             entity.HasIndex(d => d.MacAddress).IsUnique();
-            // Unique index for idempotency guard: (ProjectId, FloorNumber, Type) — ADR-C.
-            // Prevents duplicate floor-provisioned devices on RabbitMQ redelivery.
-            // MySQL and SQLite both treat NULL values as distinct in unique indexes,
-            // so rows with FloorNumber=null (manually-created devices) do not conflict.
-            entity.HasIndex(d => new { d.ProjectId, d.FloorNumber, d.Type })
-                  .IsUnique();
+
+            // ── ADR-7-unit: Two filtered unique index domains (T-14/T-15) ────────────────
+            //
+            // PROBLEM: the original unfiltered (ProjectId, FloorNumber, Type) index collides
+            // when two units on the same floor both have an AirConditioner, because both set
+            // FloorNumber. The fix: split into two filtered domains that never overlap.
+            //
+            // Floor domain  : (ProjectId, FloorNumber, Type) WHERE unit_id IS NULL
+            //   → covers FloorProvisioningConsumer devices (UnitId never set there)
+            // Unit domain   : (ProjectId, UnitId, Type)      WHERE unit_id IS NOT NULL
+            //   → covers UnitDeviceProvisioningConsumer devices (UnitId always set)
+            //
+            // PROVIDER GUARD: EF InMemory does not honor HasFilter; wrap relational-only
+            // config so EnsureCreated / InMemory test paths survive without modification.
+            // SQLite (used in integration tests) DOES enforce filtered indexes — tests
+            // that validate uniqueness use SQLite, not InMemory.
+            if (Database.IsRelational())
+            {
+                // Floor index — only for rows WITHOUT a unit link
+                entity.HasIndex(d => new { d.ProjectId, d.FloorNumber, d.Type })
+                      .IsUnique()
+                      .HasFilter("unit_id IS NULL");
+
+                // Unit index — only for rows WITH a unit link (prevents same type twice per unit)
+                entity.HasIndex(d => new { d.ProjectId, d.UnitId, d.Type })
+                      .IsUnique()
+                      .HasFilter("unit_id IS NOT NULL");
+            }
+            else
+            {
+                // InMemory / EnsureCreated test path: apply unfiltered indexes.
+                // NULL-distinctness keeps them valid since test rows rarely collide across domains.
+                entity.HasIndex(d => new { d.ProjectId, d.FloorNumber, d.Type })
+                      .IsUnique();
+                entity.HasIndex(d => new { d.ProjectId, d.UnitId, d.Type })
+                      .IsUnique();
+            }
         });
 
         modelBuilder.Entity<DeviceLog>(entity =>
