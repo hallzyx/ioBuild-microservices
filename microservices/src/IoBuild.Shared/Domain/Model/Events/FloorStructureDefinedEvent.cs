@@ -11,5 +11,12 @@ public record FloorStructureDefinedEvent : DomainEvent
     public int UnitCount { get; init; }
     public int BuilderId { get; init; }
 
+    /// <summary>
+    /// Per-floor device types selected by the builder (S3.1).
+    /// Nullable — absent in legacy payloads. A null or empty value means "use legacy defaults"
+    /// (SmartMeter, WaterSensor, SmokeDetector). Additive, backward-compatible field.
+    /// </summary>
+    public IReadOnlyList<string>? DeviceTypes { get; init; }
+
     public override string RoutingKey => "project.floor.defined";
 }
