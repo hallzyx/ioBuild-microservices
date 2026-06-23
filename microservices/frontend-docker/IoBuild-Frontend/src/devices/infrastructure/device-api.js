@@ -62,11 +62,28 @@ export class DeviceApi extends BaseApi {
   async getDeviceTypes() {
     try {
       const response = await this.http.get(`${this.devicesEndpoint}/types`);
-      // Response shape: { deviceTypes: [{ code, displayName }, ...] }
+      // Response shape: { deviceTypes: [{ code, displayName, controllableAttributes }, ...] }
       return response.data.deviceTypes ?? [];
     } catch (error) {
       console.error('Error fetching device types:', error);
       throw new Error('Could not load device type catalog');
     }
+  }
+
+  /**
+   * Send a single-attribute actuation command to a device.
+   * Body key is `attribute` (ADR-B5) — NOT attributeName.
+   * @param {number} deviceId
+   * @param {string} attribute - verbatim catalog attribute name
+   * @param {*} value - numeric or string scalar
+   * @returns {Promise<object>} CommandResultResource: { deviceId, attribute, value, acceptedAt }
+   */
+  async sendCommand(deviceId, attribute, value) {
+    // Let the caller handle HTTP errors (status codes matter for UX)
+    const response = await this.http.post(
+      `${this.devicesEndpoint}/${deviceId}/command`,
+      { attribute, value }
+    );
+    return response.data;
   }
 }

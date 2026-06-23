@@ -129,6 +129,21 @@ router.beforeEach(async (to, from, next) => {
         }
     }
 
+    // ── Role gate: Owner-only routes ────────────────────────────────────
+    // Routes with meta.requiresRole = 'owner' are blocked for non-Owner users.
+    // Builders are redirected to the analytics dashboard; unauthenticated users
+    // are already redirected to login above.
+    if (to.meta?.requiresRole) {
+        const currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
+        const userRole = String(currentUser?.role ?? '').toLowerCase();
+        const requiredRole = String(to.meta.requiresRole).toLowerCase();
+        if (userRole !== requiredRole) {
+            // Builder or unexpected role: send to their own dashboard
+            next('/analytics/dashboard');
+            return;
+        }
+    }
+
     next();
 });
 
