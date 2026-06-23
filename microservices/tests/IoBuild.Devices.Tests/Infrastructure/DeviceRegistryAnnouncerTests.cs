@@ -1,4 +1,3 @@
-using FluentAssertions;
 using IoBuild.Devices.Domain.Model.Aggregates;
 using IoBuild.Devices.Domain.Repositories;
 using IoBuild.Devices.Infrastructure.Mqtt;
@@ -32,14 +31,14 @@ public class DeviceRegistryAnnouncerTests
         // Act
         await announcer.AnnounceAllAsync(CancellationToken.None);
 
-        // Assert — one retained registry publish per device, with correct type
+        // Assert — one retained registry publish per device, with correct type and deviceId
         mqtt.Verify(m => m.EnqueueRawAsync(
             It.IsAny<string>(),
-            It.Is<string>(s => s.Contains("\"type\":\"AirConditioner\"")),
+            It.Is<string>(s => s.Contains("\"type\":\"AirConditioner\"") && s.Contains("\"deviceId\":")),
             true, It.IsAny<CancellationToken>()), Times.Once);
         mqtt.Verify(m => m.EnqueueRawAsync(
             It.IsAny<string>(),
-            It.Is<string>(s => s.Contains("\"type\":\"SmartLight\"")),
+            It.Is<string>(s => s.Contains("\"type\":\"SmartLight\"") && s.Contains("\"deviceId\":")),
             true, It.IsAny<CancellationToken>()), Times.Once);
     }
 }

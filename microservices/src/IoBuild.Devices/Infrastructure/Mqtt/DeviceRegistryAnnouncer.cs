@@ -1,6 +1,8 @@
 using System.Text.Json;
 using IoBuild.Devices.Domain.Repositories;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
 namespace IoBuild.Devices.Infrastructure.Mqtt;
 
