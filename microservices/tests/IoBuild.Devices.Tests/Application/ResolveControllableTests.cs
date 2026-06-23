@@ -139,7 +139,7 @@ public class ResolveControllableTests : IDisposable
         db.OwnerCustomDeviceTypes.Add(customType);
 
         var device = Device.ForOwnerCustom("My Temp", "TempSensor", "Unit 01",
-            "OC:EE:FF:00:11:22", 1, "Active", unitId: 10);
+            1, "Active", unitId: 10);
         db.Devices.Add(device);
 
         db.UnitOwnerProjections.Add(new UnitOwnerProjection
@@ -172,7 +172,7 @@ public class ResolveControllableTests : IDisposable
         db.OwnerCustomDeviceTypes.Add(customType);
 
         var device = Device.ForOwnerCustom("My Temp 2", "TempSensor2", "Unit 01",
-            "OC:EE:FF:00:11:33", 1, "Active", unitId: 20);
+            1, "Active", unitId: 20);
         db.Devices.Add(device);
 
         db.UnitOwnerProjections.Add(new UnitOwnerProjection
@@ -205,7 +205,7 @@ public class ResolveControllableTests : IDisposable
         db.OwnerCustomDeviceTypes.Add(customType);
 
         var device = Device.ForOwnerCustom("My Switch", "SmartSwitch", "Unit 01",
-            "OC:EE:FF:00:11:44", 1, "Active", unitId: 30);
+            1, "Active", unitId: 30);
         db.Devices.Add(device);
 
         db.UnitOwnerProjections.Add(new UnitOwnerProjection

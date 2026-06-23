@@ -30,8 +30,9 @@ public class DeviceCommandService(
     public async Task<Device> Handle(CreateDeviceCommand command)
     {
         Device device;
+        var isOwnerCustom = command.UnitId.HasValue;
 
-        if (command.UnitId.HasValue)
+        if (isOwnerCustom)
         {
             // ── Owner-custom path ──────────────────────────────────────────────
             if (db is null)
@@ -80,7 +81,7 @@ public class DeviceCommandService(
 
             device = Device.ForOwnerCustom(
                 command.Name, command.Type, command.Location,
-                command.MacAddress, command.ProjectId, command.Status,
+                command.ProjectId, command.Status,
                 command.UnitId.Value);
         }
         else
@@ -98,10 +99,21 @@ public class DeviceCommandService(
         {
             await repository.SaveChangesAsync();
         }
-        catch (DbUpdateException ex) when (IsDuplicateTypeOnUnit(ex))
+        catch (DbUpdateException ex) when (IsUniqueConstraintViolation(ex))
         {
+            // Owner-custom path: the pre-check (AnyAsync above) is the primary guard.
+            // A DbUpdateException here can only arise from a race condition or a DB-level
+            // composite-index violation on (project, floor, unit_key, type) — report it
+            // accurately as a type duplicate on the unit.
+            //
+            // Standard path: a UNIQUE violation is a MAC-address collision — report it
+            // as a conflict on the MAC field, not a type duplicate (which would be misleading).
+            if (isOwnerCustom)
+                throw new DuplicateDeviceTypeOnUnitException(
+                    "A device of this type already exists in this unit.");
+
             throw new DuplicateDeviceTypeOnUnitException(
-                "A device of this type already exists in this unit.");
+                "A device with the same MAC address already exists.");
         }
 
         // Phase 2: build event with real device.Id + DeviceName, persist outbox row
@@ -195,11 +207,11 @@ public class DeviceCommandService(
     // ── Private helpers ──────────────────────────────────────────────────────
 
     /// <summary>
-    /// Detects whether a DbUpdateException is caused by the composite unique index on the
-    /// Device table (project_id, floor_number, unit_key, type), which fires when an owner
-    /// tries to add a second device of the same custom type to the same unit.
+    /// Detects whether a DbUpdateException is caused by any UNIQUE constraint violation.
+    /// Works for both SQLite ("UNIQUE constraint failed") and MySQL ("Duplicate entry").
+    /// The caller is responsible for giving an accurate error message based on context.
     /// </summary>
-    private static bool IsDuplicateTypeOnUnit(DbUpdateException ex)
+    private static bool IsUniqueConstraintViolation(DbUpdateException ex)
     {
         // SQLite: "UNIQUE constraint failed" in message
         // MySQL:  "Duplicate entry" in inner exception message

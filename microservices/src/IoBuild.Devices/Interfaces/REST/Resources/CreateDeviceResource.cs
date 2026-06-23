@@ -4,7 +4,7 @@ public record CreateDeviceResource(
     string Name,
     string Type,
     string Location,
-    string MacAddress,
+    string? MacAddress,
     int ProjectId,
     string Status,
     /// <summary>

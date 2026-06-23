@@ -6,7 +6,7 @@ public class Device
     public string Name { get; private set; }
     public string Type { get; private set; }
     public string Location { get; private set; }
-    public string MacAddress { get; private set; }
+    public string? MacAddress { get; private set; }
     public int ProjectId { get; private set; }
     public string Status { get; private set; }
 
@@ -28,7 +28,7 @@ public class Device
     /// <summary>
     /// Standard constructor for manually-created devices (no floor placement).
     /// </summary>
-    public Device(string name, string type, string location, string macAddress, int projectId, string status)
+    public Device(string name, string type, string location, string? macAddress, int projectId, string status)
     {
         Name = name;
         Type = type;
@@ -44,7 +44,7 @@ public class Device
     /// Extended constructor for floor-provisioned devices. Accepts nullable FloorNumber and UnitId (§4.4).
     /// Sets Source = "FloorProvisioned" to mark provenance (S5.1).
     /// </summary>
-    public Device(string name, string type, string location, string macAddress, int projectId, string status,
+    public Device(string name, string type, string location, string? macAddress, int projectId, string status,
         int? floorNumber, int? unitId = null)
     {
         Name = name;
@@ -86,25 +86,30 @@ public class Device
     /// Factory method for owner-defined custom devices (Phase 1 owner-custom-device-type feature).
     /// Sets UnitId + Source="OwnerCustom" so the device surfaces in the owner dashboard
     /// via the UnitId join. FloorNumber is left null (these are unit-scoped, not floor-scoped).
+    ///
+    /// MacAddress is intentionally stored as NULL. Owner-custom devices are virtual (no
+    /// real hardware MAC). Storing '' caused a UNIQUE constraint collision on
+    /// IX_devices_mac_address the moment a second owner-custom device was created anywhere
+    /// in the system. MySQL UNIQUE indexes permit multiple NULLs, so storing NULL here
+    /// eliminates the collision while leaving real device MAC uniqueness intact.
     /// </summary>
     /// <param name="name">User-given device name (e.g. "My CO2 Sensor").</param>
     /// <param name="type">TypeCode from the owner's OwnerCustomDeviceType.</param>
     /// <param name="location">Human-readable location string.</param>
-    /// <param name="mac">MAC address — must be unique across all devices.</param>
     /// <param name="projectId">Project the owner's unit belongs to.</param>
     /// <param name="status">Initial device status.</param>
     /// <param name="unitId">The owner's unit DB id — the placement anchor.</param>
     public static Device ForOwnerCustom(
-        string name, string type, string location, string mac,
+        string name, string type, string location,
         int projectId, string status, int unitId)
     {
-        var d = new Device(name, type, location, mac, projectId, status);
+        var d = new Device(name, type, location, null, projectId, status);
         d.UnitId = unitId;
         d.Source = "OwnerCustom";
         return d;
     }
 
-    public void Update(string name, string type, string location, string macAddress, int projectId, string status)
+    public void Update(string name, string type, string location, string? macAddress, int projectId, string status)
     {
         Name = name;
         Type = type;

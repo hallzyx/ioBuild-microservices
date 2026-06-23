@@ -18,7 +18,6 @@ public class DeviceForOwnerCustomTests
             name: "My CO2 Sensor",
             type: "CO2Monitor",
             location: "Unit 01",
-            mac: "OC:AA:BB:CC:DD:01",
             projectId: 1,
             status: "Active",
             unitId: 42);
@@ -32,7 +31,7 @@ public class DeviceForOwnerCustomTests
     public void ForOwnerCustom_SetsSourceToOwnerCustom()
     {
         var device = Device.ForOwnerCustom("My Sensor", "CO2Monitor", "Unit 01",
-            "OC:AA:BB:CC:DD:02", 1, "Active", unitId: 5);
+            1, "Active", unitId: 5);
 
         device.Source.Should().Be("OwnerCustom");
     }
@@ -43,7 +42,7 @@ public class DeviceForOwnerCustomTests
     public void ForOwnerCustom_SetsName()
     {
         var device = Device.ForOwnerCustom("My CO2 Sensor", "CO2Monitor", "Unit 01",
-            "OC:AA:BB:CC:DD:03", 1, "Active", unitId: 5);
+            1, "Active", unitId: 5);
 
         device.Name.Should().Be("My CO2 Sensor");
     }
@@ -54,7 +53,7 @@ public class DeviceForOwnerCustomTests
     public void ForOwnerCustom_SetsType()
     {
         var device = Device.ForOwnerCustom("My Sensor", "CO2Monitor", "Unit 01",
-            "OC:AA:BB:CC:DD:04", 1, "Active", unitId: 5);
+            1, "Active", unitId: 5);
 
         device.Type.Should().Be("CO2Monitor");
     }
