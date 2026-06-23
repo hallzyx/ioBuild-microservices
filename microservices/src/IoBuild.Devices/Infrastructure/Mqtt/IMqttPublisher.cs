@@ -13,4 +13,10 @@ public interface IMqttPublisher
     /// the actual MQTT publish happens asynchronously on the background service's drain loop.
     /// </summary>
     ValueTask EnqueueAsync(string deviceId, string payloadJson, CancellationToken ct = default);
+
+    /// <summary>
+    /// Enqueues a JSON payload for publish to an arbitrary topic with an explicit retain flag.
+    /// Used for non-command topics such as registry/{deviceId}.
+    /// </summary>
+    ValueTask EnqueueRawAsync(string topic, string payloadJson, bool retain, CancellationToken ct = default);
 }

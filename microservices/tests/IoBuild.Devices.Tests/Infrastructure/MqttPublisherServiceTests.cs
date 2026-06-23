@@ -85,4 +85,29 @@ public class MqttPublisherServiceTests
         // Assert — ConnectAsync was called at least once (reconnect attempted)
         callCount.Should().BeGreaterThanOrEqualTo(1, "service must reconnect when IsConnected is false");
     }
+
+    // ── MP-03: EnqueueRawAsync → publishes to arbitrary topic with given retain flag ──
+    [Fact]
+    public async Task MqttPublisherService_EnqueueRaw_PublishesToGivenTopic()
+    {
+        var fakeClient = new Mock<IMqttClient>();
+        fakeClient.Setup(c => c.IsConnected).Returns(true);
+        fakeClient
+            .Setup(c => c.PublishAsync(It.IsAny<MqttApplicationMessage>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new MqttClientPublishResult(0, MqttClientPublishReasonCode.Success, string.Empty, null));
+
+        var logger = new Mock<ILogger<MqttPublisherService>>().Object;
+        var svc = new MqttPublisherService(fakeClient.Object, logger);
+
+        await svc.EnqueueRawAsync("registry/13", """{"deviceId":13,"type":"AirConditioner"}""", retain: true);
+        await Task.Delay(200);
+
+        fakeClient.Verify(c => c.PublishAsync(
+            It.Is<MqttApplicationMessage>(m =>
+                m.Topic == "registry/13" &&
+                m.QualityOfServiceLevel == MqttQualityOfServiceLevel.AtLeastOnce &&
+                m.Retain == true),
+            It.IsAny<CancellationToken>()),
+            Times.AtLeastOnce);
+    }
 }

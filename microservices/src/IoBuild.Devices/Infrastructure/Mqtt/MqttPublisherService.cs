@@ -27,7 +27,7 @@ public class MqttPublisherService : BackgroundService, IMqttPublisher
     private readonly IMqttClient _client;
     private readonly MqttOptions _options;
     private readonly ILogger<MqttPublisherService> _logger;
-    private readonly Channel<(string DeviceId, string PayloadJson)> _channel;
+    private readonly Channel<(string Topic, string Payload, bool Retain)> _channel;
 
     // ── Production constructor — wired by DI ──────────────────────────────────
     public MqttPublisherService(
@@ -37,7 +37,7 @@ public class MqttPublisherService : BackgroundService, IMqttPublisher
         _options = mqttOptions.Value;
         _logger = logger;
         _client = new MqttClientFactory().CreateMqttClient();
-        _channel = Channel.CreateBounded<(string, string)>(new BoundedChannelOptions(1_000)
+        _channel = Channel.CreateBounded<(string, string, bool)>(new BoundedChannelOptions(1_000)
         {
             FullMode = BoundedChannelFullMode.Wait,
             SingleReader = true,
@@ -59,7 +59,7 @@ public class MqttPublisherService : BackgroundService, IMqttPublisher
         };
         _logger = logger;
         _client = client;
-        _channel = Channel.CreateBounded<(string, string)>(new BoundedChannelOptions(1_000)
+        _channel = Channel.CreateBounded<(string, string, bool)>(new BoundedChannelOptions(1_000)
         {
             FullMode = BoundedChannelFullMode.Wait,
             SingleReader = true,
@@ -74,7 +74,12 @@ public class MqttPublisherService : BackgroundService, IMqttPublisher
 
     public async ValueTask EnqueueAsync(string deviceId, string payloadJson, CancellationToken ct = default)
     {
-        await _channel.Writer.WriteAsync((deviceId, payloadJson), ct);
+        await _channel.Writer.WriteAsync(($"{_options.CommandTopicPrefix}{deviceId}", payloadJson, true), ct);
+    }
+
+    public async ValueTask EnqueueRawAsync(string topic, string payloadJson, bool retain, CancellationToken ct = default)
+    {
+        await _channel.Writer.WriteAsync((topic, payloadJson, retain), ct);
     }
 
     // ── BackgroundService ─────────────────────────────────────────────────────
@@ -137,25 +142,22 @@ public class MqttPublisherService : BackgroundService, IMqttPublisher
 
     private async Task DrainLoopAsync(CancellationToken ct)
     {
-        await foreach (var (deviceId, payloadJson) in _channel.Reader.ReadAllAsync(ct))
+        await foreach (var (topic, payloadJson, retain) in _channel.Reader.ReadAllAsync(ct))
         {
             try
             {
                 await EnsureConnectedAsync(ct);
 
-                var topic = $"{_options.CommandTopicPrefix}{deviceId}";
                 var message = new MqttApplicationMessageBuilder()
                     .WithTopic(topic)
                     .WithPayload(Encoding.UTF8.GetBytes(payloadJson))
                     .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce)
-                    .WithRetainFlag(true)
+                    .WithRetainFlag(retain)
                     .Build();
 
                 await _client.PublishAsync(message, ct);
 
-                _logger.LogDebug(
-                    "MqttPublisherService: published to {Topic} payload={Payload}",
-                    topic, payloadJson);
+                _logger.LogDebug("MqttPublisherService: published to {Topic} payload={Payload}", topic, payloadJson);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
@@ -163,11 +165,8 @@ public class MqttPublisherService : BackgroundService, IMqttPublisher
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex,
-                    "MqttPublisherService: failed to publish command for device {DeviceId}. Message re-queued.",
-                    deviceId);
-                // Re-enqueue so the message is not lost (best-effort; channel may be full under pressure)
-                try { await _channel.Writer.WriteAsync((deviceId, payloadJson), ct); }
+                _logger.LogError(ex, "MqttPublisherService: failed to publish to {Topic}. Message re-queued.", topic);
+                try { await _channel.Writer.WriteAsync((topic, payloadJson, retain), ct); }
                 catch { /* channel full or cancelled — accept loss */ }
             }
         }
