@@ -1,17 +1,24 @@
 <script setup>
 import { onMounted, computed, ref } from 'vue';
 import { useDeviceStore } from '../../application/device.store.js';
+import { useIamStore } from '../../../iam/application/iam.store.js';
 import { useI18n } from 'vue-i18n';
 import DeviceEditDialog from '../components/device-edit-dialog.vue';
 import DeviceListHeader from '../components/device-list-header.vue';
 import DevicesTable from '../components/devices-table.vue';
+import MyUnitDevices from '../components/my-unit-devices.vue';
 import { useToast } from 'primevue/usetoast';
 import { useConfirm } from 'primevue/useconfirm';
 
 const { t } = useI18n();
 const deviceStore = useDeviceStore();
+const iamStore = useIamStore();
 const toast = useToast();
 const confirm = useConfirm();
+
+// Owners get their own owner-scoped unit-device panel (with control affordances);
+// builders get the all-tenant device CRUD management table.
+const isOwner = computed(() => (iamStore.currentUser?.role ?? '').toLowerCase() === 'owner');
 
 const devices = computed(() => deviceStore.devices);
 const loading = computed(() => deviceStore.loading);
@@ -95,7 +102,10 @@ const handleSave = async (payload) => {
 };
 
 onMounted(async () => {
-  await deviceStore.fetchDevices();
+  // Skip the all-tenant device fetch for owners — they use the owner-scoped panel.
+  if (!isOwner.value) {
+    await deviceStore.fetchDevices();
+  }
 });
 </script>
 
@@ -103,24 +113,30 @@ onMounted(async () => {
   <div class="p-4">
     <pv-toast />
 
-    <DeviceListHeader :on-add-device="addDevice" />
+    <!-- Owner: owner-scoped unit devices with control panel -->
+    <MyUnitDevices v-if="isOwner" />
 
-    <pv-message v-if="error" severity="error" :closable="false" class="mb-4">{{ error }}</pv-message>
+    <!-- Builder: all-tenant device CRUD management -->
+    <template v-else>
+      <DeviceListHeader :on-add-device="addDevice" />
 
-    <DevicesTable
-      :devices="devices"
-      :loading="loading"
-      @edit="handleEditDevice"
-      @delete="handleDeleteDevice"
-    />
+      <pv-message v-if="error" severity="error" :closable="false" class="mb-4">{{ error }}</pv-message>
 
-    <DeviceEditDialog
-      v-model="showEditDialog"
-      :device="editingDevice"
-      :isNew="isNewDialog"
-      @save="handleSave"
-      @cancel="showEditDialog = false"
-    />
+      <DevicesTable
+        :devices="devices"
+        :loading="loading"
+        @edit="handleEditDevice"
+        @delete="handleDeleteDevice"
+      />
+
+      <DeviceEditDialog
+        v-model="showEditDialog"
+        :device="editingDevice"
+        :isNew="isNewDialog"
+        @save="handleSave"
+        @cancel="showEditDialog = false"
+      />
+    </template>
   </div>
 </template>
 

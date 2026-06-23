@@ -1,14 +1,11 @@
 <script setup>
-import { computed, ref, watch, onMounted } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { Line, Bar } from 'vue-chartjs';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, Filler } from 'chart.js';
 import StatCard from './stat-card.component.vue';
 import UnitCard from './unit-card.component.vue';
-import DeviceControlPanel from '../../../devices/presentation/components/device-control-panel.vue';
 import { useAnalyticsStore } from '../../application/analytics.store.js';
-import { useDeviceStore } from '../../../devices/application/device.store.js';
-import { useIamStore } from '../../../iam/application/iam.store.js';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, Filler);
 
@@ -27,27 +24,6 @@ const props = defineProps({
 });
 
 const analyticsStore = useAnalyticsStore();
-const deviceStore = useDeviceStore();
-const iamStore = useIamStore();
-
-// Role guard: control affordances are Owner-only
-const isOwner = computed(() => {
-  const role = (iamStore.currentUser?.role ?? '').toLowerCase();
-  return role === 'owner';
-});
-
-// Map deviceType code → controllable attributes array (from catalog)
-const controllableAttributesByType = computed(() => {
-  const map = {};
-  (deviceStore.deviceTypes ?? []).forEach((dt) => {
-    map[dt.code] = dt.controllableAttributes ?? [];
-  });
-  return map;
-});
-
-function getControllableAttrs(deviceType) {
-  return controllableAttributesByType.value[deviceType] ?? [];
-}
 
 const timeRange = ref('24h');
 const timeRangeOptions = [
@@ -169,13 +145,6 @@ watch(timeRange, () => {
   if (analyticsStore.selectedDeviceId) {
     fetchTelemetry(analyticsStore.selectedDeviceId);
   }
-});
-
-onMounted(() => {
-  // BUG 1 fix: do NOT call analyticsStore.fetchDevices() here.
-  // The owner selector is sourced from props.dashboard.deviceHealthStatus (already owner-scoped).
-  // analyticsStore.fetchDevices() is kept in the store for builder-dashboard.component.vue.
-  deviceStore.loadDeviceTypes();
 });
 
 // Auto-select first owned device when owner-scoped options change.
@@ -434,49 +403,6 @@ const chartOptions = {
       <p v-if="!dashboard.deviceHealthStatus?.length" class="no-data">{{ $t('analytics.owner.noData.deviceHealth') }}</p>
     </div>
     
-    <!-- My Unit Devices -->
-    <div class="section">
-      <h3 class="section-title">My Unit Devices</h3>
-      <pv-data-table
-        v-if="dashboard.deviceHealthStatus?.length"
-        :value="dashboard.deviceHealthStatus"
-        class="unit-devices-table"
-        striped-rows
-        size="small"
-      >
-        <pv-column field="deviceName" header="Name" />
-        <pv-column header="Status">
-          <template #body="{ data }">
-            <pv-tag
-              :value="getStatusLabel(data.status)"
-              :severity="getStatusSeverity(data.status)"
-            />
-          </template>
-        </pv-column>
-        <pv-column header="Last Online">
-          <template #body="{ data }">
-            <span>{{ formatLastSeen(data.lastOnline) }}</span>
-          </template>
-        </pv-column>
-        <!-- Control column — visible only for Owner role -->
-        <pv-column v-if="isOwner" header="Control">
-          <template #body="{ data }">
-            <DeviceControlPanel
-              :device="data"
-              :controllable-attributes="getControllableAttrs(data.type)"
-            />
-            <span
-              v-if="getControllableAttrs(data.type).length === 0"
-              class="no-controls-label"
-            >
-              —
-            </span>
-          </template>
-        </pv-column>
-      </pv-data-table>
-      <p v-else class="no-data">No unit devices provisioned yet.</p>
-    </div>
-
     <!-- My Units Overview -->
     <div class="section">
       <h3 class="section-title">{{ $t('analytics.owner.sections.myUnitsOverview') }}</h3>
@@ -671,11 +597,6 @@ const chartOptions = {
   text-align: center;
   color: #9CA3AF;
   padding: 2rem;
-  font-size: 0.875rem;
-}
-
-.no-controls-label {
-  color: #9CA3AF;
   font-size: 0.875rem;
 }
 
