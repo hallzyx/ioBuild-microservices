@@ -19,14 +19,14 @@ public class OutboxWorkerPublishTests
     private static OutboxWorker BuildWorker(
         Mock<IOutboxMessageRepository> outboxRepo,
         Mock<IDomainEventPublisher> publisher,
-        Mock<ILogger<OutboxWorker>> logger)
+        Mock<ILogger<OutboxWorker>> logger,
+        Mock<IoBuild.Devices.Infrastructure.Mqtt.IMqttPublisher>? mqtt = null)
     {
         var services = new ServiceCollection();
         services.AddScoped(_ => outboxRepo.Object);
-
         var scopeFactory = services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>();
-
-        return new OutboxWorker(scopeFactory, publisher.Object, logger.Object);
+        return new OutboxWorker(scopeFactory, publisher.Object, logger.Object,
+            mqttPublisher: (mqtt ?? new Mock<IoBuild.Devices.Infrastructure.Mqtt.IMqttPublisher>()).Object);
     }
 
     [Fact]
@@ -113,5 +113,55 @@ public class OutboxWorkerPublishTests
 
         // Assert
         publisher.Verify(p => p.PublishAsync(It.IsAny<IoBuild.Shared.Domain.Model.Events.DomainEvent>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task DeviceCreatedEvent_PublishesRetainedRegistryMessage()
+    {
+        var outboxRepo = new Mock<IOutboxMessageRepository>();
+        var publisher = new Mock<IDomainEventPublisher>();
+        var logger = new Mock<ILogger<OutboxWorker>>();
+        var mqtt = new Mock<IoBuild.Devices.Infrastructure.Mqtt.IMqttPublisher>();
+
+        var msg = new OutboxMessage("DeviceCreatedEvent",
+            """{"DeviceId":13,"OwnerUserId":0,"DeviceType":"AirConditioner","Status":"Active","EventId":"00000000-0000-0000-0000-000000000013","OccurredOn":"2024-01-01T00:00:00Z","RoutingKey":"device.device.created"}""")
+        { EventId = Guid.NewGuid() };
+
+        outboxRepo.Setup(r => r.GetPendingAsync()).ReturnsAsync(new List<OutboxMessage> { msg });
+        outboxRepo.Setup(r => r.UpdateAsync(It.IsAny<OutboxMessage>())).Returns(Task.CompletedTask);
+        publisher.Setup(p => p.PublishAsync(It.IsAny<IoBuild.Shared.Domain.Model.Events.DomainEvent>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var worker = BuildWorker(outboxRepo, publisher, logger, mqtt);
+        await worker.RunOneCycleAsync(CancellationToken.None);
+
+        mqtt.Verify(m => m.EnqueueRawAsync(
+            "registry/13",
+            It.Is<string>(s => s.Contains("\"deviceId\":13") && s.Contains("\"type\":\"AirConditioner\"")),
+            true,
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task DeviceDeletedEvent_PublishesRetainedTombstone()
+    {
+        var outboxRepo = new Mock<IOutboxMessageRepository>();
+        var publisher = new Mock<IDomainEventPublisher>();
+        var logger = new Mock<ILogger<OutboxWorker>>();
+        var mqtt = new Mock<IoBuild.Devices.Infrastructure.Mqtt.IMqttPublisher>();
+
+        var msg = new OutboxMessage("DeviceDeletedEvent",
+            """{"DeviceId":13,"OwnerUserId":0,"EventId":"00000000-0000-0000-0000-000000000013","OccurredOn":"2024-01-01T00:00:00Z","RoutingKey":"device.device.deleted"}""")
+        { EventId = Guid.NewGuid() };
+
+        outboxRepo.Setup(r => r.GetPendingAsync()).ReturnsAsync(new List<OutboxMessage> { msg });
+        outboxRepo.Setup(r => r.UpdateAsync(It.IsAny<OutboxMessage>())).Returns(Task.CompletedTask);
+        publisher.Setup(p => p.PublishAsync(It.IsAny<IoBuild.Shared.Domain.Model.Events.DomainEvent>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var worker = BuildWorker(outboxRepo, publisher, logger, mqtt);
+        await worker.RunOneCycleAsync(CancellationToken.None);
+
+        mqtt.Verify(m => m.EnqueueRawAsync("registry/13", "", true, It.IsAny<CancellationToken>()), Times.Once);
     }
 }

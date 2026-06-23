@@ -1,6 +1,7 @@
 using System.Text.Json;
 using IoBuild.Devices.Domain.Model.Entities;
 using IoBuild.Devices.Domain.Repositories;
+using IoBuild.Devices.Infrastructure.Mqtt;
 using IoBuild.Shared.Domain.Model.Events;
 using IoBuild.Shared.Domain.Services;
 using IoBuild.Shared.Infrastructure.Messaging;
@@ -28,6 +29,7 @@ public class OutboxWorker : BackgroundService
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IDomainEventPublisher _publisher;
     private readonly ILogger<OutboxWorker> _logger;
+    private readonly IMqttPublisher? _mqttPublisher;
     private readonly ResiliencePipeline _pipeline;
     private readonly int _pollIntervalMs;
 
@@ -45,6 +47,7 @@ public class OutboxWorker : BackgroundService
         IServiceScopeFactory scopeFactory,
         IDomainEventPublisher publisher,
         ILogger<OutboxWorker> logger,
+        IMqttPublisher? mqttPublisher = null,
         [FromKeyedServices(DomainEventPublishingExtensions.OutboxResiliencePipelineKey)]
         ResiliencePipeline? pipeline = null,
         int pollIntervalMs = 5_000)
@@ -52,6 +55,7 @@ public class OutboxWorker : BackgroundService
         _scopeFactory = scopeFactory;
         _publisher = publisher;
         _logger = logger;
+        _mqttPublisher = mqttPublisher;
         _pipeline = pipeline ?? DomainEventPublishingExtensions.BuildResiliencePipeline();
         _pollIntervalMs = pollIntervalMs;
     }
@@ -113,6 +117,7 @@ public class OutboxWorker : BackgroundService
                 _logger.LogDebug(
                     "Devices OutboxWorker: published {EventType} EventId={EventId}",
                     msg.EventType, msg.EventId);
+                await PublishDeviceRegistryAsync(domainEvent, cancellationToken);
             }
             catch (Exception ex)
             {
@@ -141,5 +146,37 @@ public class OutboxWorker : BackgroundService
             return null;
 
         return (DomainEvent?)JsonSerializer.Deserialize(msg.Payload, targetType);
+    }
+
+    /// <summary>
+    /// Best-effort: mirror device lifecycle to the MQTT registry topic so the simulator can
+    /// discover devices dynamically. Never throws — a failure here must not affect the outbox row,
+    /// which is already committed to the RabbitMQ contract. The startup DeviceRegistryAnnouncer and
+    /// retained messages reconcile any miss.
+    /// </summary>
+    private async Task PublishDeviceRegistryAsync(DomainEvent domainEvent, CancellationToken ct)
+    {
+        if (_mqttPublisher is null) return;
+        try
+        {
+            switch (domainEvent)
+            {
+                case DeviceCreatedEvent created:
+                    var json = JsonSerializer.Serialize(new Dictionary<string, object>
+                    {
+                        ["deviceId"] = created.DeviceId,
+                        ["type"] = created.DeviceType
+                    });
+                    await _mqttPublisher.EnqueueRawAsync($"registry/{created.DeviceId}", json, true, ct);
+                    break;
+                case DeviceDeletedEvent deleted:
+                    await _mqttPublisher.EnqueueRawAsync($"registry/{deleted.DeviceId}", "", true, ct);
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "OutboxWorker: registry publish failed for {EventType}; will reconcile via announcer.", domainEvent.GetType().Name);
+        }
     }
 }
