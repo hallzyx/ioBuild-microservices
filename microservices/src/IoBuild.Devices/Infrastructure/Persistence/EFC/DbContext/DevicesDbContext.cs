@@ -13,6 +13,7 @@ public class DevicesDbContext(DbContextOptions<DevicesDbContext> options) : Micr
     public DbSet<OutboxMessage> OutboxMessages { get; set; }
     public DbSet<DeviceShadow> DeviceShadows { get; set; }
     public DbSet<UnitOwnerProjection> UnitOwnerProjections { get; set; }
+    public DbSet<OwnerCustomDeviceType> OwnerCustomDeviceTypes { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -133,6 +134,21 @@ public class DevicesDbContext(DbContextOptions<DevicesDbContext> options) : Micr
             entity.HasIndex(p => new { p.UnitId, p.OwnerUserId })
                   .IsUnique()
                   .HasDatabaseName("IX_unit_owner_projections_unit_id_owner_user_id");
+        });
+
+        // ── OwnerCustomDeviceType (custom per-owner device types) ──────────────
+        // Unique index: (owner_user_id, type_code) — one type-code per owner.
+        // AttributesJson stored as longtext to support unlimited attribute arrays.
+        modelBuilder.Entity<OwnerCustomDeviceType>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.OwnerUserId).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.TypeCode).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.DisplayName).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.AttributesJson).IsRequired().HasColumnType("longtext");
+            entity.HasIndex(e => new { e.OwnerUserId, e.TypeCode })
+                  .IsUnique()
+                  .HasDatabaseName("IX_owner_custom_device_types_owner_user_id_type_code");
         });
 
         // Apply seed data AFTER entity configuration and naming conventions
