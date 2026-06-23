@@ -93,6 +93,11 @@ builder.Services.AddDomainEventPublishing(builder.Configuration);
 // ── OutboxWorker: polls pending outbox rows and publishes to RabbitMQ (ADR-2) ──
 builder.Services.AddHostedService<OutboxWorker>();
 
+// ── UnitOwnerAnnouncer: re-publishes UnitOwnerMatchedEvent for all seeded units on startup ──
+// Repopulates Devices.unit_owner_projections after a volume wipe (docker compose down -v).
+// Publishes directly (not via outbox) because the consumer is idempotent (upsert by UnitId).
+builder.Services.AddHostedService<UnitOwnerAnnouncer>();
+
 // ── PR 5 — OwnerLinkingConsumer: subscribes to iam.user.# and backfills Unit.OwnerId (REQ-OL-02) ──
 builder.Services.AddOwnerLinkingConsumer(builder.Configuration);
 
