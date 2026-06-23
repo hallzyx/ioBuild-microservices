@@ -113,6 +113,9 @@ builder.Services.AddHostedService<UnitDeviceProvisioningConsumer>();
 // ── UnitOwnerProjectionConsumer: consumes UnitOwnerMatchedEvent → upserts projection (T-2.18, ADR-B4) ──
 builder.Services.AddHostedService<UnitOwnerProjectionConsumer>();
 
+// ── DeviceRegistryAnnouncer: re-announce all devices to MQTT registry/# on startup (simulator discovery) ──
+builder.Services.AddHostedService<DeviceRegistryAnnouncer>();
+
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
