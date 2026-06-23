@@ -22,4 +22,9 @@ public class DeviceProjection
 
     // PR 7 — extended projection field (§5.1)
     public int? FloorNumber { get; set; }
+
+    // owner-custom-device-type feature — user-given device name.
+    // Null for legacy/catalog devices that carry no stored name.
+    // The query layer applies the fallback format ("{DeviceType} #{DeviceId}") at read time.
+    public string? DeviceName { get; set; }
 }

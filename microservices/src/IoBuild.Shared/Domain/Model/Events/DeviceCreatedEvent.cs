@@ -14,5 +14,13 @@ public record DeviceCreatedEvent : DomainEvent
     /// <summary>Floor number when provisioned by FloorProvisioningConsumer; null for manually created devices.</summary>
     public int? FloorNumber { get; init; }
 
+    // Extended field — PR owner-custom-device-type. Null for legacy/catalog devices with no stored name.
+    /// <summary>
+    /// User-given display name for the device. Set for OwnerCustom devices; null for legacy and
+    /// floor/unit provisioned devices (those rely on the fallback format at the query layer).
+    /// Old events that don't carry this field deserialize to null cleanly (nullable init).
+    /// </summary>
+    public string? DeviceName { get; init; }
+
     public override string RoutingKey => "device.device.created";
 }

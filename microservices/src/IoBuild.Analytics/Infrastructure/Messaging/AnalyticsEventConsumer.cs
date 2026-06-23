@@ -293,6 +293,7 @@ public class AnalyticsEventConsumer : BackgroundService
         row.DeviceType   = evt.DeviceType;
         row.Status       = evt.Status;
         row.FloorNumber  = evt.FloorNumber;   // PR 7 — §5.2
+        row.DeviceName   = evt.DeviceName;    // owner-custom-device-type: null for legacy events
         row.LastEventAt  = evt.OccurredOn;
         await db.SaveChangesAsync();
     }

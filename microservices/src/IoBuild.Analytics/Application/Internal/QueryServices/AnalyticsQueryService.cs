@@ -163,7 +163,7 @@ public class AnalyticsQueryService : IAnalyticsQueryService
         var deviceHealthStatus = devices.Select(d => new DeviceHealthStatus
         {
             DeviceId   = d.DeviceId,
-            DeviceName = $"{d.DeviceType} #{d.DeviceId}",
+            DeviceName = d.DeviceName ?? $"{d.DeviceType} #{d.DeviceId}",
             Type       = d.DeviceType,
             Status     = d.Status,
             LastOnline = d.LastEventAt
