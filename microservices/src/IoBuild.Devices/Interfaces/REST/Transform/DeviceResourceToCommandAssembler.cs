@@ -5,7 +5,8 @@ namespace IoBuild.Devices.Interfaces.REST.Transform;
 
 public static class DeviceResourceToCommandAssembler
 {
-    public static CreateDeviceCommand ToCommandFromResource(CreateDeviceResource resource)
+    public static CreateDeviceCommand ToCommandFromResource(CreateDeviceResource resource,
+        string? requestingOwnerId = null)
     {
         return new CreateDeviceCommand(
             resource.Name,
@@ -13,7 +14,9 @@ public static class DeviceResourceToCommandAssembler
             resource.Location,
             resource.MacAddress,
             resource.ProjectId,
-            resource.Status
+            resource.Status,
+            UnitId: resource.UnitId,
+            RequestingOwnerId: requestingOwnerId
         );
     }
 

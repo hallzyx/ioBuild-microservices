@@ -82,6 +82,28 @@ public class Device
         return d;
     }
 
+    /// <summary>
+    /// Factory method for owner-defined custom devices (Phase 1 owner-custom-device-type feature).
+    /// Sets UnitId + Source="OwnerCustom" so the device surfaces in the owner dashboard
+    /// via the UnitId join. FloorNumber is left null (these are unit-scoped, not floor-scoped).
+    /// </summary>
+    /// <param name="name">User-given device name (e.g. "My CO2 Sensor").</param>
+    /// <param name="type">TypeCode from the owner's OwnerCustomDeviceType.</param>
+    /// <param name="location">Human-readable location string.</param>
+    /// <param name="mac">MAC address — must be unique across all devices.</param>
+    /// <param name="projectId">Project the owner's unit belongs to.</param>
+    /// <param name="status">Initial device status.</param>
+    /// <param name="unitId">The owner's unit DB id — the placement anchor.</param>
+    public static Device ForOwnerCustom(
+        string name, string type, string location, string mac,
+        int projectId, string status, int unitId)
+    {
+        var d = new Device(name, type, location, mac, projectId, status);
+        d.UnitId = unitId;
+        d.Source = "OwnerCustom";
+        return d;
+    }
+
     public void Update(string name, string type, string location, string macAddress, int projectId, string status)
     {
         Name = name;

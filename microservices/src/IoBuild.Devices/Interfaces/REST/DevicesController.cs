@@ -1,5 +1,6 @@
 using IoBuild.Devices.Domain.Constants;
 using IoBuild.Devices.Domain.Model.Commands;
+using IoBuild.Devices.Domain.Model.Exceptions;
 using IoBuild.Devices.Domain.Services;
 using IoBuild.Devices.Interfaces.REST.Resources;
 using IoBuild.Devices.Interfaces.REST.Transform;
@@ -115,10 +116,27 @@ public class DevicesController(
     [HttpPost]
     public async Task<IActionResult> CreateDevice([FromBody] CreateDeviceResource resource)
     {
-        var command = DeviceResourceToCommandAssembler.ToCommandFromResource(resource);
-        var device = await commandService.Handle(command);
-        var deviceResource = DeviceResourceFromEntityAssembler.ToResourceFromEntity(device);
-        return CreatedAtAction(nameof(GetDeviceById), new { id = deviceResource.Id }, deviceResource);
+        // Resolve requesting owner id from JWT context (used when UnitId is set)
+        var requestingOwnerId = HttpContext.Items.TryGetValue("UserId", out var rawId) && rawId is int uid
+            ? uid.ToString()
+            : null;
+
+        var command = DeviceResourceToCommandAssembler.ToCommandFromResource(resource, requestingOwnerId);
+
+        try
+        {
+            var device = await commandService.Handle(command);
+            var deviceResource = DeviceResourceFromEntityAssembler.ToResourceFromEntity(device);
+            return CreatedAtAction(nameof(GetDeviceById), new { id = deviceResource.Id }, deviceResource);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(403, new { error = ex.Message });
+        }
+        catch (DuplicateDeviceTypeOnUnitException ex)
+        {
+            return Conflict(new { error = ex.Message });
+        }
     }
 
     [HttpPut("{id}")]

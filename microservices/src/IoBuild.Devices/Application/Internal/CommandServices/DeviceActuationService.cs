@@ -75,21 +75,23 @@ public class DeviceActuationService(
                 "You do not own the unit containing this device, or ownership has not yet propagated.");
         }
 
-        // ── 4. Catalog validation ──────────────────────────────────────────────
-        if (!DeviceCapabilityCatalog.IsControllable(device.Type))
+        // ── 4. Capability resolution: catalog first, then owner custom-type DB ───
+        var ownerIdStr = command.RequestingUserId.ToString();
+        var controllableAttrs = await ResolveControllable(device.Type, ownerIdStr);
+
+        if (controllableAttrs is null)
         {
             return ActuationResult.BadRequest($"Device type '{device.Type}' has no controllable attributes.");
         }
 
-        var capability = DeviceCapabilityCatalog.ByType[device.Type];
-        var attrDef = capability.ControllableAttributes
+        var attrDef = controllableAttrs
             .FirstOrDefault(a => string.Equals(a.Name, command.Attribute, StringComparison.Ordinal));
 
         if (attrDef is null)
         {
             return ActuationResult.BadRequest(
                 $"Attribute '{command.Attribute}' is not a valid controllable attribute for device type '{device.Type}'. " +
-                $"Valid attributes: {string.Join(", ", capability.ControllableAttributes.Select(a => a.Name))}.");
+                $"Valid attributes: {string.Join(", ", controllableAttrs.Select(a => a.Name))}.");
         }
 
         // Numeric range validation
@@ -178,6 +180,45 @@ public class DeviceActuationService(
         }
 
         return ActuationResult.Ok(acceptedAt);
+    }
+
+    // ── ResolveControllable ────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Resolves the controllable attribute list for a device type.
+    ///
+    /// Strategy:
+    ///   1. Static catalog lookup — fast, no DB hit.
+    ///   2. DB lookup in owner's custom types (matched by typeCode + ownerId).
+    ///   3. Both miss → returns null (caller returns 400).
+    ///
+    /// Returns <see cref="DeviceCapabilityCatalog.ControllableAttribute"/> records so the
+    /// existing range-validation logic is reused unchanged.
+    /// </summary>
+    /// <param name="deviceType">Type code of the device.</param>
+    /// <param name="ownerId">Owner's string userId (from JWT, already resolved upstream).</param>
+    public async Task<IReadOnlyList<DeviceCapabilityCatalog.ControllableAttribute>?> ResolveControllable(
+        string deviceType, string ownerId)
+    {
+        // Branch 1: static catalog
+        if (DeviceCapabilityCatalog.ByType.TryGetValue(deviceType, out var capability))
+            return capability.ControllableAttributes;
+
+        // Branch 2: owner's custom type DB fallback
+        var customType = await db.OwnerCustomDeviceTypes
+            .AsNoTracking()
+            .FirstOrDefaultAsync(t =>
+                t.TypeCode == deviceType &&
+                t.OwnerUserId == ownerId);
+
+        if (customType is null)
+            return null;
+
+        // Map OwnerCustomDeviceTypeAttribute → ControllableAttribute (same shape)
+        return customType.GetAttributes()
+            .Select(a => new DeviceCapabilityCatalog.ControllableAttribute(
+                a.Name, a.Type, a.Min, a.Max, a.Unit, a.EnumMembers))
+            .ToList();
     }
 
     // ── Private helpers ────────────────────────────────────────────────────────
