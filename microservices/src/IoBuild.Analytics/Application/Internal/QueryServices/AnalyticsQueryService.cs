@@ -12,6 +12,16 @@ namespace IoBuild.Analytics.Application.Internal.QueryServices;
 /// </remarks>
 public class AnalyticsQueryService : IAnalyticsQueryService
 {
+    // Canonical online status taxonomy (ADR-OD-1, REQ-2).
+    // A device is online iff its status (trimmed, lowercased) is in this set.
+    // "active" covers the unit-device creation path; "online" covers legacy seed + simulator.
+    // Adding a new synonym here propagates to both owner and builder counts automatically.
+    private static readonly HashSet<string> OnlineStatuses =
+        new(StringComparer.OrdinalIgnoreCase) { "online", "active" };
+
+    private static bool IsOnline(string? status) =>
+        OnlineStatuses.Contains((status ?? string.Empty).Trim());
+
     private readonly AnalyticsDbContext _db;
     private readonly ILogger<AnalyticsQueryService> _logger;
 
@@ -54,8 +64,8 @@ public class AnalyticsQueryService : IAnalyticsQueryService
             .ToListAsync();
 
         var totalDevices   = devices.Count;
-        var onlineDevices  = devices.Count(d => d.Status.Equals("Online", StringComparison.OrdinalIgnoreCase));
-        var offlineDevices = devices.Count(d => !d.Status.Equals("Online", StringComparison.OrdinalIgnoreCase));
+        var onlineDevices  = devices.Count(d => IsOnline(d.Status));
+        var offlineDevices = devices.Count(d => !IsOnline(d.Status));
 
         // Devices by type (for DevicesByType dictionary)
         var devicesByType = devices
@@ -146,8 +156,8 @@ public class AnalyticsQueryService : IAnalyticsQueryService
             .ToListAsync();
 
         var totalDevices   = devices.Count;
-        var onlineDevices  = devices.Count(d => d.Status.Equals("Online", StringComparison.OrdinalIgnoreCase));
-        var offlineDevices = devices.Count(d => !d.Status.Equals("Online", StringComparison.OrdinalIgnoreCase));
+        var onlineDevices  = devices.Count(d => IsOnline(d.Status));
+        var offlineDevices = devices.Count(d => !IsOnline(d.Status));
 
         // Device health status list
         var deviceHealthStatus = devices.Select(d => new DeviceHealthStatus
