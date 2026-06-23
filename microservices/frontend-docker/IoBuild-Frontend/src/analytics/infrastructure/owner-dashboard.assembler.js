@@ -41,11 +41,11 @@ export class OwnerDashboardAssembler {
                 })
             ),
             deviceHealthStatus: (resource.deviceHealthStatus || []).map(d => ({
-                ...d,
-                healthPercentage: d.status === 'Online' ? 92 + Math.floor(Math.random() * 8) : 30 + Math.floor(Math.random() * 40)
+                ...d
                 // `type` is preserved from the backend payload (catalog code, e.g. "AirConditioner")
                 // so the owner control panel can resolve controllable attributes. Do NOT override it
                 // with a name-based heuristic — that produced "other" and broke the Control column.
+                // healthPercentage intentionally omitted: no real signal on the backend (REQ-3, ADR-OD-3).
             })),
             myUnitsDetails: resource.myUnitsDetails
         });

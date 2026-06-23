@@ -14,6 +14,11 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarEleme
 
 const { t } = useI18n();
 
+// Canonical online status taxonomy (ADR-OD-1, REQ-2 — mirrors backend IsOnline helper).
+// A device is online iff its status (trimmed, lowercased) is in this set.
+const ONLINE_STATUSES = ['online', 'active'];
+const isOnlineStatus = (s) => ONLINE_STATUSES.includes(String(s ?? '').trim().toLowerCase());
+
 const props = defineProps({
   dashboard: {
     type: Object,
@@ -50,8 +55,10 @@ const timeRangeOptions = [
   { label: t('devices.telemetry.last24h'), value: '24h' }
 ];
 
+// BUG 1 fix: source selector exclusively from the owner-scoped dashboard payload.
+// Do NOT use analyticsStore.devices (all-tenant list — builder dashboard dependency).
 const deviceOptions = computed(() =>
-  analyticsStore.devices.map(d => ({ name: d.name, id: d.id }))
+  (props.dashboard?.deviceHealthStatus ?? []).map(d => ({ name: d.deviceName, id: d.deviceId }))
 );
 
 const selectedDevice = computed({
@@ -118,15 +125,15 @@ const telemetryChartOptions = {
 };
 
 const getStatusSeverity = (status) => {
-  if (status === 'Online') return 'success';
-  if (status === 'Offline') return 'danger';
-  return 'info'; // unknown
+  if (isOnlineStatus(status)) return 'success';
+  if (status) return 'danger';
+  return 'info'; // unknown / empty
 };
 
 const getStatusLabel = (status) => {
-  if (status === 'Online') return t('devices.status.online');
-  if (status === 'Offline') return t('devices.status.offline');
-  return status || t('devices.telemetry.unknown');
+  if (isOnlineStatus(status)) return t('devices.status.online');
+  if (status) return t('devices.status.offline');
+  return t('devices.telemetry.unknown');
 };
 
 const formatLastSeen = (lastSeen) => {
@@ -165,17 +172,20 @@ watch(timeRange, () => {
 });
 
 onMounted(() => {
-  analyticsStore.fetchDevices();
-  // Load device type catalog so control panels can render dynamically
+  // BUG 1 fix: do NOT call analyticsStore.fetchDevices() here.
+  // The owner selector is sourced from props.dashboard.deviceHealthStatus (already owner-scoped).
+  // analyticsStore.fetchDevices() is kept in the store for builder-dashboard.component.vue.
   deviceStore.loadDeviceTypes();
 });
 
-// Auto-select first device when devices are loaded
-watch(() => analyticsStore.devices.length, (len) => {
-  if (len > 0 && !analyticsStore.selectedDeviceId) {
-    analyticsStore.selectDevice(analyticsStore.devices[0].id);
+// Auto-select first owned device when owner-scoped options change.
+// Clears selection (null) when owner has no devices — prevents cross-tenant telemetry calls.
+watch(() => deviceOptions.value, (opts) => {
+  const ids = opts.map(o => o.id);
+  if (!ids.includes(analyticsStore.selectedDeviceId)) {
+    analyticsStore.selectDevice(opts[0]?.id ?? null);
   }
-});
+}, { immediate: true });
 
 // Energy consumption chart (last 30 days)
 const energyConsumptionChartData = computed(() => {
@@ -246,11 +256,6 @@ const chartOptions = {
   }
 };
 
-const getHealthColor = (health) => {
-  if (health >= 80) return 'bg-green-500';
-  if (health >= 50) return 'bg-yellow-500';
-  return 'bg-red-500';
-};
 </script>
 
 <template>
@@ -278,6 +283,7 @@ const getHealthColor = (health) => {
         :subtitle="`${dashboard.onlineDevices} ${$t('analytics.owner.stats.online')}`"
       />
       <StatCard
+        v-if="dashboard.energyThisMonth > 0"
         :title="$t('analytics.owner.stats.energyThisMonth')"
         :value="`${dashboard.energyThisMonth.toFixed(1)} kWh`"
         icon="pi-bolt"
@@ -285,6 +291,7 @@ const getHealthColor = (health) => {
         icon-text-color="text-yellow-600"
       />
       <StatCard
+        v-if="dashboard.temperatureAvg > 0"
         :title="$t('analytics.owner.stats.temperatureAvg')"
         :value="`${dashboard.temperatureAvg.toFixed(1)}°C`"
         icon="pi-thermometer"
@@ -332,6 +339,7 @@ const getHealthColor = (health) => {
       <h3 class="section-title">{{ $t('devices.telemetry.selectDevice') }}</h3>
       <div class="telemetry-select-row">
         <pv-select
+          v-if="deviceOptions.length"
           v-model="selectedDevice"
           :options="deviceOptions"
           option-label="name"
@@ -411,24 +419,14 @@ const getHealthColor = (health) => {
               <i class="pi pi-box text-purple-600"></i>
               <span class="device-name">{{ device.deviceName }}</span>
             </div>
-            <span 
-              class="device-status" 
-              :class="device.status === 'Online' ? 'status-online' : 'status-offline'"
+            <span
+              class="device-status"
+              :class="isOnlineStatus(device.status) ? 'status-online' : 'status-offline'"
             >
-              {{ device.status === 'Online' ? $t('analytics.owner.device.online') : $t('analytics.owner.device.offline') }}
+              {{ isOnlineStatus(device.status) ? $t('analytics.owner.device.online') : $t('analytics.owner.device.offline') }}
             </span>
           </div>
           <div class="device-health-body">
-            <div class="progress-bar-container">
-              <div class="progress-bar-bg">
-                <div 
-                  class="progress-bar-fill" 
-                  :class="device.healthPercentage != null ? getHealthColor(device.healthPercentage) : ''"
-                  :style="{ width: device.healthPercentage != null ? `${device.healthPercentage}%` : '0%' }"
-                ></div>
-              </div>
-              <span class="progress-label">{{ device.healthPercentage != null ? device.healthPercentage.toFixed(0) : '—' }}%</span>
-            </div>
             <p class="device-type">{{ device.type || device.deviceName || '—' }}</p>
           </div>
         </div>
