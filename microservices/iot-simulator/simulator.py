@@ -42,8 +42,7 @@ _device_desired: dict[int, dict] = {}
 _lock = threading.Lock()
 
 
-def generate_payload(device_id: int) -> dict:
-    desired = _device_desired.get(device_id, {})
+def generate_payload(device_id: int, desired: dict) -> dict:
     payload = {
         "deviceId": device_id,
         "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -97,7 +96,7 @@ def _handle_command(client, device_id: int, raw: bytes):
         desired = dict(_device_desired[device_id])
     applied = ", ".join(f"{k}={v}" for k, v in command.items())
     print(f"[CMD] device={device_id} applied: {applied} | desired={desired}")
-    ack = generate_payload(device_id)
+    ack = generate_payload(device_id, desired)
     client.publish(f"telemetry/{device_id}", json.dumps(ack), qos=1)
     print(f"[ACK] Published updated telemetry to telemetry/{device_id}")
 
@@ -137,9 +136,9 @@ def main():
 
     while True:
         with _lock:
-            snapshot = list(_devices.keys())
-        for device_id in snapshot:
-            payload = generate_payload(device_id)
+            snapshot = [(d, dict(_device_desired.get(d, {}))) for d in _devices]
+        for device_id, desired in snapshot:
+            payload = generate_payload(device_id, desired)
             client.publish(f"telemetry/{device_id}", json.dumps(payload), qos=1)
             print(
                 f"[{payload['timestamp']}] Published to telemetry/{device_id}: "
