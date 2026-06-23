@@ -19,7 +19,14 @@ public static class DeviceCapabilityCatalog
     /// <param name="Min">Minimum allowed value for numeric types; null for non-numeric.</param>
     /// <param name="Max">Maximum allowed value for numeric types; null for non-numeric.</param>
     /// <param name="Unit">Display unit (e.g. "C", "%"); null when not applicable.</param>
-    public record ControllableAttribute(string Name, string Type, double? Min, double? Max, string? Unit);
+    /// <param name="EnumMembers">Allowed values for "enum" types; null/empty for non-enum types.</param>
+    public record ControllableAttribute(
+        string Name,
+        string Type,
+        double? Min,
+        double? Max,
+        string? Unit,
+        IReadOnlyList<string>? EnumMembers = null);
 
     /// <summary>
     /// Capability declaration for a device type.
@@ -42,7 +49,7 @@ public static class DeviceCapabilityCatalog
                 ControllableAttributes:
                 [
                     new("targetTemperature", "number", 16, 30, "C"),
-                    new("mode",              "enum",   null, null, null),   // cooling | heating | fan
+                    new("mode",              "enum",   null, null, null, ["cooling", "heating", "fan"]),
                     new("power",             "boolean", null, null, null),
                 ]),
 

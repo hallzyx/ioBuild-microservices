@@ -42,10 +42,10 @@ export class OwnerDashboardAssembler {
             ),
             deviceHealthStatus: (resource.deviceHealthStatus || []).map(d => ({
                 ...d,
-                healthPercentage: d.status === 'Online' ? 92 + Math.floor(Math.random() * 8) : 30 + Math.floor(Math.random() * 40),
-                type: d.deviceName?.includes('Temperature') ? 'temperature' :
-                      d.deviceName?.includes('Energy') ? 'energy' :
-                      d.deviceName?.includes('Water') ? 'water' : 'other'
+                healthPercentage: d.status === 'Online' ? 92 + Math.floor(Math.random() * 8) : 30 + Math.floor(Math.random() * 40)
+                // `type` is preserved from the backend payload (catalog code, e.g. "AirConditioner")
+                // so the owner control panel can resolve controllable attributes. Do NOT override it
+                // with a name-based heuristic — that produced "other" and broke the Control column.
             })),
             myUnitsDetails: resource.myUnitsDetails
         });

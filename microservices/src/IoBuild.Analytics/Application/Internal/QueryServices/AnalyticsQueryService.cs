@@ -154,6 +154,7 @@ public class AnalyticsQueryService : IAnalyticsQueryService
         {
             DeviceId   = d.DeviceId,
             DeviceName = $"{d.DeviceType} #{d.DeviceId}",
+            Type       = d.DeviceType,
             Status     = d.Status,
             LastOnline = d.LastEventAt
         }).ToList();

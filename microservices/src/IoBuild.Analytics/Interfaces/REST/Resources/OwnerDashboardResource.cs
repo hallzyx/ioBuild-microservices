@@ -20,6 +20,7 @@ public record OwnerDashboardResource(
 public record DeviceHealthStatusResource(
     int DeviceId,
     string DeviceName,
+    string Type,
     string Status,
     DateTime LastOnline
 );

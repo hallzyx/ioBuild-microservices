@@ -16,7 +16,8 @@ const props = defineProps({
   /**
    * ControllableAttributes array for this device type.
    * Shape: [{ name, type, min, max, unit, enumMembers }]
-   * `type` is one of: 'Numeric', 'Enum', 'Boolean'
+   * `type` is the catalog value kind: 'number', 'enum', 'boolean'
+   * (comparison is case-insensitive to stay resilient to contract casing).
    */
   controllableAttributes: {
     type: Array,
@@ -27,6 +28,17 @@ const props = defineProps({
 const commandStore = useCommandStore();
 const toast = useToast();
 
+// Fixed dropdown options for boolean attributes — the catalog does not send enumMembers for them.
+const BOOLEAN_OPTIONS = [
+  { label: 'On', value: true },
+  { label: 'Off', value: false },
+];
+
+// Normalise the attribute value kind so comparisons are casing-agnostic.
+function kind(attr) {
+  return (attr?.type ?? '').toLowerCase();
+}
+
 // Local reactive values — one entry per controllable attribute
 const localValues = ref({});
 
@@ -36,10 +48,13 @@ watch(
   (attrs) => {
     const init = {};
     attrs.forEach((attr) => {
-      if (attr.type === 'Numeric') {
+      const k = kind(attr);
+      if (k === 'number') {
         // Start at min (or 0)
         init[attr.name] = attr.min ?? 0;
-      } else if (attr.type === 'Enum' || attr.type === 'Boolean') {
+      } else if (k === 'boolean') {
+        init[attr.name] = false;
+      } else if (k === 'enum') {
         init[attr.name] = attr.enumMembers?.[0] ?? '';
       } else {
         init[attr.name] = '';
@@ -52,13 +67,18 @@ watch(
 
 const hasControls = computed(() => props.controllableAttributes.length > 0);
 
+// The device row may come from the analytics dashboard payload (deviceId) or the
+// devices service (id). Accept either so the command targets the right device.
+const deviceId = computed(() => props.device?.deviceId ?? props.device?.id);
+
 function enumOptions(attr) {
+  if (kind(attr) === 'boolean') return BOOLEAN_OPTIONS;
   return (attr.enumMembers ?? []).map((m) => ({ label: m, value: m }));
 }
 
 async function onSend(attr) {
   const value = localValues.value[attr.name];
-  const result = await commandStore.sendCommand(props.device.id, attr.name, value);
+  const result = await commandStore.sendCommand(deviceId.value, attr.name, value);
 
   if (result.success) {
     toast.add({
@@ -91,7 +111,7 @@ async function onSend(attr) {
       </div>
 
       <!-- Numeric range: use native range input (no Slider registered in this project) -->
-      <template v-if="attr.type === 'Numeric'">
+      <template v-if="kind(attr) === 'number'">
         <div class="slider-group">
           <input
             type="range"
@@ -106,7 +126,7 @@ async function onSend(attr) {
       </template>
 
       <!-- Enum / Boolean: dropdown -->
-      <template v-else-if="attr.type === 'Enum' || attr.type === 'Boolean'">
+      <template v-else-if="kind(attr) === 'enum' || kind(attr) === 'boolean'">
         <pv-select
           v-model="localValues[attr.name]"
           :options="enumOptions(attr)"

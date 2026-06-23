@@ -39,7 +39,7 @@ public class DevicesController(
                 if (DeviceCapabilityCatalog.ByType.TryGetValue(d.Type, out var capability))
                 {
                     controllableAttrs = capability.ControllableAttributes
-                        .Select(a => new ControllableAttributeResource(a.Name, a.Type, a.Min, a.Max, a.Unit))
+                        .Select(a => new ControllableAttributeResource(a.Name, a.Type, a.Min, a.Max, a.Unit, a.EnumMembers))
                         .ToList();
                 }
 

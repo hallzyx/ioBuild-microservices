@@ -9,12 +9,14 @@ namespace IoBuild.Devices.Interfaces.REST.Resources;
 /// <param name="Min">Minimum allowed value for numeric types; null for non-numeric.</param>
 /// <param name="Max">Maximum allowed value for numeric types; null for non-numeric.</param>
 /// <param name="Unit">Display unit (e.g. "C", "%"); null when not applicable.</param>
+/// <param name="EnumMembers">Allowed values for "enum" types; null/empty for non-enum types.</param>
 public record ControllableAttributeResource(
     string Name,
     string Type,
     double? Min,
     double? Max,
-    string? Unit);
+    string? Unit,
+    IReadOnlyList<string>? EnumMembers = null);
 
 /// <summary>
 /// Single entry in the device-type catalog response (S1.1, R-3).

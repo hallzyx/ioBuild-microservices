@@ -20,7 +20,7 @@ public static class OwnerDashboardAssembler
             metrics.EnergyHistory.Select(HistoricalDataPointAssembler.ToResource).ToList(),
             metrics.DailyEnergyConsumption.Select(HistoricalDataPointAssembler.ToResource).ToList(),
             metrics.WaterUsageWeekly.Select(HistoricalDataPointAssembler.ToResource).ToList(),
-            metrics.DeviceHealthStatus.Select(h => new DeviceHealthStatusResource(h.DeviceId, h.DeviceName, h.Status, h.LastOnline)).ToList(),
+            metrics.DeviceHealthStatus.Select(h => new DeviceHealthStatusResource(h.DeviceId, h.DeviceName, h.Type, h.Status, h.LastOnline)).ToList(),
             metrics.MyUnitsDetails
         );
     }
