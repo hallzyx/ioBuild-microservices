@@ -81,12 +81,13 @@ def _handle_registry(client, device_id: int, raw: bytes):
         print(f"[REGISTRY] device {device_id} removed (tombstone)")
         return
     info = json.loads(raw.decode("utf-8"))
+    dtype = info.get("type", "unknown")
     with _lock:
         is_new = device_id not in _devices
-        _devices[device_id] = {"type": info.get("type", "unknown")}
+        _devices[device_id] = {"type": dtype}
     client.subscribe(f"commands/{device_id}", qos=1)
     if is_new:
-        print(f"[REGISTRY] device {device_id} registered type={info.get('type')}; subscribed commands/{device_id}")
+        print(f"[REGISTRY] device {device_id} registered type={dtype}; subscribed commands/{device_id}")
 
 
 def _handle_command(client, device_id: int, raw: bytes):

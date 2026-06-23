@@ -48,8 +48,9 @@ public class DeviceRegistryAnnouncer : BackgroundService
     {
         using var scope = _scopeFactory.CreateScope();
         var repo = scope.ServiceProvider.GetRequiredService<IDeviceRepository>();
-        var devices = await repo.ListAsync();
+        var devices = (await repo.ListAsync()).ToList();
 
+        // Enqueues to the publisher's bounded channel (capacity 1000); the drain loop connects lazily, so this does not block on broker readiness. Assumes startup device count < channel capacity.
         foreach (var d in devices)
         {
             var json = JsonSerializer.Serialize(new Dictionary<string, object>
@@ -60,6 +61,6 @@ public class DeviceRegistryAnnouncer : BackgroundService
             await _mqtt.EnqueueRawAsync($"registry/{d.Id}", json, true, ct);
         }
 
-        _logger.LogInformation("DeviceRegistryAnnouncer: announced {Count} devices to registry/#.", devices.Count());
+        _logger.LogInformation("DeviceRegistryAnnouncer: announced {Count} devices to registry/#.", devices.Count);
     }
 }
