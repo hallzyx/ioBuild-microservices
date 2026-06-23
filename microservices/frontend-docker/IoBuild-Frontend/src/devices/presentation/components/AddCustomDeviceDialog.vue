@@ -170,13 +170,14 @@ async function onSubmit() {
       if (typeErr?.response?.status !== 409) throw typeErr;
     }
 
-    // Step 2: create a device of that type, assigned to the chosen unit
+    // Step 2: create a device of that type, assigned to the chosen unit.
+    // macAddress is intentionally omitted — owner-custom devices are virtual and have
+    // no hardware MAC. The backend stores NULL for these devices.
     const api = new DeviceApi();
     const newDevice = await api.createDevice({
       name: form.deviceName.trim(),
       type: form.typeCode.trim(),
       location: `Unit ${form.selectedUnitId}`,
-      macAddress: '',
       projectId: 1,
       status: 'active',
       unitId: form.selectedUnitId,

@@ -26,7 +26,11 @@ public class DevicesDbContext(DbContextOptions<DevicesDbContext> options) : Micr
             entity.Property(d => d.Name).IsRequired().HasMaxLength(100);
             entity.Property(d => d.Type).IsRequired().HasMaxLength(50);
             entity.Property(d => d.Location).IsRequired().HasMaxLength(200);
-            entity.Property(d => d.MacAddress).IsRequired().HasMaxLength(17);
+            // MacAddress is nullable: owner-custom devices have no hardware MAC and store NULL.
+            // MySQL UNIQUE indexes permit multiple NULLs, so the IX_devices_mac_address unique
+            // index remains valid — only real hardware devices (which must have a MAC) are
+            // affected by the uniqueness constraint.
+            entity.Property(d => d.MacAddress).HasMaxLength(17);
             entity.Property(d => d.Status).IsRequired().HasMaxLength(50);
             // Floor placement (PR 6, §4.4) — nullable columns
             entity.Property(d => d.FloorNumber);   // nullable int
