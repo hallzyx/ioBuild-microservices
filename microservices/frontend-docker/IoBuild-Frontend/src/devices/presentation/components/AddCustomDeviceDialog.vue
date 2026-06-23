@@ -13,6 +13,13 @@ import { DeviceApi } from '../../infrastructure/device-api.js';
  *  2. Owner selects which of their units to assign the device to.
  *  3. On submit: POST /api/v1/devices/types/custom → then POST /api/v1/devices (with unitId).
  *
+ * Type creation is idempotent: if the typeCode already exists for this owner the API
+ * returns 409, which we treat as "type already defined" and proceed straight to creating
+ * the device of that existing type. This lets an owner add additional devices of a type
+ * they defined earlier, and makes a partially-failed submit safe to retry (no orphan type
+ * leaves the flow stuck). A 409 from the device step still means a device of that type
+ * already exists in the chosen unit and is surfaced to the user.
+ *
  * Emits `created` with the new device DTO on success; the parent closes the dialog.
  */
 
@@ -147,15 +154,21 @@ async function onSubmit() {
   });
 
   try {
-    // Step 1: create the custom type
-    await deviceStore.createCustomType(
-      {
-        typeCode: form.typeCode.trim(),
-        displayName: form.displayName.trim(),
-        attributes,
-      },
-      ownerId.value
-    );
+    // Step 1: ensure the custom type exists (idempotent).
+    // A 409 here means the type was already defined for this owner — reuse it and
+    // proceed to device creation instead of failing. Any other error still aborts.
+    try {
+      await deviceStore.createCustomType(
+        {
+          typeCode: form.typeCode.trim(),
+          displayName: form.displayName.trim(),
+          attributes,
+        },
+        ownerId.value
+      );
+    } catch (typeErr) {
+      if (typeErr?.response?.status !== 409) throw typeErr;
+    }
 
     // Step 2: create a device of that type, assigned to the chosen unit
     const api = new DeviceApi();
