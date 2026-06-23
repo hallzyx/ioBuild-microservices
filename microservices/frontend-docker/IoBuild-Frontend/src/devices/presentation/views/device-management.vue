@@ -7,6 +7,7 @@ import DeviceEditDialog from '../components/device-edit-dialog.vue';
 import DeviceListHeader from '../components/device-list-header.vue';
 import DevicesTable from '../components/devices-table.vue';
 import MyUnitDevices from '../components/my-unit-devices.vue';
+import AddCustomDeviceDialog from '../components/AddCustomDeviceDialog.vue';
 import { useToast } from 'primevue/usetoast';
 import { useConfirm } from 'primevue/useconfirm';
 
@@ -27,6 +28,22 @@ const error = computed(() => deviceStore.error);
 const showEditDialog = ref(false);
 const editingDevice = ref(null);
 const isNewDialog = ref(false);
+
+// Owner: custom device creation dialog
+const showCustomDeviceDialog = ref(false);
+
+const openCustomDeviceDialog = () => {
+  showCustomDeviceDialog.value = true;
+};
+
+const handleCustomDeviceCreated = (newDevice) => {
+  toast.add({
+    severity: 'success',
+    summary: 'Custom device created',
+    detail: `Device "${newDevice?.name ?? ''}" added successfully.`,
+    life: 3000,
+  });
+};
 
 const addDevice = () => {
   isNewDialog.value = true;
@@ -114,7 +131,20 @@ onMounted(async () => {
     <pv-toast />
 
     <!-- Owner: owner-scoped unit devices with control panel -->
-    <MyUnitDevices v-if="isOwner" />
+    <template v-if="isOwner">
+      <div class="owner-actions mb-4">
+        <pv-button
+          label="Add Custom Device"
+          icon="pi pi-plus"
+          @click="openCustomDeviceDialog"
+        />
+      </div>
+      <MyUnitDevices />
+      <AddCustomDeviceDialog
+        v-model="showCustomDeviceDialog"
+        @created="handleCustomDeviceCreated"
+      />
+    </template>
 
     <!-- Builder: all-tenant device CRUD management -->
     <template v-else>
@@ -143,5 +173,14 @@ onMounted(async () => {
 <style scoped>
 .p-4 {
   background: white !important;
+}
+
+.owner-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.mb-4 {
+  margin-bottom: 1rem;
 }
 </style>
