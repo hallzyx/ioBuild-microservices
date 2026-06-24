@@ -2,9 +2,12 @@ using FluentAssertions;
 using IoBuild.Devices.Application.Internal.CommandServices;
 using IoBuild.Devices.Domain.Model.Aggregates;
 using IoBuild.Devices.Domain.Model.Commands;
+using IoBuild.Devices.Domain.Repositories;
 using IoBuild.Devices.Domain.Services;
 using IoBuild.Devices.Infrastructure.Mqtt;
 using IoBuild.Devices.Infrastructure.Persistence.EFC.DbContext;
+using IoBuild.Devices.Infrastructure.Persistence.EFC.Repositories;
+using IoBuild.Shared.Domain.Model;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -47,7 +50,24 @@ public class DeviceActuationServiceTests
         IMqttPublisher? mqttPublisher = null)
     {
         var logger = new Mock<ILogger<DeviceActuationService>>().Object;
-        return new DeviceActuationService(db, mqttPublisher ?? new Mock<IMqttPublisher>().Object, logger);
+        IDeviceTypeRepository repo = new DeviceTypeRepository(db);
+        return new DeviceActuationService(db, mqttPublisher ?? new Mock<IMqttPublisher>().Object, logger, repo);
+    }
+
+    /// <summary>
+    /// Seeds the AirConditioner catalog entry so ResolveControllable can resolve it via
+    /// the DB catalog (WU-2 refactor: static branch removed, DB-first lookup required).
+    /// </summary>
+    private static async Task SeedAirConditionerCatalogEntry(DevicesDbContext db)
+    {
+        var acAttrs = new List<DeviceCapabilityCatalog.ControllableAttribute>
+        {
+            new("targetTemperature", "number", 16, 30, "C"),
+            new("mode", "enum", null, null, null, ["cooling", "heating", "fan"]),
+            new("power", "boolean", null, null, null),
+        };
+        db.DeviceTypes.Add(new DeviceType("AirConditioner", "Air Conditioner", "unit", acAttrs));
+        await db.SaveChangesAsync();
     }
 
     // ── 2.1: Owner not in projection → 403 ────────────────────────────────────
@@ -161,6 +181,8 @@ public class DeviceActuationServiceTests
     {
         await using var db = BuildInMemoryContext("act-2.4");
 
+        await SeedAirConditionerCatalogEntry(db);
+
         var device = BuildAcDevice(unitId: 20);
         db.Devices.Add(device);
 
@@ -195,6 +217,8 @@ public class DeviceActuationServiceTests
     public async Task DeviceActuationService_OutOfRangeValue_Returns400()
     {
         await using var db = BuildInMemoryContext("act-2.5");
+
+        await SeedAirConditionerCatalogEntry(db);
 
         var device = BuildAcDevice(unitId: 30);
         db.Devices.Add(device);
@@ -231,6 +255,8 @@ public class DeviceActuationServiceTests
     public async Task DeviceActuationService_ValidCommand_WritesShadow_EnqueuesPublish_Returns200()
     {
         await using var db = BuildInMemoryContext("act-2.6");
+
+        await SeedAirConditionerCatalogEntry(db);
 
         var device = BuildAcDevice(unitId: 40);
         db.Devices.Add(device);
@@ -292,6 +318,8 @@ public class DeviceActuationServiceTests
     public async Task DeviceActuationService_ShadowDeviceId_EqualsProvidedDeviceId()
     {
         await using var db = BuildInMemoryContext("act-w1");
+
+        await SeedAirConditionerCatalogEntry(db);
 
         var device = BuildAcDevice(unitId: 50);
         db.Devices.Add(device);
