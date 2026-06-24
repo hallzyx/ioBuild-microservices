@@ -15,6 +15,9 @@ public class DevicesDbContext(DbContextOptions<DevicesDbContext> options) : Micr
     public DbSet<UnitOwnerProjection> UnitOwnerProjections { get; set; }
     public DbSet<OwnerCustomDeviceType> OwnerCustomDeviceTypes { get; set; }
 
+    /// <summary>Global device-type catalog seeded by AddDeviceTypeCatalog migration.</summary>
+    public DbSet<DeviceType> DeviceTypes { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -153,6 +156,21 @@ public class DevicesDbContext(DbContextOptions<DevicesDbContext> options) : Micr
             entity.HasIndex(e => new { e.OwnerUserId, e.TypeCode })
                   .IsUnique()
                   .HasDatabaseName("IX_owner_custom_device_types_owner_user_id_type_code");
+        });
+
+        // ── DeviceType global catalog ──────────────────────────────────────────
+        // Seeded via HasData in AddDeviceTypeCatalog migration (design D4).
+        // Unique index on Code enforces global uniqueness at the DB level (DT-2-S3).
+        modelBuilder.Entity<DeviceType>(entity =>
+        {
+            entity.HasKey(dt => dt.Id);
+            entity.Property(dt => dt.Code).IsRequired().HasMaxLength(100);
+            entity.Property(dt => dt.DisplayName).IsRequired().HasMaxLength(100);
+            entity.Property(dt => dt.Scope).IsRequired().HasMaxLength(20);
+            entity.Property(dt => dt.AttributesJson).IsRequired().HasColumnType("longtext");
+            entity.HasIndex(dt => dt.Code)
+                  .IsUnique()
+                  .HasDatabaseName("IX_device_types_code");
         });
 
         // Apply seed data AFTER entity configuration and naming conventions

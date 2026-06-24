@@ -1,10 +1,9 @@
-using IoBuild.Devices.Domain.Constants;
+using IoBuild.Devices.Application.Internal.QueryServices;
 using IoBuild.Devices.Domain.Model.Commands;
 using IoBuild.Devices.Domain.Model.Exceptions;
 using IoBuild.Devices.Domain.Services;
 using IoBuild.Devices.Interfaces.REST.Resources;
 using IoBuild.Devices.Interfaces.REST.Transform;
-using IoBuild.Shared.Domain.Model;
 using IoBuild.Shared.Infrastructure.ASP.Configuration;
 using Microsoft.AspNetCore.Mvc;
 using IoBuild.Devices.Domain.Model.Queries;
@@ -17,37 +16,25 @@ namespace IoBuild.Devices.Interfaces.REST;
 public class DevicesController(
     IDeviceCommandService commandService,
     IDeviceQueryService queryService,
+    DeviceTypeCatalogQueryService? catalogQueryService = null,
     IDeviceActuationService? actuationService = null) : ControllerBase
 {
     /// <summary>
     /// GET /api/v1/devices/types
-    /// Returns the full device-type catalog (floor-level + unit-level = 5 types) with
-    /// controllable attributes populated from DeviceCapabilityCatalog (R-3, task 3.3).
-    /// Telemetry-only types return an empty ControllableAttributes list.
-    /// No authentication required (spec S8).
+    /// Returns all device types from the DB catalog (design D5).
+    /// Response shape is field-for-field compatible with the previous static implementation:
+    ///   { deviceTypes: [ { code, displayName, controllableAttributes } ] }
+    /// Scope is NOT surfaced in the response (zero frontend change per design D5).
+    /// No authentication required (AllowAnonymous).
     /// </summary>
     [HttpGet("types")]
     [Microsoft.AspNetCore.Authorization.AllowAnonymous]
-    public IActionResult GetDeviceTypes()
+    public async Task<IActionResult> GetDeviceTypes()
     {
-        var entries = FloorDeviceDefaults.Catalog
-            .Concat(UnitDeviceCatalog.Catalog)
-            .Select(d =>
-            {
-                // Populate ControllableAttributes from DeviceCapabilityCatalog (R-3)
-                IReadOnlyList<ControllableAttributeResource> controllableAttrs = [];
+        if (catalogQueryService is null)
+            return StatusCode(503, "Device type catalog service not configured.");
 
-                if (DeviceCapabilityCatalog.ByType.TryGetValue(d.Type, out var capability))
-                {
-                    controllableAttrs = capability.ControllableAttributes
-                        .Select(a => new ControllableAttributeResource(a.Name, a.Type, a.Min, a.Max, a.Unit, a.EnumMembers))
-                        .ToList();
-                }
-
-                return new DeviceTypeResource(d.Type, d.DisplayName, controllableAttrs);
-            })
-            .ToList();
-
+        var entries = await catalogQueryService.ListAllAsync();
         return Ok(new DeviceTypeCatalogResource(entries));
     }
 

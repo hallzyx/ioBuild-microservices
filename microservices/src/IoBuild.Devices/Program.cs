@@ -100,6 +100,9 @@ builder.Services.AddScoped<IDeviceActuationService, DeviceActuationService>();
 // ── Custom device type management (owner-custom-device-type feature) ──
 builder.Services.AddScoped<CustomDeviceTypeCommandService>();
 builder.Services.AddScoped<CustomDeviceTypeQueryService>();
+// ── Device type catalog (device-type-catalog Slice 1, WU-1) ──
+builder.Services.AddScoped<IDeviceTypeRepository, DeviceTypeRepository>();
+builder.Services.AddScoped<DeviceTypeCatalogQueryService>();
 
 // ── Domain-event publishing + outbox resilience pipeline (ADR-8) ──
 builder.Services.AddDomainEventPublishing(builder.Configuration);
