@@ -17,7 +17,11 @@ namespace IoBuild.Devices.Application.Internal.CommandServices;
 /// Extended for the owner-custom-device-type feature:
 ///   - When CreateDeviceCommand.UnitId is set, creates the device via Device.ForOwnerCustom.
 ///   - Validates the requesting owner owns the unit (via UnitOwnerProjection).
-///   - Validates the typeCode belongs to the requesting owner (via OwnerCustomDeviceType).
+///   - Slice 3+: when IDeviceTypeRepository is provided, validates the typeCode against the
+///     global catalog. TypeCode not found → ArgumentException (400). Scope is "floor" only →
+///     ArgumentException (400). Scope is "unit" or "both" → allowed.
+///   - Slice 2 legacy: when IDeviceTypeRepository is null, falls back to validating typeCode
+///     against OwnerCustomDeviceTypes (kept alive for backward compatibility — Slice 4 removes it).
 ///   - Catches DbUpdateException on the composite unique index violation → throws
 ///     DuplicateDeviceTypeOnUnitException (controller maps to 409).
 ///   - Emits DeviceName in DeviceCreatedEvent so Analytics can surface the user-given name.
@@ -25,7 +29,8 @@ namespace IoBuild.Devices.Application.Internal.CommandServices;
 public class DeviceCommandService(
     IDeviceRepository repository,
     IOutboxMessageRepository outboxRepository,
-    DevicesDbContext? db = null) : IDeviceCommandService
+    DevicesDbContext? db = null,
+    IDeviceTypeRepository? deviceTypeRepository = null) : IDeviceCommandService
 {
     public async Task<Device> Handle(CreateDeviceCommand command)
     {
@@ -53,16 +58,37 @@ public class DeviceCommandService(
                 throw new UnauthorizedAccessException(
                     $"You do not own unit {command.UnitId.Value} or ownership has not yet propagated.");
 
-            // Validate typeCode belongs to the requesting owner
-            var customType = await db.OwnerCustomDeviceTypes
-                .AsNoTracking()
-                .FirstOrDefaultAsync(t =>
-                    t.TypeCode == command.Type &&
-                    t.OwnerUserId == ownerId);
+            // Validate typeCode: Slice 3+ uses catalog; Slice 2 legacy path uses OwnerCustomDeviceTypes.
+            if (deviceTypeRepository is not null)
+            {
+                // Catalog-picker path (Slice 3): typeCode must exist in device_types and have
+                // scope "unit" or "both" — floor-only types cannot be added to a unit manually.
+                var catalogEntry = await deviceTypeRepository.FindByCodeAsync(command.Type);
 
-            if (customType is null)
-                throw new UnauthorizedAccessException(
-                    $"Device type '{command.Type}' does not belong to your account.");
+                if (catalogEntry is null)
+                    throw new ArgumentException(
+                        $"Device type '{command.Type}' is not in the catalog. " +
+                        "Please select a type from the available catalog.");
+
+                if (catalogEntry.Scope == "floor")
+                    throw new ArgumentException(
+                        $"Device type '{command.Type}' cannot be added to a unit. " +
+                        "This type is designated for floor-level provisioning only.");
+            }
+            else
+            {
+                // Legacy path (Slice 2 — kept alive for existing OwnerCustom devices and tests
+                // that seed OwnerCustomDeviceTypes). Will be removed in Slice 4.
+                var customType = await db.OwnerCustomDeviceTypes
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(t =>
+                        t.TypeCode == command.Type &&
+                        t.OwnerUserId == ownerId);
+
+                if (customType is null)
+                    throw new UnauthorizedAccessException(
+                        $"Device type '{command.Type}' does not belong to your account.");
+            }
 
             // Pre-check: OwnerCustom devices with same type on same unit (NULL floor_number
             // means the composite unique index won't fire in MySQL/SQLite due to NULL distinctness,
