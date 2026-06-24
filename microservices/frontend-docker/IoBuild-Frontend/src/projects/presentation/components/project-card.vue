@@ -14,30 +14,29 @@ function handleImageError(event) {
 </script>
 
 <template>
-  <pv-card class="bg-white text-gray-900 p-1 rounded-sm shadow hover:shadow-md transition flex flex-col items-center text-center justify-content-center">
+  <pv-card class="card-root bg-white text-gray-900 p-1 flex flex-column align-items-center text-center justify-content-center">
     <template #content>
-      <div class="w-24 h-24 mb-4 overflow-hidden rounded-sm mx-auto">
+      <div class="card-image-wrap mb-4 overflow-hidden">
         <img
             :src="project.imageUrl"
             :alt="project.name"
-            class="w-24 h-24 object-cover"
-            style="max-width: 24rem; max-height: 24rem;"
+            class="card-image"
             @error="handleImageError"
             loading="lazy"
         />
       </div>
-      <h3 class="text-[9px] font-semibold mb-0.5 text-gray-800 truncate w-full mb-4" :title="project.name">{{ project.name }}</h3>
-      <div class="text-[8px] text-gray-600 leading-tight space-y-0.5 mb-1 w-full flex-shrink-0">
-        <p class="truncate mb-1"><strong>{{ t("projects.fields.status") }}:</strong> {{ project.statusLabel }}</p>
-        <p class="truncate mb-1"><strong>{{ t("projects.fields.occupancy-rate") }}:</strong> {{ project.occupiedUnits }}/{{ project.totalUnits }}</p>
-        <p class="truncate mb-1"><strong>{{ t("projects.fields.created-date") }}:</strong> {{ project.createdDate?.slice(0,10) }}</p>
+      <h3 class="card-name font-semibold text-gray-800 w-full mb-4" :title="project.name">{{ project.name }}</h3>
+      <div class="card-meta text-gray-600 mb-1 w-full flex-shrink-0">
+        <p class="card-meta__row mb-1"><strong>{{ t("projects.fields.status") }}:</strong> {{ project.statusLabel }}</p>
+        <p class="card-meta__row mb-1"><strong>{{ t("projects.fields.occupancy-rate") }}:</strong> {{ project.occupiedUnits }}/{{ project.totalUnits }}</p>
+        <p class="card-meta__row mb-1"><strong>{{ t("projects.fields.created-date") }}:</strong> {{ project.createdDate?.slice(0,10) }}</p>
       </div>
 
       <pv-button
         :label="t('projects.actions.view-details')"
         icon="pi pi-info-circle"
         size="small"
-        class="custom-green-button !py-0.5 !px-1 !text-[8px] w-full"
+        class="card-btn custom-green-button w-full"
         @click="$emit('viewDetails')"
       />
     </template>
@@ -45,6 +44,58 @@ function handleImageError(event) {
 </template>
 
 <style scoped>
+.card-root {
+  border-radius: 0.25rem;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  transition: box-shadow 0.2s ease;
+}
+
+.card-root:hover {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* Image wrapper: fixed 6rem × 6rem, centered */
+.card-image-wrap {
+  width: 6rem;
+  height: 6rem;
+  border-radius: 0.25rem;
+  margin: 0 auto;
+}
+
+.card-image {
+  width: 6rem;
+  height: 6rem;
+  object-fit: cover;
+  display: block;
+}
+
+/* Card title: tiny 9px text, single-line truncate */
+.card-name {
+  font-size: 9px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-bottom: 0.125rem;
+}
+
+/* Meta rows: 8px text, tight line-height, single-line truncate */
+.card-meta {
+  font-size: 8px;
+  line-height: 1.25;
+}
+
+.card-meta__row {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* View-details button: compact 8px text, tight padding */
+:deep(.card-btn.p-button) {
+  font-size: 8px !important;
+  padding: 0.125rem 0.25rem !important;
+}
+
 :deep(.custom-green-button) {
   background-color: #10B981 !important;
   border-color: #10B981 !important;

@@ -238,6 +238,7 @@ function handleCancel() {
         modal
         header="Define Project Structure"
         :style="{ width: '640px', maxWidth: '95vw' }"
+        :content-style="{ maxHeight: '70vh', overflowY: 'auto' }"
         class="define-structure-dialog"
     >
         <div class="ds-body">
