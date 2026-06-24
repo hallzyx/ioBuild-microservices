@@ -140,8 +140,8 @@ async function clearUnitOwner(unit) {
   <!-- Single root element: <transition mode="out-in"> in the layout requires one
        root node, otherwise leaving this view leaves the next route blank. -->
   <div>
-  <div v-if="project" class="p-6 max-w-3xl mx-auto bg-white rounded-lg shadow">
-    <div class="flex justify-between items-center mb-6">
+  <div v-if="project" class="project-details-root p-6 bg-white">
+    <div class="flex justify-content-between align-items-center mb-6">
       <pv-button
           icon="pi pi-arrow-left"
           :label="t('projects.actions.go-back') || 'Go Back'"
@@ -149,7 +149,7 @@ async function clearUnitOwner(unit) {
           @click="navigateBack"
       />
       <h1 class="text-2xl font-semibold text-center flex-1">{{ project.name }}</h1>
-      <div class="flex items-center gap-2">
+      <div class="flex align-items-center gap-2">
         <pv-button icon="pi pi-pencil" text rounded @click="navigateToEdit" />
         <pv-button icon="pi pi-trash" text rounded severity="danger" @click="confirmDelete" />
       </div>
@@ -225,7 +225,7 @@ async function clearUnitOwner(unit) {
 
     <!-- Structure display — shown once the project has units -->
     <div v-if="hasStructure" class="mt-8">
-      <div class="flex items-center gap-2 mb-4">
+      <div class="flex align-items-center gap-2 mb-4">
         <i class="pi pi-building section-icon text-lg"></i>
         <h2 class="text-lg font-semibold text-gray-800">Project Structure</h2>
         <pv-tag :value="`${units.length} units`" severity="success" />
@@ -235,7 +235,7 @@ async function clearUnitOwner(unit) {
             :severity="editMode ? 'success' : 'secondary'"
             text
             size="small"
-            class="ml-auto"
+            class="structure-edit-btn"
             @click="editMode = !editMode"
         />
       </div>
@@ -311,7 +311,7 @@ async function clearUnitOwner(unit) {
       </div>
 
       <!-- Fallback while units load -->
-      <div v-else class="p-3 bg-emerald-50 rounded-lg border border-emerald-200 text-sm text-emerald-800">
+      <div v-else class="units-loading-hint p-3 text-sm">
         <i class="pi pi-info-circle mr-2"></i>
         This project has <strong>{{ project.totalUnits }}</strong> total unit(s)
         and <strong>{{ project.occupiedUnits }}</strong> occupied.
@@ -331,6 +331,27 @@ async function clearUnitOwner(unit) {
 </template>
 
 <style scoped>
+/* Centered container with max-width, rounded corners, subtle shadow. */
+.project-details-root {
+  max-width: 48rem;
+  margin: 0 auto;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Push the "Edit owners" button to the right inside the flex row. */
+.structure-edit-btn {
+  margin-left: auto;
+}
+
+/* Loading/fallback hint for units — brand green tint. */
+.units-loading-hint {
+  background: #ecfdf5;
+  border-radius: 0.5rem;
+  border: 1px solid #a7f3d0;
+  color: #065f46;
+}
+
 /* Brand green used across the Project Structure section. */
 .section-icon {
   color: #059669;

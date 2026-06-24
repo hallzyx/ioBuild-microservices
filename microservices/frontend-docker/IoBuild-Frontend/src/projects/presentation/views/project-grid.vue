@@ -20,22 +20,20 @@ const navigateToDetails = (id) => router.push({ name: "projects-management-detai
 </script>
 
 <template>
-  <div class="p-3 lg:p-4">
-    <div class="flex items-center justify-between mb-3">
-      <h1 class="text-xl font-semibold lg:text-2xl">{{ t("projects.title") }}</h1>
-      <div class="ml-auto">
-        <pv-button
-          :label="t('projects.add')"
-          icon="pi pi-plus"
-          size="small"
-          class="custom-green-button"
-          @click="navigateToNew"
-        />
-      </div>
+  <div class="p-3">
+    <div class="flex align-items-center justify-content-between mb-3">
+      <h1 class="text-xl font-semibold">{{ t("projects.title") }}</h1>
+      <pv-button
+        :label="t('projects.add')"
+        icon="pi pi-plus"
+        size="small"
+        class="custom-green-button"
+        @click="navigateToNew"
+      />
     </div>
 
     <div
-      class="grid gap-[15px] grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 auto-rows-fr gap-4"
+      class="project-grid"
       v-if="store.projects.length"
     >
       <ProjectCard
@@ -45,11 +43,42 @@ const navigateToDetails = (id) => router.push({ name: "projects-management-detai
         @viewDetails="navigateToDetails(project.id)"
       />
     </div>
-    <p v-else class="text-gray-500 text-sm lg:text-base">{{ t('projects.messages.no-projects') }}</p>
+    <p v-else class="text-gray-500 text-sm">{{ t('projects.messages.no-projects') }}</p>
   </div>
 </template>
 
 <style scoped>
+/* Responsive card grid: 2 columns by default, up to 6 on very wide screens */
+.project-grid {
+  display: grid;
+  gap: 15px;
+  grid-template-columns: repeat(2, 1fr);
+}
+
+@media (min-width: 576px) {
+  .project-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (min-width: 768px) {
+  .project-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (min-width: 992px) {
+  .project-grid {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+
+@media (min-width: 1200px) {
+  .project-grid {
+    grid-template-columns: repeat(6, 1fr);
+  }
+}
+
 :deep(.custom-green-button) {
   background-color: #10B981 !important;
   border-color: #10B981 !important;

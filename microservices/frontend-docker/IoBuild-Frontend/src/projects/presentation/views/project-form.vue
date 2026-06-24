@@ -83,27 +83,27 @@ const cancel = () => {
 
 
 <template>
-  <div class="p-4 lg:p-4 bg-gray-50 min-h-screen">
-    <div class="max-w-3xl mx-auto">
+  <div class="p-4 bg-gray-50 min-h-screen">
+    <div class="form-container">
       <!-- Header -->
       <div class="mb-6">
-        <div class="flex items-center gap-2 text-sm text-gray-600 mb-2">
+        <div class="flex align-items-center gap-2 text-sm text-gray-600 mb-2">
           <i class="pi pi-home"></i>
           <span>/</span>
-          <span class="text-emerald-600 font-medium">{{ isEdit ? t("projects.edit-title") : t("projects.new-title") }}</span>
+          <span class="breadcrumb-active font-medium">{{ isEdit ? t("projects.edit-title") : t("projects.new-title") }}</span>
         </div>
-        <h1 class="text-2xl lg:text-3xl font-bold text-gray-900">
+        <h1 class="text-2xl font-bold text-gray-900">
           {{ isEdit ? t("projects.edit-title") : t("projects.new-title") }}
         </h1>
       </div>
 
       <!-- Form Card -->
-      <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 lg:p-4">
+      <div class="form-card p-6">
         <form @submit.prevent="save">
           <!-- Name Field -->
           <div class="form-field mb-4">
             <label class="form-label">
-              <i class="pi pi-tag text-emerald-600 mr-2"></i>
+              <i class="pi pi-tag form-label__icon mr-2"></i>
               {{ t("projects.fields.name") }}
               <span class="text-red-500 ml-1">*</span>
             </label>
@@ -118,7 +118,7 @@ const cancel = () => {
           <!-- Description Field -->
           <div class="form-field mb-4">
             <label class="form-label">
-              <i class="pi pi-align-left text-emerald-600 mr-2"></i>
+              <i class="pi pi-align-left form-label__icon mr-2"></i>
               {{ t("projects.fields.description") }}
             </label>
             <pv-textarea
@@ -132,7 +132,7 @@ const cancel = () => {
           <!-- Location Field -->
           <div class="form-field mb-4">
             <label class="form-label">
-              <i class="pi pi-map-marker text-emerald-600 mr-2"></i>
+              <i class="pi pi-map-marker form-label__icon mr-2"></i>
               {{ t("projects.fields.location") }}
             </label>
             <pv-input-text
@@ -146,7 +146,7 @@ const cancel = () => {
                the defined structure and must stay read-only. -->
           <div class="form-field mb-4">
             <label class="form-label">
-              <i class="pi pi-building text-emerald-600 mr-2"></i>
+              <i class="pi pi-building form-label__icon mr-2"></i>
               {{ t("projects.fields.total-units") }}
             </label>
             <pv-input-number
@@ -165,7 +165,7 @@ const cancel = () => {
           <!-- Image URL Field -->
           <div class="form-field mb-4">
             <label class="form-label">
-              <i class="pi pi-image text-emerald-600 mr-2"></i>
+              <i class="pi pi-image form-label__icon mr-2"></i>
               {{ t("projects.fields.image-url") }}
             </label>
             <pv-button
@@ -185,13 +185,13 @@ const cancel = () => {
                 type="submit"
                 :label="t('projects.actions.save')"
                 icon="pi pi-check"
-                class="custom-green-button flex-1 md:flex-initial"
+                class="custom-green-button flex-1"
             />
             <pv-button
                 :label="t('projects.actions.cancel')"
                 icon="pi pi-times"
                 severity="secondary"
-                class="cancel-button flex-1 md:flex-initial"
+                class="cancel-button flex-1"
                 @click="cancel"
             />
           </div>
@@ -202,6 +202,25 @@ const cancel = () => {
 </template>
 
 <style scoped>
+/* Centered container with max-width, matching max-w-3xl (48rem) */
+.form-container {
+  max-width: 48rem;
+  margin: 0 auto;
+}
+
+/* Form card: white bg, rounded corners, subtle shadow and border */
+.form-card {
+  background: #ffffff;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  border: 1px solid #e5e7eb;
+}
+
+/* Breadcrumb active item in brand green */
+.breadcrumb-active {
+  color: #059669;
+}
+
 .form-field {
   display: flex;
   flex-direction: column;
@@ -214,6 +233,10 @@ const cancel = () => {
   color: #374151;
   display: flex;
   align-items: center;
+}
+
+.form-label__icon {
+  color: #059669;
 }
 
 .field-hint {
