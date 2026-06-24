@@ -142,7 +142,8 @@ const cancel = () => {
             />
           </div>
 
-          <!-- Units Fields -->
+          <!-- Total Units — editable only at creation; on edit it's derived from
+               the defined structure and must stay read-only. -->
           <div class="form-field mb-4">
             <label class="form-label">
               <i class="pi pi-building text-emerald-600 mr-2"></i>
@@ -153,20 +154,12 @@ const cancel = () => {
                 :min="0"
                 class="w-full input-enhanced"
                 placeholder="0"
+                :disabled="isEdit"
             />
-          </div>
-
-          <div v-if="isEdit" class="form-field mb-4">
-            <label class="form-label">
-              <i class="pi pi-check-circle text-emerald-600 mr-2"></i>
-              {{ t("projects.fields.occupied-units") }}
-            </label>
-            <pv-input-number
-                v-model="form.occupiedUnits"
-                :min="0"
-                class="w-full input-enhanced"
-                placeholder="0"
-            />
+            <small v-if="isEdit" class="field-hint">
+              <i class="pi pi-lock"></i>
+              Set by the project structure — edit floors and units from Define Structure.
+            </small>
           </div>
 
           <!-- Image URL Field -->
@@ -221,6 +214,20 @@ const cancel = () => {
   color: #374151;
   display: flex;
   align-items: center;
+}
+
+.field-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.field-hint .pi {
+  font-size: 0.7rem;
+  color: #9ca3af;
 }
 
 :deep(.input-enhanced input),

@@ -67,12 +67,17 @@ public class ProjectCommandService : IProjectCommandService
         if (project == null)
             throw new KeyNotFoundException($"Project with id {command.Id} not found.");
 
+        // TotalUnits and OccupiedUnits are DERIVED counters maintained by the
+        // structure-definition and owner-assignment flows (DefineStructure sets
+        // TotalUnits; UnitCommandService recomputes both from actual units). They must
+        // never be set from a project edit — preserve the existing values so a stale
+        // form payload cannot clobber them (which read as "the owner vanished").
         project.Update(
             command.Name,
             command.Description,
             command.Location,
-            command.TotalUnits,
-            command.OccupiedUnits,
+            project.TotalUnits,
+            project.OccupiedUnits,
             command.Status,
             command.ImageUrl);
 
