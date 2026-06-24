@@ -23,6 +23,10 @@ public record ControllableAttributeResource(
 /// </summary>
 /// <param name="Code">Canonical type code — used in all contracts (event, command, REST, DB).</param>
 /// <param name="DisplayName">Human-readable label for UI rendering.</param>
+/// <param name="Scope">
+/// Applicability scope: "floor", "unit", or "both". Surfaced in Slice 2 so the builder
+/// define-structure pickers can filter (floor picker hides unit-only types and vice versa).
+/// </param>
 /// <param name="ControllableAttributes">
 /// Attributes the backend can command on this device type (from DeviceCapabilityCatalog).
 /// Empty list for telemetry-only types (SmartMeter, WaterSensor, SmokeDetector).
@@ -30,6 +34,7 @@ public record ControllableAttributeResource(
 public record DeviceTypeResource(
     string Code,
     string DisplayName,
+    string Scope,
     IReadOnlyList<ControllableAttributeResource> ControllableAttributes);
 
 /// <summary>

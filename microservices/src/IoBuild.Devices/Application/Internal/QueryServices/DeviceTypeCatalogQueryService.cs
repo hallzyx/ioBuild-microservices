@@ -5,8 +5,9 @@ namespace IoBuild.Devices.Application.Internal.QueryServices;
 
 /// <summary>
 /// Query service for the global device-type catalog.
-/// Maps DB catalog rows to the existing <see cref="DeviceTypeResource"/> DTO shape
-/// (Code, DisplayName, ControllableAttributes — NO Scope per design D5).
+/// Maps DB catalog rows to the <see cref="DeviceTypeResource"/> DTO shape
+/// (Code, DisplayName, Scope, ControllableAttributes). Scope is surfaced in Slice 2
+/// so the builder define-structure pickers can filter per applicability.
 /// </summary>
 public class DeviceTypeCatalogQueryService(IDeviceTypeRepository repository)
 {
@@ -26,7 +27,7 @@ public class DeviceTypeCatalogQueryService(IDeviceTypeRepository repository)
                     a.Name, a.Type, a.Min, a.Max, a.Unit, a.EnumMembers))
                 .ToList();
 
-            return new DeviceTypeResource(dt.Code, dt.DisplayName, attrs);
+            return new DeviceTypeResource(dt.Code, dt.DisplayName, dt.Scope, attrs);
         }).ToList();
     }
 }
