@@ -2,8 +2,11 @@ using FluentAssertions;
 using IoBuild.Devices.Application.Internal.CommandServices;
 using IoBuild.Devices.Domain.Model.Aggregates;
 using IoBuild.Devices.Domain.Model.Commands;
+using IoBuild.Devices.Domain.Repositories;
 using IoBuild.Devices.Infrastructure.Persistence.EFC.DbContext;
+using IoBuild.Devices.Infrastructure.Persistence.EFC.Repositories;
 using IoBuild.Devices.Infrastructure.Mqtt;
+using IoBuild.Shared.Domain.Model;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -12,10 +15,22 @@ using Moq;
 namespace IoBuild.Devices.Tests.Application;
 
 /// <summary>
-/// D-2 (TDD RED-first): ResolveControllable — single resolver that tries the static catalog
-/// first, then falls back to the owner's custom types in the DB.
+/// DT-4 (TDD RED-first / WU-2): ResolveControllable — catalog-first (DB device_types),
+/// then owner-custom DB fallback. Static DeviceCapabilityCatalog.ByType branch removed.
 ///
-/// The method is exposed as internal/public static on DeviceActuationService for testability.
+/// Lookup order:
+///   1. device_types catalog (DB, via IDeviceTypeRepository)  ← NEW (WU-2)
+///   2. owner_custom_device_types (DB, per-owner fallback)    ← KEPT (D3 safety)
+///   3. Both miss → null → caller returns 400.
+///
+/// Test matrix:
+///   D-2a (updated) : catalog type AirConditioner resolves via DB catalog (not static branch).
+///   D-2b (regression) : owner-custom type NOT in device_types resolves via owner-custom fallback.
+///   D-2c : unknown type → null → 400 downstream.
+///   D-2d : custom type belonging to different owner → null (isolation guard).
+///   D-2e : out-of-range number attr rejected via catalog type → 400.
+///   D-2f : valid number attr accepted via catalog type → 200.
+///   D-2g : valid boolean attr accepted via owner-custom type → 200.
 /// </summary>
 public class ResolveControllableTests : IDisposable
 {
@@ -29,6 +44,12 @@ public class ResolveControllableTests : IDisposable
 
     public void Dispose() => _connection.Dispose();
 
+    // ── Context builders ─────────────────────────────────────────────────────
+
+    /// <summary>
+    /// SQLite relational context sharing the same in-memory connection across
+    /// calls within the same test (schema/seed persists on the shared connection).
+    /// </summary>
     private DevicesDbContext BuildSqliteContext()
     {
         var options = new DbContextOptionsBuilder<DevicesDbContext>()
@@ -47,34 +68,71 @@ public class ResolveControllableTests : IDisposable
         return new DevicesDbContext(options);
     }
 
+    // ── Service builder — accepts repository via DI ───────────────────────────
+
     private static DeviceActuationService BuildService(DevicesDbContext db)
     {
         var logger = new Mock<ILogger<DeviceActuationService>>().Object;
-        return new DeviceActuationService(db, new Mock<IMqttPublisher>().Object, logger);
+        IDeviceTypeRepository repo = new DeviceTypeRepository(db);
+        return new DeviceActuationService(db, new Mock<IMqttPublisher>().Object, logger, repo);
     }
 
-    // ── D-2a: Catalog branch returns static attributes (no DB hit) ────────────
+    // ── Catalog seed helper ────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Seeds an AirConditioner catalog entry into the given DbContext (WU-2 new path).
+    /// Matches the same attributes as DeviceCapabilityCatalog.ByType["AirConditioner"].
+    /// </summary>
+    private static async Task SeedAirConditionerCatalogEntry(DevicesDbContext db)
+    {
+        var acAttrs = new List<DeviceCapabilityCatalog.ControllableAttribute>
+        {
+            new("targetTemperature", "number", 16, 30, "C"),
+            new("mode", "enum", null, null, null, ["cooling", "heating", "fan"]),
+            new("power", "boolean", null, null, null),
+        };
+        var acType = new DeviceType("AirConditioner", "Air Conditioner", "unit", acAttrs);
+        db.DeviceTypes.Add(acType);
+        await db.SaveChangesAsync();
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // D-2a: DB catalog hit → returns attributes (static branch removed)
+    // DT-4-S1: A type present in device_types resolves its attributes via the catalog.
+    // ─────────────────────────────────────────────────────────────────────────
 
     [Fact]
-    public async Task ResolveControllable_CatalogType_ReturnsStaticAttributes()
+    public async Task ResolveControllable_CatalogType_ReturnsDbCatalogAttributes()
     {
-        await using var db = BuildInMemoryContext(nameof(ResolveControllable_CatalogType_ReturnsStaticAttributes));
+        // Arrange — seed device_types with AirConditioner using InMemory (no relational schema needed)
+        await using var db = BuildInMemoryContext(nameof(ResolveControllable_CatalogType_ReturnsDbCatalogAttributes));
+        await SeedAirConditionerCatalogEntry(db);
+
         var svc = BuildService(db);
 
+        // Act
         var attrs = await svc.ResolveControllable("AirConditioner", ownerId: "any-owner");
 
-        attrs.Should().NotBeNull("AirConditioner is in the static catalog");
-        attrs!.Should().Contain(a => a.Name == "targetTemperature");
+        // Assert
+        attrs.Should().NotBeNull("AirConditioner is in the DB catalog");
+        attrs!.Should().Contain(a => a.Name == "targetTemperature",
+            "catalog entry must expose targetTemperature");
+        attrs.Should().Contain(a => a.Name == "power",
+            "catalog entry must expose power");
     }
 
-    // ── D-2b: DB-fallback returns custom attrs when type not in catalog ────────
+    // ─────────────────────────────────────────────────────────────────────────
+    // D-2b (regression guard): owner-custom type NOT in device_types catalog
+    // still resolves via owner-custom DB fallback (DESIGN D3 — MUST pass).
+    // DT-4: owner-custom-fallback must survive the static-branch removal.
+    // ─────────────────────────────────────────────────────────────────────────
 
     [Fact]
-    public async Task ResolveControllable_CustomType_ReturnsDatabaseAttributes()
+    public async Task ResolveControllable_OwnerCustomType_NotInCatalog_ResolvesViaFallback()
     {
-        await using var db = BuildInMemoryContext(nameof(ResolveControllable_CustomType_ReturnsDatabaseAttributes));
+        // Arrange — device_types catalog intentionally empty; owner-custom type seeded
+        await using var db = BuildInMemoryContext(nameof(ResolveControllable_OwnerCustomType_NotInCatalog_ResolvesViaFallback));
 
-        // Seed a custom type for owner "owner-1"
         var customType = new OwnerCustomDeviceType(
             ownerUserId: "owner-1",
             typeCode: "CO2Sensor",
@@ -85,13 +143,19 @@ public class ResolveControllableTests : IDisposable
 
         var svc = BuildService(db);
 
+        // Act
         var attrs = await svc.ResolveControllable("CO2Sensor", ownerId: "owner-1");
 
-        attrs.Should().NotBeNull("CO2Sensor is a custom type for owner-1");
-        attrs!.Should().Contain(a => a.Name == "co2_ppm");
+        // Assert — owner-custom fallback must still work (D3 regression guard)
+        attrs.Should().NotBeNull("CO2Sensor is a custom type for owner-1; fallback must resolve it");
+        attrs!.Should().Contain(a => a.Name == "co2_ppm",
+            "owner-custom attribute co2_ppm must be returned via fallback");
     }
 
-    // ── D-2c: Both-miss → returns null ────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
+    // D-2c: Both catalog and owner-custom miss → null → caller returns 400
+    // DT-4-S2: unknown type → null.
+    // ─────────────────────────────────────────────────────────────────────────
 
     [Fact]
     public async Task ResolveControllable_UnknownType_ReturnsNull()
@@ -104,7 +168,9 @@ public class ResolveControllableTests : IDisposable
         attrs.Should().BeNull("type not in catalog and not in DB → no capabilities");
     }
 
-    // ── D-2d: Custom type belonging to different owner not returned ────────────
+    // ─────────────────────────────────────────────────────────────────────────
+    // D-2d: Owner isolation — custom type of another owner must not be returned
+    // ─────────────────────────────────────────────────────────────────────────
 
     [Fact]
     public async Task ResolveControllable_CustomType_WrongOwner_ReturnsNull()
@@ -119,85 +185,89 @@ public class ResolveControllableTests : IDisposable
 
         var svc = BuildService(db);
 
-        // owner-B asks for owner-A's type
         var attrs = await svc.ResolveControllable("CO2Sensor", ownerId: "owner-B");
 
         attrs.Should().BeNull("a different owner's custom type must not be returned");
     }
 
-    // ── D-2e: Actuation: out-of-range number attr rejected → 400 ──────────────
+    // ─────────────────────────────────────────────────────────────────────────
+    // D-2e: Range validation — out-of-range number attr on CATALOG type → 400
+    // DT-4-S3: value outside [Min, Max] rejected.
+    // ─────────────────────────────────────────────────────────────────────────
 
     [Fact]
-    public async Task Actuation_CustomType_OutOfRangeValue_Returns400()
+    public async Task Actuation_CatalogType_OutOfRangeValue_Returns400()
     {
-        await using var db = BuildInMemoryContext(nameof(Actuation_CustomType_OutOfRangeValue_Returns400));
+        await using var db = BuildInMemoryContext(nameof(Actuation_CatalogType_OutOfRangeValue_Returns400));
 
-        // Seed device (OwnerCustom) + custom type + unit ownership projection
-        var customType = new OwnerCustomDeviceType(
-            "42", "TempSensor", "Temp Sensor",
-            [new OwnerCustomDeviceTypeAttribute("temperature", "number", 0, 100, "C")]);
-        db.OwnerCustomDeviceTypes.Add(customType);
+        // Seed catalog type + device + ownership projection
+        await SeedAirConditionerCatalogEntry(db);
 
-        var device = Device.ForOwnerCustom("My Temp", "TempSensor", "Unit 01",
-            1, "Active", unitId: 10);
+        var device = Device.ForUnitPackage(
+            name: "AC Test", type: "AirConditioner", location: "Floor 1",
+            mac: "AA:BB:CC:DD:EE:01", projectId: 1, status: "Active",
+            floorNumber: 1, unitId: 10);
         db.Devices.Add(device);
 
         db.UnitOwnerProjections.Add(new UnitOwnerProjection
         {
             UnitId = 10, OwnerUserId = 42, UpdatedAt = DateTime.UtcNow
         });
-
         await db.SaveChangesAsync();
 
         var svc = BuildService(db);
         var command = new SendDeviceCommandCommand(
-            DeviceId: device.Id, Attribute: "temperature", Value: 150.0,
+            DeviceId: device.Id, Attribute: "targetTemperature", Value: 99.0,
             RequestingUserId: 42, RequestingUserRole: "Owner");
 
         var result = await svc.Handle(command);
 
-        result.StatusCode.Should().Be(400, "value 150 exceeds max 100");
+        result.StatusCode.Should().Be(400, "value 99 exceeds max 30 for targetTemperature");
     }
 
-    // ── D-2f: Actuation: valid number attr accepted → 200 ─────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
+    // D-2f: Range validation — valid number attr on CATALOG type → 200
+    // DT-4-S3: value within [Min, Max] accepted.
+    // ─────────────────────────────────────────────────────────────────────────
 
     [Fact]
-    public async Task Actuation_CustomType_ValidValue_Returns200()
+    public async Task Actuation_CatalogType_ValidValue_Returns200()
     {
-        await using var db = BuildInMemoryContext(nameof(Actuation_CustomType_ValidValue_Returns200));
+        await using var db = BuildInMemoryContext(nameof(Actuation_CatalogType_ValidValue_Returns200));
 
-        var customType = new OwnerCustomDeviceType(
-            "42", "TempSensor2", "Temp Sensor 2",
-            [new OwnerCustomDeviceTypeAttribute("temperature", "number", 0, 100, "C")]);
-        db.OwnerCustomDeviceTypes.Add(customType);
+        await SeedAirConditionerCatalogEntry(db);
 
-        var device = Device.ForOwnerCustom("My Temp 2", "TempSensor2", "Unit 01",
-            1, "Active", unitId: 20);
+        var device = Device.ForUnitPackage(
+            name: "AC Test 2", type: "AirConditioner", location: "Floor 1",
+            mac: "AA:BB:CC:DD:EE:02", projectId: 1, status: "Active",
+            floorNumber: 1, unitId: 20);
         db.Devices.Add(device);
 
         db.UnitOwnerProjections.Add(new UnitOwnerProjection
         {
             UnitId = 20, OwnerUserId = 42, UpdatedAt = DateTime.UtcNow
         });
-
         await db.SaveChangesAsync();
 
         var svc = BuildService(db);
         var command = new SendDeviceCommandCommand(
-            DeviceId: device.Id, Attribute: "temperature", Value: 42.0,
+            DeviceId: device.Id, Attribute: "targetTemperature", Value: 22.0,
             RequestingUserId: 42, RequestingUserRole: "Owner");
 
         var result = await svc.Handle(command);
 
-        result.StatusCode.Should().Be(200, "value 42 is within [0, 100]");
+        result.StatusCode.Should().Be(200, "value 22 is within [16, 30]");
     }
 
-    // ── D-2g: Actuation: valid boolean attr accepted → 200 ────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
+    // D-2g: Boolean attr accepted (no range validation) via OWNER-CUSTOM type → 200
+    // Keeps verifying the owner-custom path end-to-end through Handle().
+    // ─────────────────────────────────────────────────────────────────────────
 
     [Fact]
-    public async Task Actuation_CustomType_BooleanAttr_Returns200()
+    public async Task Actuation_OwnerCustomType_BooleanAttr_Returns200()
     {
-        await using var db = BuildInMemoryContext(nameof(Actuation_CustomType_BooleanAttr_Returns200));
+        await using var db = BuildInMemoryContext(nameof(Actuation_OwnerCustomType_BooleanAttr_Returns200));
 
         var customType = new OwnerCustomDeviceType(
             "42", "SmartSwitch", "Smart Switch",
@@ -212,7 +282,6 @@ public class ResolveControllableTests : IDisposable
         {
             UnitId = 30, OwnerUserId = 42, UpdatedAt = DateTime.UtcNow
         });
-
         await db.SaveChangesAsync();
 
         var svc = BuildService(db);
@@ -222,6 +291,6 @@ public class ResolveControllableTests : IDisposable
 
         var result = await svc.Handle(command);
 
-        result.StatusCode.Should().Be(200, "boolean attr has no range validation");
+        result.StatusCode.Should().Be(200, "boolean attr has no range validation; owner-custom fallback must resolve");
     }
 }
