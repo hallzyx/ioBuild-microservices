@@ -1,6 +1,5 @@
 using System.Text;
 using System.Text.Json;
-using IoBuild.Devices.Domain.Constants;
 using IoBuild.Devices.Domain.Model.Aggregates;
 using IoBuild.Devices.Domain.Model.Entities;
 using IoBuild.Devices.Infrastructure.Persistence.EFC.DbContext;
@@ -217,25 +216,33 @@ public class FloorProvisioningConsumer : BackgroundService
 
     private async Task ProvisionFloorAsync(FloorStructureDefinedEvent evt, DevicesDbContext db)
     {
-        // Resolve the set of (Type, DisplayName) tuples to provision.
+        // Resolve the set of (Type, NamePrefix) tuples to provision.
         // evt.DeviceTypes is set by the producer (Projects) for selective provisioning (S4.1).
-        // null or empty → fall back to the 3 legacy defaults (S4.2, S4.3, ADR-4).
+        // null or empty → fall back to all floor-scoped types from the DB catalog (S4.2, S4.3, ADR-4).
+        // Display names come from the DB catalog (Slice 2 repoint — design D5). The catalog is
+        // small (5 rows) and read once here, then resolved in memory — no per-type DB round-trips.
+        var catalog = await db.DeviceTypes
+            .OrderBy(dt => dt.Id)
+            .ToListAsync();
+
         List<(string Type, string NamePrefix)> selected;
         if (evt.DeviceTypes is { Count: > 0 })
         {
+            var nameByCode = catalog.ToDictionary(dt => dt.Code, dt => dt.DisplayName);
+            // Resolve display name from the catalog by Code; fall back to the type code itself
+            // if the type is not found (consumer is tolerant of future additions).
             selected = evt.DeviceTypes
-                .Select(t =>
-                {
-                    // Resolve display name from Defaults catalog; fall back to the code itself
-                    // if the type is not in the catalog (consumer is tolerant of future additions).
-                    var entry = FloorDeviceDefaults.Defaults.FirstOrDefault(d => d.Type == t);
-                    return (Type: t, NamePrefix: entry.NamePrefix ?? t);
-                })
+                .Select(t => (Type: t, NamePrefix: nameByCode.GetValueOrDefault(t, t)))
                 .ToList();
         }
         else
         {
-            selected = FloorDeviceDefaults.Defaults.ToList();
+            // Default fallback: all floor-scoped types from the DB catalog, ordered by Id.
+            // Yields exactly SmartMeter, WaterSensor, SmokeDetector — behavior preserved.
+            selected = catalog
+                .Where(dt => dt.Scope == "floor")
+                .Select(dt => (Type: dt.Code, NamePrefix: dt.DisplayName))
+                .ToList();
         }
 
         // Idempotency pre-check (count-based, replaces SmartMeter sentinel — ADR-7 / SC-4.4).

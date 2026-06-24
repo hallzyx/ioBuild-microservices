@@ -1,6 +1,5 @@
 using System.Text;
 using System.Text.Json;
-using IoBuild.Devices.Domain.Constants;
 using IoBuild.Devices.Domain.Model.Aggregates;
 using IoBuild.Devices.Domain.Model.Entities;
 using IoBuild.Devices.Infrastructure.Persistence.EFC.DbContext;
@@ -238,12 +237,16 @@ public class UnitDeviceProvisioningConsumer : BackgroundService
             return;
         }
 
-        // Resolve display names from UnitDeviceCatalog; fall back to the type code itself.
+        // Resolve display names from the DB catalog; fall back to the type code itself if the
+        // type is not found (consumer is tolerant of future additions). The catalog is read once
+        // into a dictionary and resolved in memory — no per-type DB round-trips.
+        // Slice 2 repoint — design D5; UnitDeviceCatalog static class deleted.
+        var nameByCode = await db.DeviceTypes.ToDictionaryAsync(dt => dt.Code, dt => dt.DisplayName);
+
         var devices = new List<Device>();
         foreach (var type in selected)
         {
-            var entry = UnitDeviceCatalog.Catalog.FirstOrDefault(e => e.Type == type);
-            var displayName = entry.DisplayName ?? type;
+            var displayName = nameByCode.GetValueOrDefault(type, type);
 
             var mac = GenerateMac(evt.ProjectId, evt.UnitId, type);
             var device = Device.ForUnitPackage(

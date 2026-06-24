@@ -18,7 +18,7 @@ public static class DeviceTypeCatalog
             "WaterSensor",
             "SmokeDetector",
             // Unit-level controllable device types — added for Change A (unit-device-packages).
-            // These MUST NOT be added to FloorDeviceDefaults.Defaults (floor legacy defaults only — ADR-4).
+            // These are unit-scoped in the DB catalog (Scope="unit"); floor defaults are Scope="floor".
             "AirConditioner",
             "SmartLight",
         };
