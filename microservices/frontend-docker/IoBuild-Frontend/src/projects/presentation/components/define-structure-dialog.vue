@@ -24,8 +24,8 @@ const toast = useToast();
 const localVisible = ref(props.visible);
 const floors = ref(1);
 const unitsPerFloor = ref(1);
-const showOwnerAssignment = ref(false);
-const showUnitPackages = ref(false);
+// UI-only presentation state: which floor accordion panels are open.
+const expandedFloors = ref(new Set([1]));
 const submitting = ref(false);
 
 // Per-floor device-type selections — keyed by floor number (integer)
@@ -39,8 +39,7 @@ watch(() => props.visible, (val) => {
     if (val) {
         floors.value = 1;
         unitsPerFloor.value = 1;
-        showOwnerAssignment.value = false;
-        showUnitPackages.value = false;
+        expandedFloors.value = new Set([1]);
         ownerEmails.value = {};
         deviceTypesByFloor.value = {};
         unitDevicePackages.value = {};
@@ -54,6 +53,16 @@ watch(localVisible, (val) => {
 
 // ownerEmails keyed by "floor-roomNumber" e.g. "1-01"
 const ownerEmails = ref({});
+
+// Catalog types scoped to floors: scope "floor" or "both" (hides unit-only types).
+const floorDeviceTypes = computed(() =>
+    deviceStore.deviceTypes.filter(t => t.scope === 'floor' || t.scope === 'both')
+);
+
+// Catalog types scoped to units: scope "unit" or "both" (hides floor-only types).
+const unitDeviceTypes = computed(() =>
+    deviceStore.deviceTypes.filter(t => t.scope === 'unit' || t.scope === 'both')
+);
 
 // Recompute grid whenever floors/unitsPerFloor change; clear stale keys
 const unitGrid = computed(() => {
@@ -96,6 +105,22 @@ watch([floors, unitsPerFloor], () => {
 
 function ownerKey(floor, roomNumber) {
     return `${floor}-${roomNumber}`;
+}
+
+// Accordion open/close — presentation only, does not touch the payload.
+function toggleFloor(floor) {
+    const next = new Set(expandedFloors.value);
+    next.has(floor) ? next.delete(floor) : next.add(floor);
+    expandedFloors.value = next;
+}
+
+function isFloorExpanded(floor) {
+    return expandedFloors.value.has(floor);
+}
+
+// Count of floor-wide device types selected for a floor (header summary).
+function floorDeviceCount(floor) {
+    return deviceTypesByFloor.value[floor]?.length ?? 0;
 }
 
 function buildPayload() {
@@ -215,12 +240,12 @@ function handleCancel() {
         :style="{ width: '640px', maxWidth: '95vw' }"
         class="define-structure-dialog"
     >
-        <div class="space-y-5">
+        <div class="ds-body">
             <!-- Floors & Units per floor -->
-            <div class="grid grid-cols-2 gap-4">
-                <div>
-                    <label class="block mb-2 font-semibold text-gray-700">
-                        <i class="pi pi-building text-emerald-600 mr-2"></i>
+            <div class="ds-grid2">
+                <div class="ds-field">
+                    <label class="ds-label">
+                        <i class="pi pi-building"></i>
                         Floors
                     </label>
                     <pv-input-number
@@ -232,9 +257,9 @@ function handleCancel() {
                         :allowEmpty="false"
                     />
                 </div>
-                <div>
-                    <label class="block mb-2 font-semibold text-gray-700">
-                        <i class="pi pi-th-large text-emerald-600 mr-2"></i>
+                <div class="ds-field">
+                    <label class="ds-label">
+                        <i class="pi pi-th-large"></i>
                         Units per floor
                     </label>
                     <pv-input-number
@@ -249,99 +274,93 @@ function handleCancel() {
             </div>
 
             <!-- Summary -->
-            <div class="p-3 bg-emerald-50 rounded-lg border-l-4 border-emerald-500 text-sm text-emerald-800">
-                <i class="pi pi-info-circle mr-2"></i>
-                This will create <strong>{{ (floors || 0) * (unitsPerFloor || 0) }}</strong> unit(s):
-                {{ floors || 0 }} floor(s) × {{ unitsPerFloor || 0 }} unit(s) per floor.
+            <div class="ds-summary">
+                <i class="pi pi-info-circle"></i>
+                <span>
+                    This will create <strong>{{ (floors || 0) * (unitsPerFloor || 0) }}</strong> unit(s):
+                    {{ floors || 0 }} floor(s) × {{ unitsPerFloor || 0 }} unit(s) per floor.
+                </span>
             </div>
 
-            <!-- Per-floor device types -->
+            <!-- Per-floor configuration (accordion: one panel per floor) -->
             <div v-if="deviceStore.deviceTypes.length > 0">
-                <p class="font-semibold text-gray-700 text-sm mb-3">
-                    <i class="pi pi-wifi text-emerald-600 mr-2"></i>
-                    IoT devices per floor
+                <p class="ds-section-title">
+                    <i class="pi pi-sitemap"></i>
+                    Configure each floor
                 </p>
-                <div class="space-y-3 max-h-48 overflow-y-auto pr-1">
-                    <div v-for="row in unitGrid" :key="row.floor" class="flex items-center gap-3">
-                        <span class="text-xs font-semibold text-gray-500 w-20 shrink-0">Floor {{ row.floor }}</span>
-                        <pv-multi-select
-                            v-model="deviceTypesByFloor[row.floor]"
-                            :options="deviceStore.deviceTypes"
-                            option-label="displayName"
-                            option-value="code"
-                            placeholder="Default devices (3)"
-                            class="w-full"
-                            display="chip"
-                        />
-                    </div>
-                </div>
-            </div>
 
-            <!-- Optional owner assignment -->
-            <div>
-                <div
-                    class="flex items-center gap-2 cursor-pointer select-none text-emerald-700 font-semibold text-sm"
-                    @click="showOwnerAssignment = !showOwnerAssignment"
-                >
-                    <i :class="showOwnerAssignment ? 'pi pi-chevron-down' : 'pi pi-chevron-right'"></i>
-                    Assign owner emails (optional)
-                </div>
-
-                <div v-if="showOwnerAssignment" class="mt-3 space-y-4 max-h-64 overflow-y-auto pr-1">
-                    <div v-for="row in unitGrid" :key="row.floor">
-                        <p class="font-semibold text-gray-600 text-sm mb-2">Floor {{ row.floor }}</p>
-                        <div class="grid grid-cols-1 gap-2">
-                            <div
-                                v-for="unit in row.units"
-                                :key="ownerKey(unit.floor, unit.roomNumber)"
-                                class="flex items-center gap-3"
-                            >
-                                <span class="text-xs font-mono text-gray-500 w-16 shrink-0">
-                                    F{{ unit.floor }}-{{ unit.roomNumber }}
+                <div class="ds-accordion">
+                    <div
+                        v-for="row in unitGrid"
+                        :key="row.floor"
+                        class="floor-panel"
+                    >
+                        <!-- Floor header (toggle) -->
+                        <button
+                            type="button"
+                            class="floor-panel__head"
+                            @click="toggleFloor(row.floor)"
+                        >
+                            <i
+                                class="pi floor-panel__chevron"
+                                :class="isFloorExpanded(row.floor) ? 'pi-chevron-down' : 'pi-chevron-right'"
+                            ></i>
+                            <span class="floor-panel__name">Floor {{ row.floor }}</span>
+                            <span class="floor-panel__meta">
+                                <span>{{ row.units.length }} unit{{ row.units.length === 1 ? '' : 's' }}</span>
+                                <span v-if="floorDeviceCount(row.floor) > 0" class="floor-panel__badge">
+                                    <i class="pi pi-wifi"></i>
+                                    {{ floorDeviceCount(row.floor) }}
                                 </span>
-                                <pv-input-text
-                                    v-model="ownerEmails[ownerKey(unit.floor, unit.roomNumber)]"
-                                    class="w-full"
-                                    type="email"
-                                    placeholder="owner@example.com"
-                                />
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+                            </span>
+                        </button>
 
-            <!-- Optional unit device packages -->
-            <div v-if="deviceStore.deviceTypes.length > 0">
-                <div
-                    class="flex items-center gap-2 cursor-pointer select-none text-emerald-700 font-semibold text-sm"
-                    @click="showUnitPackages = !showUnitPackages"
-                >
-                    <i :class="showUnitPackages ? 'pi pi-chevron-down' : 'pi pi-chevron-right'"></i>
-                    Assign unit device packages (optional)
-                </div>
-
-                <div v-if="showUnitPackages" class="mt-3 space-y-4 max-h-64 overflow-y-auto pr-1">
-                    <div v-for="row in unitGrid" :key="row.floor">
-                        <p class="font-semibold text-gray-600 text-sm mb-2">Floor {{ row.floor }}</p>
-                        <div class="grid grid-cols-1 gap-2">
-                            <div
-                                v-for="unit in row.units"
-                                :key="ownerKey(unit.floor, unit.roomNumber)"
-                                class="flex items-center gap-3"
-                            >
-                                <span class="text-xs font-mono text-gray-500 w-16 shrink-0">
-                                    F{{ unit.floor }}-{{ unit.roomNumber }}
-                                </span>
+                        <!-- Floor body -->
+                        <div v-if="isFloorExpanded(row.floor)" class="floor-panel__body">
+                            <!-- Floor-wide IoT devices -->
+                            <div class="ds-field">
+                                <label class="ds-sublabel">
+                                    <i class="pi pi-wifi"></i>
+                                    Floor-wide IoT devices
+                                </label>
                                 <pv-multi-select
-                                    v-model="unitDevicePackages[ownerKey(unit.floor, unit.roomNumber)]"
-                                    :options="deviceStore.deviceTypes"
+                                    v-model="deviceTypesByFloor[row.floor]"
+                                    :options="floorDeviceTypes"
                                     option-label="displayName"
                                     option-value="code"
-                                    placeholder="No devices"
+                                    placeholder="Default devices (3)"
                                     class="w-full"
                                     display="chip"
                                 />
+                            </div>
+
+                            <!-- Per-unit configuration -->
+                            <div>
+                                <p class="ds-units-title">Units</p>
+                                <div class="ds-units">
+                                    <div
+                                        v-for="unit in row.units"
+                                        :key="ownerKey(unit.floor, unit.roomNumber)"
+                                        class="unit-block"
+                                    >
+                                        <span class="unit-block__no">Unit {{ unit.roomNumber }}</span>
+                                        <pv-input-text
+                                            v-model="ownerEmails[ownerKey(unit.floor, unit.roomNumber)]"
+                                            class="w-full"
+                                            type="email"
+                                            placeholder="Owner email (optional)"
+                                        />
+                                        <pv-multi-select
+                                            v-model="unitDevicePackages[ownerKey(unit.floor, unit.roomNumber)]"
+                                            :options="unitDeviceTypes"
+                                            option-label="displayName"
+                                            option-value="code"
+                                            placeholder="Unit devices (optional)"
+                                            class="w-full"
+                                            display="chip"
+                                        />
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -369,32 +388,194 @@ function handleCancel() {
 </template>
 
 <style scoped>
-:deep(.p-dialog) {
-    background: white !important;
-}
-
-:deep(.p-dialog .p-dialog-header) {
-    background: white !important;
-    color: #111827 !important;
-}
-
-:deep(.p-dialog .p-dialog-content) {
-    background: white !important;
-    color: #111827 !important;
-}
-
+/* ── Dialog shell (PrimeVue overrides) ─────────────────────────────── */
+:deep(.p-dialog) { background: #ffffff !important; }
+:deep(.p-dialog .p-dialog-header),
+:deep(.p-dialog .p-dialog-content),
 :deep(.p-dialog .p-dialog-footer) {
-    background: white !important;
+    background: #ffffff !important;
+    color: #111827 !important;
 }
-
 :deep(.p-inputtext) {
-    background: white !important;
+    background: #ffffff !important;
     color: #111827 !important;
     border-color: #d1d5db !important;
 }
-
 :deep(.p-inputnumber-input) {
-    background: white !important;
+    background: #ffffff !important;
     color: #111827 !important;
+}
+/* Chips wrap instead of overflowing horizontally. */
+:deep(.p-multiselect) { width: 100%; }
+:deep(.p-multiselect-label) {
+    white-space: normal;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+}
+
+/* ── Content layout ────────────────────────────────────────────────── */
+.ds-body {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    padding-top: 0.75rem;
+    padding-bottom: 0.25rem;
+}
+
+.ds-grid2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.ds-field { display: flex; flex-direction: column; }
+
+.ds-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    color: #374151;
+}
+
+.ds-label .pi { color: #059669; }
+
+/* Summary callout. */
+.ds-summary {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    background: #ecfdf5;
+    border-left: 4px solid #10b981;
+    border-radius: 0.55rem;
+    font-size: 0.85rem;
+    color: #065f46;
+}
+
+.ds-summary .pi { margin-top: 0.1rem; color: #059669; }
+
+.ds-section-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0 0 0.75rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #374151;
+}
+
+.ds-section-title .pi { color: #059669; }
+
+/* ── Accordion ─────────────────────────────────────────────────────── */
+.ds-accordion {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    max-height: 22rem;
+    overflow-y: auto;
+    padding-right: 0.25rem;
+}
+
+.floor-panel {
+    border: 1px solid #e5e7eb;
+    border-radius: 0.7rem;
+    overflow: hidden;
+}
+
+.floor-panel__head {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    padding: 0.7rem 1rem;
+    background: #f9fafb;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.15s ease;
+}
+
+.floor-panel__head:hover { background: #f3f4f6; }
+
+.floor-panel__chevron {
+    font-size: 0.8rem;
+    color: #059669;
+}
+
+.floor-panel__name {
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.floor-panel__meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-left: auto;
+    font-size: 0.75rem;
+    color: #6b7280;
+}
+
+.floor-panel__badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-weight: 600;
+    color: #047857;
+}
+
+.floor-panel__badge .pi { font-size: 0.65rem; }
+
+.floor-panel__body {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1rem;
+    border-top: 1px solid #f1f3f5;
+}
+
+.ds-sublabel {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-bottom: 0.4rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #4b5563;
+}
+
+.ds-sublabel .pi { color: #059669; }
+
+.ds-units-title {
+    margin: 0 0 0.5rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #9ca3af;
+}
+
+.ds-units {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.unit-block {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.65rem 0.75rem;
+    background: #f9fafb;
+    border-radius: 0.55rem;
+}
+
+.unit-block__no {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #374151;
 }
 </style>

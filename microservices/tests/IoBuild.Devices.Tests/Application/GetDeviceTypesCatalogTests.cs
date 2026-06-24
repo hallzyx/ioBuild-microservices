@@ -15,8 +15,9 @@ namespace IoBuild.Devices.Tests.Application;
 /// DT-3 (TDD RED-first): GET /api/v1/devices/types returns rows from the DB catalog.
 ///
 /// Tests assert:
-///   - Response shape is byte-compatible: { deviceTypes: [ { code, displayName, controllableAttributes } ] }
-///   - Scope is NOT present in the response (zero frontend change per design D5)
+///   - Response shape: { deviceTypes: [ { code, displayName, scope, controllableAttributes } ] }
+///   - Scope IS present and correct (Slice 2 surfaces it so the builder pickers can
+///     filter per scope; this reverses design D5's "zero frontend change" stance)
 ///   - Telemetry-only types (SmartMeter, WaterSensor, SmokeDetector) have controllableAttributes: []
 ///   - All 5 seeded rows are returned
 /// </summary>
@@ -83,19 +84,37 @@ public class GetDeviceTypesCatalogTests : IDisposable
         var ok = actionResult.Should().BeOfType<OkObjectResult>().Subject;
         var body = ok.Value.Should().BeOfType<DeviceTypeCatalogResource>().Subject;
 
-        // Each entry must have code, displayName, controllableAttributes
+        // Each entry must have code, displayName, scope, controllableAttributes
         foreach (var dt in body.DeviceTypes)
         {
             dt.Code.Should().NotBeNullOrWhiteSpace();
             dt.DisplayName.Should().NotBeNullOrWhiteSpace();
+            dt.Scope.Should().BeOneOf("floor", "unit", "both");
             dt.ControllableAttributes.Should().NotBeNull();
         }
+    }
 
-        // Scope must NOT be present on DeviceTypeResource (zero frontend change)
-        var firstType = body.DeviceTypes.First();
-        var props = firstType.GetType().GetProperties().Select(p => p.Name);
-        props.Should().NotContain("Scope",
-            "Scope must not be surfaced in the response per design D5");
+    // ── Slice 2: Scope is surfaced per type so the builder pickers can filter ──
+
+    [Theory]
+    [InlineData("SmartMeter", "floor")]
+    [InlineData("WaterSensor", "floor")]
+    [InlineData("SmokeDetector", "floor")]
+    [InlineData("AirConditioner", "unit")]
+    [InlineData("SmartLight", "unit")]
+    public async Task GetDeviceTypes_SurfacesScopePerType(string code, string expectedScope)
+    {
+        await using var db = BuildRelationalContext();
+        var controller = BuildController(db);
+
+        var actionResult = await controller.GetDeviceTypes();
+
+        var ok = actionResult.Should().BeOfType<OkObjectResult>().Subject;
+        var body = ok.Value.Should().BeOfType<DeviceTypeCatalogResource>().Subject;
+        var entry = body.DeviceTypes.SingleOrDefault(dt => dt.Code == code);
+
+        entry.Should().NotBeNull($"catalog must contain {code}");
+        entry!.Scope.Should().Be(expectedScope);
     }
 
     // ── DT-3-S3: Telemetry-only types have empty controllableAttributes ────────

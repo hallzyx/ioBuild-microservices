@@ -20,6 +20,8 @@ const showStructureDialog = ref(false);
 const editMode = ref(false);
 const pendingOwnerEmails = ref({});
 const savingUnit = ref(null);
+// Falls back to a branded placeholder when the project image fails to load.
+const imageBroken = ref(false);
 
 async function loadUnits() {
   unitsError.value = null;
@@ -56,6 +58,19 @@ const structureGrid = computed(() => {
       units: list.slice().sort((a, b) => (a.roomNumber || "").localeCompare(b.roomNumber || "")),
     }));
 });
+
+// How many units on a floor already have an owner assigned (for the floor header).
+function occupiedCount(unitList) {
+  return unitList.filter((u) => u.ownerEmail).length;
+}
+
+// Human-readable created date (raw value is an ISO timestamp).
+function formatDate(iso) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+}
 
 const navigateBack = () => router.push({ name: "projects-management" });
 const navigateToEdit = () =>
@@ -119,9 +134,6 @@ async function clearUnitOwner(unit) {
   }
 }
 
-function handleImageError(event) {
-  event.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32'%3E%3Crect width='32' height='32' rx='4' fill='%2310B981'/%3E%3Ctext x='16' y='21' text-anchor='middle' fill='white' font-size='14' font-family='sans-serif'%3EP%3C/text%3E%3C/svg%3E";
-}
 </script>
 
 <template>
@@ -143,49 +155,57 @@ function handleImageError(event) {
       </div>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 justify-content-center">
-      <div class="lg:col-span-2 order-1">
-        <div class="w-full aspect-video overflow-hidden rounded-lg shadow-lg">
-          <img
-              :src="project.imageUrl"
-              :alt="project.name"
-              class="w-full h-full object-cover transition duration-300 hover:scale-[1.03]"
-              @error="handleImageError"
-              loading="lazy"
-          />
+    <div class="project-hero">
+      <!-- Media -->
+      <div class="project-hero__media">
+        <img
+            v-if="project.imageUrl && !imageBroken"
+            :src="project.imageUrl"
+            :alt="project.name"
+            class="project-hero__img"
+            @error="imageBroken = true"
+            loading="lazy"
+        />
+        <div v-else class="project-hero__placeholder">
+          <i class="pi pi-building"></i>
         </div>
       </div>
 
-      <div class="lg:col-span-1 space-y-4 text-gray-700 order-2">
-        <div class="flex items-center justify-between p-3 bg-green-50 rounded-lg border-l-4 border-green-500 shadow-sm justify-content-center">
-          <span class="font-semibold">{{ t("projects.fields.status") }}:</span>
-          <span class="px-3 py-1 text-sm font-bold rounded-full bg-green-600 text-white">{{ project.statusLabel }}</span>
+      <!-- Info -->
+      <div class="project-hero__info">
+        <div class="project-hero__statusrow">
+          <span class="project-hero__status-label">{{ t("projects.fields.status") }}</span>
+          <span class="project-hero__status-badge">{{ project.statusLabel }}</span>
         </div>
 
-        <div class="space-y-3 p-3 bg-gray-50 rounded-lg shadow-sm">
-          <p class="flex justify-between border-b pb-1">
-            <span class="font-semibold">{{ t("projects.fields.total-units") }}:</span>
-            <span class="font-medium text-gray-900">{{ project.totalUnits }}</span>
-          </p>
-          <p class="flex justify-between border-b pb-1">
-            <span class="font-semibold">{{ t("projects.fields.occupied-units") }}:</span>
-            <span class="font-medium text-gray-900">{{ project.occupiedUnits }}</span>
-          </p>
-          <p class="flex justify-between border-b pb-1">
-            <span class="font-semibold">{{ t("projects.fields.created-date") }}:</span>
-            <span class="font-medium text-gray-900">{{ project.createdDate }}</span>
-          </p>
-          <p class="flex justify-between">
-            <span class="font-semibold">{{ t("projects.fields.description") }}:</span>
-            <span class="font-medium text-gray-900">{{ project.description }}</span>
-          </p>
-          <p class="pt-2 text-sm text-gray-500">
-            <strong>{{ t("projects.fields.location") }}:</strong> {{ project.location }}
-          </p>
+        <div class="project-hero__stats">
+          <div class="stat">
+            <span class="stat__value">{{ project.totalUnits }}</span>
+            <span class="stat__label">{{ t("projects.fields.total-units") }}</span>
+          </div>
+          <div class="stat">
+            <span class="stat__value">{{ project.occupiedUnits }}</span>
+            <span class="stat__label">{{ t("projects.fields.occupied-units") }}</span>
+          </div>
         </div>
+
+        <dl class="project-hero__meta">
+          <div class="meta-row">
+            <dt><i class="pi pi-calendar"></i> {{ t("projects.fields.created-date") }}</dt>
+            <dd>{{ formatDate(project.createdDate) }}</dd>
+          </div>
+          <div class="meta-row">
+            <dt><i class="pi pi-map-marker"></i> {{ t("projects.fields.location") }}</dt>
+            <dd>{{ project.location || "—" }}</dd>
+          </div>
+          <div v-if="project.description" class="meta-row meta-row--block">
+            <dt><i class="pi pi-align-left"></i> {{ t("projects.fields.description") }}</dt>
+            <dd>{{ project.description }}</dd>
+          </div>
+        </dl>
 
         <!-- Define Structure — only visible when no structure exists yet AND fetch succeeded -->
-        <div v-if="!hasStructure && !unitsError" class="pt-2">
+        <div v-if="!hasStructure && !unitsError">
           <pv-button
               label="Define Structure"
               icon="pi pi-sitemap"
@@ -196,8 +216,8 @@ function handleImageError(event) {
         </div>
 
         <!-- Units fetch error — prevents misreading a failed load as empty project -->
-        <div v-if="unitsError" class="pt-2 p-3 bg-red-50 rounded-lg border border-red-200 text-sm text-red-700">
-          <i class="pi pi-exclamation-circle mr-2"></i>
+        <div v-if="unitsError" class="project-hero__error">
+          <i class="pi pi-exclamation-circle"></i>
           Could not load project structure. Please refresh and try again.
         </div>
       </div>
@@ -206,7 +226,7 @@ function handleImageError(event) {
     <!-- Structure display — shown once the project has units -->
     <div v-if="hasStructure" class="mt-8">
       <div class="flex items-center gap-2 mb-4">
-        <i class="pi pi-building text-emerald-600 text-lg"></i>
+        <i class="pi pi-building section-icon text-lg"></i>
         <h2 class="text-lg font-semibold text-gray-800">Project Structure</h2>
         <pv-tag :value="`${units.length} units`" severity="success" />
         <pv-button
@@ -221,42 +241,45 @@ function handleImageError(event) {
       </div>
 
       <!-- Per-floor unit grid from the units API -->
-      <div v-if="structureGrid.length > 0" class="space-y-4">
-        <div v-for="row in structureGrid" :key="row.floor" class="p-3 bg-gray-50 rounded-lg">
-          <p class="font-semibold text-gray-700 text-sm mb-2">Floor {{ row.floor }}</p>
-          <div class="flex flex-wrap gap-2">
+      <div v-if="structureGrid.length > 0" class="structure-floors">
+        <section v-for="row in structureGrid" :key="row.floor" class="floor-card">
+          <header class="floor-card__head">
+            <span class="floor-card__name">Floor {{ row.floor }}</span>
+            <span class="floor-card__occ">
+              <i class="pi pi-user"></i>
+              {{ occupiedCount(row.units) }}/{{ row.units.length }} occupied
+            </span>
+          </header>
+
+          <div class="unit-grid">
             <template v-for="unit in row.units" :key="unit.id">
-              <!-- Edit mode: show inline input only for unassigned units -->
-              <div
-                  v-if="editMode && !unit.ownerEmail"
-                  class="flex items-center gap-1 px-2 py-1 bg-yellow-50 border border-yellow-300 rounded text-xs"
-              >
-                <span class="font-mono text-gray-600 shrink-0">{{ unit.roomNumber }}</span>
-                <pv-input-text
-                    v-model="pendingOwnerEmails[unit.id]"
-                    placeholder="owner@example.com"
-                    class="text-xs"
-                    style="width: 180px; padding: 2px 6px; font-size: 0.7rem;"
-                    type="email"
-                />
-                <pv-button
-                    icon="pi pi-check"
-                    severity="success"
-                    text
-                    rounded
-                    size="small"
-                    :loading="savingUnit === unit.id"
-                    :disabled="!pendingOwnerEmails[unit.id]"
-                    @click="saveUnitOwner(unit)"
-                />
+              <!-- Edit mode: assign an owner to a vacant unit -->
+              <div v-if="editMode && !unit.ownerEmail" class="unit-card unit-card--edit">
+                <span class="unit-card__no">{{ unit.roomNumber }}</span>
+                <div class="unit-card__editrow">
+                  <pv-input-text
+                      v-model="pendingOwnerEmails[unit.id]"
+                      placeholder="owner@example.com"
+                      type="email"
+                      class="unit-card__input"
+                  />
+                  <pv-button
+                      icon="pi pi-check"
+                      severity="success"
+                      text
+                      rounded
+                      size="small"
+                      :loading="savingUnit === unit.id"
+                      :disabled="!pendingOwnerEmails[unit.id]"
+                      @click="saveUnitOwner(unit)"
+                  />
+                </div>
               </div>
-              <!-- Edit mode: assigned unit shows its email plus a clear button -->
-              <div
-                  v-else-if="editMode && unit.ownerEmail"
-                  class="flex items-center gap-1 px-2 py-1 bg-blue-100 border border-blue-200 rounded text-xs"
-              >
-                <span class="font-mono text-blue-800 shrink-0">{{ unit.roomNumber }}</span>
-                <span class="text-blue-700 truncate" style="max-width: 140px;">{{ unit.ownerEmail }}</span>
+
+              <!-- Edit mode: assigned unit shows its owner plus a clear action -->
+              <div v-else-if="editMode && unit.ownerEmail" class="unit-card unit-card--occupied unit-card--editrow-inline">
+                <span class="unit-card__no">{{ unit.roomNumber }}</span>
+                <span class="unit-card__email" :title="unit.ownerEmail">{{ unit.ownerEmail }}</span>
                 <pv-button
                     icon="pi pi-times"
                     severity="danger"
@@ -268,20 +291,23 @@ function handleImageError(event) {
                     @click="clearUnitOwner(unit)"
                 />
               </div>
-              <!-- Default badge (view mode) -->
-              <span
+
+              <!-- View mode -->
+              <div
                   v-else
-                  class="px-3 py-1 text-xs font-mono rounded border"
-                  :class="unit.ownerEmail
-                    ? 'bg-blue-100 text-blue-800 border-blue-200'
-                    : 'bg-emerald-100 text-emerald-800 border-emerald-200'"
-                  :title="unit.ownerEmail || 'unassigned'"
+                  class="unit-card"
+                  :class="unit.ownerEmail ? 'unit-card--occupied' : 'unit-card--vacant'"
+                  :title="unit.ownerEmail || 'Unassigned'"
               >
-                {{ unit.roomNumber }}<span v-if="unit.ownerEmail"> · {{ unit.ownerEmail }}</span>
-              </span>
+                <div class="unit-card__top">
+                  <i class="pi" :class="unit.ownerEmail ? 'pi-user' : 'pi-home'"></i>
+                  <span class="unit-card__no">{{ unit.roomNumber }}</span>
+                </div>
+                <span class="unit-card__status">{{ unit.ownerEmail || 'Vacant' }}</span>
+              </div>
             </template>
           </div>
-        </div>
+        </section>
       </div>
 
       <!-- Fallback while units load -->
@@ -305,5 +331,325 @@ function handleImageError(event) {
 </template>
 
 <style scoped>
+/* Brand green used across the Project Structure section. */
+.section-icon {
+  color: #059669;
+}
 
+/* ── Project hero (header) ─────────────────────────────────────────── */
+.project-hero {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+@media (max-width: 768px) {
+  .project-hero {
+    grid-template-columns: 1fr;
+  }
+}
+
+.project-hero__media {
+  aspect-ratio: 16 / 10;
+  border-radius: 0.85rem;
+  overflow: hidden;
+  background: #f3f4f6;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+}
+
+.project-hero__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.3s ease;
+}
+
+.project-hero__img:hover {
+  transform: scale(1.03);
+}
+
+.project-hero__placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #10b981, #047857);
+}
+
+.project-hero__placeholder .pi {
+  font-size: 3.25rem;
+  color: #ffffff;
+  opacity: 0.92;
+}
+
+.project-hero__info {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.project-hero__statusrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: #ecfdf5;
+  border-left: 4px solid #10b981;
+  border-radius: 0.6rem;
+}
+
+.project-hero__status-label {
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: #065f46;
+}
+
+.project-hero__status-badge {
+  padding: 0.25rem 0.8rem;
+  background: #059669;
+  color: #ffffff;
+  font-size: 0.78rem;
+  font-weight: 700;
+  border-radius: 999px;
+}
+
+.project-hero__stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  padding: 0.75rem 1rem;
+  background: #f9fafb;
+  border: 1px solid #eef0f2;
+  border-radius: 0.6rem;
+}
+
+.stat__value {
+  font-size: 1.6rem;
+  font-weight: 700;
+  line-height: 1.1;
+  color: #111827;
+}
+
+.stat__label {
+  margin-top: 0.15rem;
+  font-size: 0.72rem;
+  color: #6b7280;
+}
+
+.project-hero__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0.85rem 1rem;
+  background: #f9fafb;
+  border-radius: 0.6rem;
+}
+
+.meta-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.meta-row dt {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #6b7280;
+}
+
+.meta-row dt .pi {
+  font-size: 0.72rem;
+  color: #059669;
+}
+
+.meta-row dd {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #111827;
+  text-align: right;
+}
+
+.meta-row--block {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.meta-row--block dd {
+  margin-top: 0.25rem;
+  text-align: left;
+  line-height: 1.4;
+}
+
+.project-hero__error {
+  padding: 0.75rem;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 0.6rem;
+  color: #b91c1c;
+  font-size: 0.82rem;
+}
+
+.project-hero__error .pi {
+  margin-right: 0.4rem;
+}
+
+.structure-floors {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* One card per floor. */
+.floor-card {
+  background: #f9fafb;
+  border: 1px solid #eef0f2;
+  border-radius: 0.75rem;
+  padding: 1rem 1.25rem;
+}
+
+.floor-card__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.85rem;
+}
+
+.floor-card__name {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: #1f2937;
+}
+
+.floor-card__occ {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #6b7280;
+}
+
+.floor-card__occ .pi {
+  font-size: 0.7rem;
+  color: #059669;
+}
+
+/* Responsive grid: wraps to fill the row width, scales to any unit count. */
+.unit-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 0.6rem;
+}
+
+.unit-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.6rem;
+  background: #ffffff;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.unit-card__top {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.unit-card__top .pi {
+  font-size: 0.8rem;
+}
+
+.unit-card__no {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: #111827;
+}
+
+.unit-card__status {
+  font-size: 0.72rem;
+  color: #9ca3af;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Vacant unit — neutral. */
+.unit-card--vacant .pi {
+  color: #9ca3af;
+}
+
+/* Occupied unit — brand green accent. */
+.unit-card--occupied {
+  border-color: #a7f3d0;
+  background: #ecfdf5;
+}
+
+.unit-card--occupied .pi {
+  color: #059669;
+}
+
+.unit-card--occupied .unit-card__status {
+  color: #047857;
+  font-weight: 500;
+}
+
+/* Edit mode: vacant unit ready to receive an owner. */
+.unit-card--edit {
+  border-style: dashed;
+  border-color: #fcd34d;
+  background: #fffbeb;
+}
+
+.unit-card__editrow {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.unit-card__input {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.75rem;
+}
+
+/* Edit mode: occupied unit laid out inline with a clear button. */
+.unit-card--editrow-inline {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.unit-card__email {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.72rem;
+  color: #047857;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:deep(.unit-card__input.p-inputtext) {
+  width: 100%;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+}
 </style>
