@@ -2,6 +2,7 @@
 import { onMounted, computed, ref } from 'vue';
 import { useDeviceStore } from '../../application/device.store.js';
 import { useIamStore } from '../../../iam/application/iam.store.js';
+import { useAnalyticsStore } from '../../../analytics/application/analytics.store.js';
 import { useI18n } from 'vue-i18n';
 import DeviceEditDialog from '../components/device-edit-dialog.vue';
 import DeviceListHeader from '../components/device-list-header.vue';
@@ -14,6 +15,7 @@ import { useConfirm } from 'primevue/useconfirm';
 const { t } = useI18n();
 const deviceStore = useDeviceStore();
 const iamStore = useIamStore();
+const analyticsStore = useAnalyticsStore();
 const toast = useToast();
 const confirm = useConfirm();
 
@@ -36,13 +38,31 @@ const openCustomDeviceDialog = () => {
   showCustomDeviceDialog.value = true;
 };
 
-const handleCustomDeviceCreated = (newDevice) => {
+const handleCustomDeviceCreated = async (newDevice) => {
   toast.add({
     severity: 'success',
     summary: 'Device added',
     detail: `Device "${newDevice?.name ?? ''}" added successfully.`,
     life: 3000,
   });
+
+  // The owner device list (MyUnitDevices) is sourced from the analytics projection
+  // (ownerDashboard.deviceHealthStatus), which updates asynchronously after the
+  // DeviceCreatedEvent propagates from the devices service. Re-fetch the owner dashboard,
+  // retrying briefly until the new device appears, so the list reflects the add without a
+  // manual page refresh. As soon as the projection has caught up the loop stops early.
+  const ownerId = iamStore.currentUser?.id;
+  if (ownerId == null) return;
+
+  const newDeviceVisible = () =>
+    (analyticsStore.ownerDashboard?.deviceHealthStatus ?? [])
+      .some((d) => d.deviceId === newDevice?.id);
+
+  for (let attempt = 0; attempt < 6; attempt++) {
+    await analyticsStore.fetchOwnerDashboard(ownerId);
+    if (newDevice?.id == null || newDeviceVisible()) break;
+    await new Promise((resolve) => setTimeout(resolve, 800));
+  }
 };
 
 const addDevice = () => {
