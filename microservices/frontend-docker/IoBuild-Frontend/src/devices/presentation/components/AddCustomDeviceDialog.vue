@@ -1,25 +1,17 @@
 <script setup>
-import { reactive, computed, ref, watch } from 'vue';
-import { useDeviceStore } from '../../application/device.store.js';
+import { reactive, computed, ref, watch, onMounted } from 'vue';
 import { useAnalyticsStore } from '../../../analytics/application/analytics.store.js';
-import { useIamStore } from '../../../iam/application/iam.store.js';
 import { DeviceApi } from '../../infrastructure/device-api.js';
 
 /**
- * Dialog for adding an owner-custom device type and creating a device of that type.
+ * Dialog for adding a catalog device to an owner's unit (Slice 3 — catalog picker).
  *
  * Flow:
- *  1. Owner fills in display name, typeCode, and one or more controllable attributes.
- *  2. Owner selects which of their units to assign the device to.
- *  3. On submit: POST /api/v1/devices/types/custom → then POST /api/v1/devices (with unitId).
+ *  1. Owner picks a device type from the catalog (scope "unit" or "both" only).
+ *  2. Owner enters a device name and selects which unit to assign it to.
+ *  3. On submit: POST /api/v1/devices with { type, name, location, projectId, unitId }.
  *
- * Type creation is idempotent: if the typeCode already exists for this owner the API
- * returns 409, which we treat as "type already defined" and proceed straight to creating
- * the device of that existing type. This lets an owner add additional devices of a type
- * they defined earlier, and makes a partially-failed submit safe to retry (no orphan type
- * leaves the flow stuck). A 409 from the device step still means a device of that type
- * already exists in the chosen unit and is surfaced to the user.
- *
+ * The two-step custom-type-creation flow (POST /types/custom + POST /devices) is removed.
  * Emits `created` with the new device DTO on success; the parent closes the dialog.
  */
 
@@ -29,40 +21,54 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue', 'created']);
 
-const deviceStore = useDeviceStore();
 const analyticsStore = useAnalyticsStore();
-const iamStore = useIamStore();
 
-// ── Owner context ─────────────────────────────────────────────────────────────
+// ── Catalog types ─────────────────────────────────────────────────────────────
 
-const ownerId = computed(() => iamStore.currentUser?.id ?? null);
+const catalogTypes = ref([]);
+const catalogLoading = ref(false);
+
+async function loadCatalogTypes() {
+  catalogLoading.value = true;
+  try {
+    const api = new DeviceApi();
+    const all = await api.getDeviceTypes();
+    // Filter to types that are valid for unit-level devices
+    catalogTypes.value = all.filter(
+      (t) => t.scope === 'unit' || t.scope === 'both'
+    );
+  } catch (err) {
+    console.error('[AddCustomDeviceDialog] failed to load catalog types:', err);
+    catalogTypes.value = [];
+  } finally {
+    catalogLoading.value = false;
+  }
+}
+
+const typeOptions = computed(() =>
+  catalogTypes.value.map((t) => ({
+    label: t.displayName,
+    value: t.code,
+  }))
+);
+
+// ── Unit options ──────────────────────────────────────────────────────────────
 
 /** Units sourced from the owner dashboard payload (myUnitsDetails). */
 const unitOptions = computed(() =>
   (analyticsStore.ownerDashboard?.myUnitsDetails ?? []).map((u) => ({
     label: `Unit ${u.unitId} — ${u.projectName ?? 'Unknown project'}`,
     value: u.unitId,
+    projectId: u.projectId ?? null,
   }))
 );
 
 // ── Form state ────────────────────────────────────────────────────────────────
 
-const KIND_OPTIONS = [
-  { label: 'Number', value: 'number' },
-  { label: 'Boolean', value: 'boolean' },
-  { label: 'Enum', value: 'enum' },
-];
-
-function emptyAttribute() {
-  return { name: '', kind: 'number', min: null, max: null, unit: '', enumMembersRaw: '' };
-}
-
 const form = reactive({
-  displayName: '',
-  typeCode: '',
-  selectedUnitId: null,
+  selectedTypeCode: null,
   deviceName: '',
-  attributes: [emptyAttribute()],
+  selectedUnitId: null,
 });
 
 // ── Visibility ────────────────────────────────────────────────────────────────
@@ -72,29 +78,21 @@ const visible = computed({
   set: (val) => emit('update:modelValue', val),
 });
 
-// Reset form when dialog opens
+// Reset form when dialog opens; also (re)load catalog types
 watch(visible, (isOpen) => {
   if (isOpen) {
-    form.displayName = '';
-    form.typeCode = '';
-    form.selectedUnitId = unitOptions.value[0]?.value ?? null;
+    form.selectedTypeCode = null;
     form.deviceName = '';
-    form.attributes = [emptyAttribute()];
+    form.selectedUnitId = unitOptions.value[0]?.value ?? null;
     errorMessage.value = '';
+    loadCatalogTypes();
   }
 });
 
-// ── Attribute helpers ─────────────────────────────────────────────────────────
-
-function addAttribute() {
-  form.attributes.push(emptyAttribute());
-}
-
-function removeAttribute(index) {
-  if (form.attributes.length > 1) {
-    form.attributes.splice(index, 1);
-  }
-}
+onMounted(() => {
+  // Pre-load so the picker is populated quickly on first open
+  loadCatalogTypes();
+});
 
 // ── Inline errors ─────────────────────────────────────────────────────────────
 
@@ -104,26 +102,9 @@ const submitting = ref(false);
 // ── Validation ────────────────────────────────────────────────────────────────
 
 function validate() {
-  if (!form.displayName.trim()) return 'Display name is required.';
-  if (form.displayName.trim().length > 100) return 'Display name must be 100 characters or fewer.';
-  if (!form.typeCode.trim()) return 'Type code is required.';
+  if (!form.selectedTypeCode) return 'Please select a device type.';
   if (!form.deviceName.trim()) return 'Device name is required.';
   if (form.selectedUnitId == null) return 'Please select a unit.';
-  if (form.attributes.length === 0) return 'At least one attribute is required.';
-
-  for (let i = 0; i < form.attributes.length; i++) {
-    const a = form.attributes[i];
-    if (!a.name.trim()) return `Attribute ${i + 1}: name is required.`;
-    if (a.kind === 'number') {
-      if (a.min == null || a.max == null) return `Attribute "${a.name}": min and max are required for number type.`;
-      if (!a.unit.trim()) return `Attribute "${a.name}": unit is required for number type.`;
-    }
-    if (a.kind === 'enum') {
-      const members = a.enumMembersRaw.split(',').map((s) => s.trim()).filter(Boolean);
-      if (members.length < 2) return `Attribute "${a.name}": enum type requires at least two comma-separated members.`;
-    }
-  }
-
   return null;
 }
 
@@ -139,46 +120,22 @@ async function onSubmit() {
 
   submitting.value = true;
 
-  // Build the attributes array matching CreateCustomTypeResource shape
-  const attributes = form.attributes.map((a) => {
-    const attr = { name: a.name.trim(), type: a.kind };
-    if (a.kind === 'number') {
-      attr.min = Number(a.min);
-      attr.max = Number(a.max);
-      attr.unit = a.unit.trim();
-    }
-    if (a.kind === 'enum') {
-      attr.enumMembers = a.enumMembersRaw.split(',').map((s) => s.trim()).filter(Boolean);
-    }
-    return attr;
-  });
-
   try {
-    // Step 1: ensure the custom type exists (idempotent).
-    // A 409 here means the type was already defined for this owner — reuse it and
-    // proceed to device creation instead of failing. Any other error still aborts.
-    try {
-      await deviceStore.createCustomType(
-        {
-          typeCode: form.typeCode.trim(),
-          displayName: form.displayName.trim(),
-          attributes,
-        },
-        ownerId.value
-      );
-    } catch (typeErr) {
-      if (typeErr?.response?.status !== 409) throw typeErr;
+    // Derive projectId from the selected unit — never hardcode 1
+    const selectedUnit = unitOptions.value.find((u) => u.value === form.selectedUnitId);
+    const projectId = selectedUnit?.projectId ?? null;
+
+    if (!projectId) {
+      errorMessage.value = 'Could not determine the project for the selected unit. Please reload and try again.';
+      return;
     }
 
-    // Step 2: create a device of that type, assigned to the chosen unit.
-    // macAddress is intentionally omitted — owner-custom devices are virtual and have
-    // no hardware MAC. The backend stores NULL for these devices.
     const api = new DeviceApi();
     const newDevice = await api.createDevice({
       name: form.deviceName.trim(),
-      type: form.typeCode.trim(),
+      type: form.selectedTypeCode,
       location: `Unit ${form.selectedUnitId}`,
-      projectId: 1,
+      projectId,
       status: 'active',
       unitId: form.selectedUnitId,
     });
@@ -192,9 +149,9 @@ async function onSubmit() {
     if (status === 409) {
       errorMessage.value = serverMessage ?? 'A device of this type already exists in this unit.';
     } else if (status === 400) {
-      errorMessage.value = serverMessage ?? 'Validation error. Please check your input.';
+      errorMessage.value = serverMessage ?? 'Validation error. Please check your selection.';
     } else if (status === 403) {
-      errorMessage.value = 'Permission denied. Only owners may create custom device types.';
+      errorMessage.value = 'Permission denied. Make sure you own the selected unit.';
     } else {
       errorMessage.value = serverMessage ?? 'An unexpected error occurred. Please try again.';
     }
@@ -213,153 +170,72 @@ function onCancel() {
   <pv-dialog
     v-model:visible="visible"
     modal
-    header="Add Custom Device"
-    :style="{ width: '560px' }"
-    contentClass="add-custom-device-dialog"
+    header="Add Device"
+    :style="{ width: '480px' }"
+    contentClass="add-device-dialog"
     @hide="onCancel"
   >
-    <div class="dialog-body flex flex-column gap-4">
+    <div class="dialog-body">
 
       <!-- Error banner -->
-      <pv-message v-if="errorMessage" severity="error" :closable="false" class="mb-2">
+      <pv-message v-if="errorMessage" severity="error" :closable="false" class="error-banner">
         {{ errorMessage }}
       </pv-message>
 
-      <!-- Display name -->
-      <div class="flex flex-column gap-2">
-        <label class="font-medium text-gray-800">Display Name <span class="required">*</span></label>
-        <pv-input-text
-          v-model="form.displayName"
-          placeholder="e.g. CO2 Monitor"
-          maxlength="100"
-          class="text-input"
+      <!-- Device type picker -->
+      <div class="field">
+        <label class="field-label">Device Type <span class="required">*</span></label>
+        <pv-select
+          v-model="form.selectedTypeCode"
+          :options="typeOptions"
+          option-label="label"
+          option-value="value"
+          :loading="catalogLoading"
+          placeholder="Select a device type"
+          class="field-input"
         />
+        <small v-if="typeOptions.length === 0 && !catalogLoading" class="hint warn">
+          No unit-compatible device types available.
+        </small>
       </div>
 
-      <!-- Type code -->
-      <div class="flex flex-column gap-2">
-        <label class="font-medium text-gray-800">Type Code <span class="required">*</span></label>
-        <pv-input-text
-          v-model="form.typeCode"
-          placeholder="e.g. CO2Sensor (no spaces)"
-          class="text-input"
-        />
-        <small class="hint">Unique identifier for this device type. Used internally.</small>
-      </div>
-
-      <!-- Device name (instance name) -->
-      <div class="flex flex-column gap-2">
-        <label class="font-medium text-gray-800">Device Name <span class="required">*</span></label>
+      <!-- Device name (instance label) -->
+      <div class="field">
+        <label class="field-label">Device Name <span class="required">*</span></label>
         <pv-input-text
           v-model="form.deviceName"
-          placeholder="e.g. My CO2 Sensor"
-          class="text-input"
+          placeholder="e.g. Living Room AC"
+          maxlength="100"
+          class="field-input"
         />
       </div>
 
       <!-- Unit picker -->
-      <div class="flex flex-column gap-2">
-        <label class="font-medium text-gray-800">Assign to Unit <span class="required">*</span></label>
+      <div class="field">
+        <label class="field-label">Assign to Unit <span class="required">*</span></label>
         <pv-select
           v-model="form.selectedUnitId"
           :options="unitOptions"
           option-label="label"
           option-value="value"
           placeholder="Select a unit"
-          class="select-input"
+          class="field-input"
         />
         <small v-if="unitOptions.length === 0" class="hint warn">
           No units found. Make sure your owner dashboard has loaded.
         </small>
       </div>
 
-      <!-- Attributes section -->
-      <div class="attributes-section">
-        <div class="attributes-header">
-          <span class="font-medium text-gray-800">Controllable Attributes <span class="required">*</span></span>
-          <pv-button
-            label="Add Attribute"
-            icon="pi pi-plus"
-            size="small"
-            text
-            @click="addAttribute"
-          />
-        </div>
-
-        <div
-          v-for="(attr, index) in form.attributes"
-          :key="index"
-          class="attribute-row"
-        >
-          <div class="attr-fields">
-            <!-- Attribute name -->
-            <pv-input-text
-              v-model="attr.name"
-              placeholder="Attribute name"
-              class="attr-name-input"
-            />
-
-            <!-- Kind selector -->
-            <pv-select
-              v-model="attr.kind"
-              :options="KIND_OPTIONS"
-              option-label="label"
-              option-value="value"
-              class="attr-kind-select"
-            />
-
-            <!-- Remove button -->
-            <pv-button
-              icon="pi pi-trash"
-              severity="danger"
-              text
-              size="small"
-              :disabled="form.attributes.length <= 1"
-              @click="removeAttribute(index)"
-              class="remove-btn"
-            />
-          </div>
-
-          <!-- Number-specific inputs -->
-          <div v-if="attr.kind === 'number'" class="attr-extra-fields">
-            <div class="flex flex-column gap-1">
-              <label class="attr-sub-label">Min</label>
-              <pv-input-text v-model.number="attr.min" type="number" placeholder="0" class="attr-small-input" />
-            </div>
-            <div class="flex flex-column gap-1">
-              <label class="attr-sub-label">Max</label>
-              <pv-input-text v-model.number="attr.max" type="number" placeholder="100" class="attr-small-input" />
-            </div>
-            <div class="flex flex-column gap-1">
-              <label class="attr-sub-label">Unit</label>
-              <pv-input-text v-model="attr.unit" placeholder="e.g. ppm" class="attr-small-input" />
-            </div>
-          </div>
-
-          <!-- Enum-specific inputs -->
-          <div v-if="attr.kind === 'enum'" class="attr-extra-fields">
-            <div class="flex flex-column gap-1 w-full">
-              <label class="attr-sub-label">Members (comma-separated, min 2)</label>
-              <pv-input-text
-                v-model="attr.enumMembersRaw"
-                placeholder="e.g. low, medium, high"
-                class="text-input"
-              />
-            </div>
-          </div>
-
-          <!-- Boolean: no extra inputs needed -->
-        </div>
-      </div>
     </div>
 
     <template #footer>
-      <div class="flex justify-end gap-2 w-full">
+      <div class="dialog-footer">
         <pv-button label="Cancel" text @click="onCancel" />
         <pv-button
-          label="Create Device"
+          label="Add Device"
           icon="pi pi-check"
           :loading="submitting"
+          :disabled="catalogLoading"
           @click="onSubmit"
         />
       </div>
@@ -368,11 +244,32 @@ function onCancel() {
 </template>
 
 <style scoped>
-.flex-column { display: flex; flex-direction: column; }
+.dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 0.25rem 0;
+}
 
-:deep(.add-custom-device-dialog) {
+:deep(.add-device-dialog) {
   background: #ffffff !important;
   color: #111827 !important;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.field-label {
+  font-weight: 500;
+  color: #111827;
+  font-size: 0.9rem;
+}
+
+.field-input {
+  width: 100%;
 }
 
 .required {
@@ -388,66 +285,14 @@ function onCancel() {
   color: #f59e0b;
 }
 
-.attributes-section {
-  border: 1px solid #e5e7eb;
-  border-radius: 0.5rem;
-  padding: 1rem;
+.error-banner {
+  margin-bottom: 0.25rem;
 }
 
-.attributes-header {
+.dialog-footer {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.75rem;
-}
-
-.attribute-row {
-  display: flex;
-  flex-direction: column;
+  justify-content: flex-end;
   gap: 0.5rem;
-  padding: 0.75rem 0;
-  border-top: 1px solid #f3f4f6;
-}
-
-.attribute-row:first-of-type {
-  border-top: none;
-  padding-top: 0;
-}
-
-.attr-fields {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.attr-name-input {
-  flex: 2;
-}
-
-.attr-kind-select {
-  flex: 1;
-}
-
-.remove-btn {
-  flex-shrink: 0;
-}
-
-.attr-extra-fields {
-  display: flex;
-  gap: 0.75rem;
-  padding-left: 0.25rem;
-}
-
-.attr-small-input {
-  width: 90px;
-}
-
-.attr-sub-label {
-  font-size: 0.75rem;
-  color: #6b7280;
-}
-
-.select-input {
   width: 100%;
 }
 </style>
