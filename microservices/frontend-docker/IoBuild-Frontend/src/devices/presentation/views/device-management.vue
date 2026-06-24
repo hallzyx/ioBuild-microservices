@@ -39,7 +39,7 @@ const openCustomDeviceDialog = () => {
 const handleCustomDeviceCreated = (newDevice) => {
   toast.add({
     severity: 'success',
-    summary: 'Custom device created',
+    summary: 'Device added',
     detail: `Device "${newDevice?.name ?? ''}" added successfully.`,
     life: 3000,
   });
@@ -134,7 +134,7 @@ onMounted(async () => {
     <template v-if="isOwner">
       <div class="owner-actions mb-4">
         <pv-button
-          label="Add Custom Device"
+          label="Add Device"
           icon="pi pi-plus"
           @click="openCustomDeviceDialog"
         />

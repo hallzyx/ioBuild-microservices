@@ -187,6 +187,7 @@ public class AnalyticsQueryService : IAnalyticsQueryService
         var myUnitsDetails = units.Select(u => new Dictionary<string, object>
         {
             ["unitId"]      = u.UnitId,
+            ["projectId"]   = u.ProjectId,
             ["projectName"] = projectNames.GetValueOrDefault(u.ProjectId, "Unknown"),
             ["status"]      = u.Status
         }).ToList<Dictionary<string, object>>();
