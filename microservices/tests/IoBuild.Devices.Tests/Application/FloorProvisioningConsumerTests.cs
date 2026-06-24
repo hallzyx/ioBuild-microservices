@@ -1,5 +1,4 @@
 using FluentAssertions;
-using IoBuild.Devices.Domain.Constants;
 using IoBuild.Devices.Infrastructure.Messaging;
 using IoBuild.Devices.Infrastructure.Persistence.EFC.DbContext;
 using IoBuild.Shared.Domain.Model.Events;
@@ -84,10 +83,12 @@ public class FloorProvisioningConsumerTests : IDisposable
         devices.Should().OnlyContain(d => d.ProjectId == 100);
         devices.Should().OnlyContain(d => d.Status == "Active");
 
-        // One of each default type
+        // One of each default type — DB catalog floor-scoped types (SmartMeter, WaterSensor, SmokeDetector).
+        // Previously asserted against FloorDeviceDefaults.Defaults; now asserted against the
+        // DB catalog (db.DeviceTypes WHERE scope='floor'). Slice 2 repoint — see design D5.
         devices.Select(d => d.Type).Should().BeEquivalentTo(
-            FloorDeviceDefaults.Defaults.Select(x => x.Type),
-            "must create exactly one device per FloorDeviceDefaults entry");
+            new[] { "SmartMeter", "WaterSensor", "SmokeDetector" },
+            "must create exactly one device per floor-scoped DB catalog entry");
     }
 
     [Fact]
@@ -198,13 +199,22 @@ public class FloorProvisioningConsumerTests : IDisposable
         }
     }
 
-    // ── FloorDeviceDefaults constant: SmartMeter, WaterSensor, SmokeDetector ──
+    // ── DB catalog: exactly 3 floor-scoped types (SmartMeter, WaterSensor, SmokeDetector) ──
+    // Intent preserved from FloorDeviceDefaults_Contains_Exactly3ExpectedTypes (deleted constant).
+    // Now asserts against db.DeviceTypes (the DB catalog) rather than the deleted static class.
 
     [Fact]
-    public void FloorDeviceDefaults_Contains_Exactly3ExpectedTypes()
+    public async Task DeviceTypeCatalog_FloorScope_Contains_Exactly3ExpectedTypes()
     {
-        FloorDeviceDefaults.Defaults.Should().HaveCount(3);
-        FloorDeviceDefaults.Defaults.Select(d => d.Type).Should().BeEquivalentTo(
+        await using var ctx = BuildSqliteContext();
+        var floorTypes = ctx.DeviceTypes
+            .Where(dt => dt.Scope == "floor")
+            .OrderBy(dt => dt.Id)
+            .ToList();
+
+        floorTypes.Should().HaveCount(3,
+            "the device_types catalog must contain exactly 3 floor-scoped types (design D4)");
+        floorTypes.Select(dt => dt.Code).Should().BeEquivalentTo(
             new[] { "SmartMeter", "WaterSensor", "SmokeDetector" });
     }
 

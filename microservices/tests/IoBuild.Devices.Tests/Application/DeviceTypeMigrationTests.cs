@@ -1,5 +1,6 @@
 using FluentAssertions;
 using IoBuild.Devices.Infrastructure.Persistence.EFC.DbContext;
+using IoBuild.Shared.Domain.Model;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 
@@ -113,6 +114,24 @@ public class DeviceTypeMigrationTests : IDisposable
 
         await act.Should().ThrowAsync<Exception>(
             "unique index on Code must prevent duplicate inserts");
+    }
+
+    // ── Cross-service vocabulary parity (Slice 2, point 1) ──────────────────
+    // IoBuild.Projects validates device-type codes against the Shared
+    // DeviceTypeCatalog.KnownTypes vocabulary (no runtime dependency on Devices —
+    // the correct microservice boundary). This guard fails the moment the Shared
+    // vocabulary drifts from the DB catalog seed in EITHER direction, so the two
+    // can never silently diverge.
+    [Fact]
+    public async Task SharedKnownTypes_MatchesDbCatalogSeedCodes()
+    {
+        await using var db = BuildRelationalContext();
+
+        var seededCodes = await db.DeviceTypes.Select(dt => dt.Code).ToListAsync();
+
+        seededCodes.Should().BeEquivalentTo(DeviceTypeCatalog.KnownTypes,
+            "Projects validates against Shared.DeviceTypeCatalog.KnownTypes, which must stay "
+            + "in sync with the device_types catalog seed (Slice 2 point 1 — no cross-service call)");
     }
 
     // ── DT-2-S2 re-seed idempotency: EnsureCreated is a no-op on existing schema ─
