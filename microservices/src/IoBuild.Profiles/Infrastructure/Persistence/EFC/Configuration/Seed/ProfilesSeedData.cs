@@ -1,35 +1,22 @@
-using IoBuild.Profiles.Domain.Model.Aggregates;
 using Microsoft.EntityFrameworkCore;
 
 namespace IoBuild.Profiles.Infrastructure.Persistence.EFC.Configuration.Seed;
 
 public static class ProfilesSeedData
 {
+    /// <summary>
+    /// WU-3 seed reset: demo profile rows (UserId=1 builder, UserId=2 owner) removed.
+    /// A fresh stack starts with 0 rows in <c>profiles</c>.
+    ///
+    /// IMPORTANT — EnsureCreated stale-volume trap:
+    /// EnsureCreated never re-runs once the schema exists, so removed rows here WILL survive
+    /// on an existing Docker volume. To fully reset to demo-from-zero, the operator MUST run:
+    ///   docker compose down -v
+    /// before the first start of this slice. Established convention — see memory:
+    /// "Analytics EnsureCreated schema trap".
+    /// </summary>
     public static void ApplyProfilesSeedData(this ModelBuilder builder)
     {
-        builder.Entity<Profile>().HasData(
-            new
-            {
-                Id = 1,
-                UserId = 1,
-                PhotoUrl = "https://randomuser.me/api/portraits/men/32.jpg",
-                Name = "Juan Pérez",
-                Username = "juan_builder",
-                Address = "Av. Javier Prado 123, San Isidro, Lima",
-                Age = 35,
-                PhoneNumber = "+51 987654321"
-            },
-            new
-            {
-                Id = 2,
-                UserId = 2,
-                PhotoUrl = "https://randomuser.me/api/portraits/women/44.jpg",
-                Name = "María González",
-                Username = "maria_owner",
-                Address = "Calle Las Begonias 456, San Borja, Lima",
-                Age = 42,
-                PhoneNumber = "+51 912345678"
-            }
-        );
+        // No demo seed — demo-from-zero reset (device-type-catalog WU-3).
     }
 }

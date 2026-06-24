@@ -11,6 +11,9 @@ namespace IoBuild.Devices.Domain.Model.Aggregates;
 ///   - Table: owner_custom_device_types
 ///   - Unique index: (owner_user_id, type_code) — one type-code per owner
 ///   - AttributesJson: serialized array of OwnerCustomDeviceTypeAttribute
+///
+/// TODO: Kept alive for Slice 3 — owner-custom fallback in ResolveControllable depends on this table.
+/// Do NOT remove until OwnerCustomDeviceType is migrated to the device_types catalog (Slice 3).
 /// </summary>
 public class OwnerCustomDeviceType
 {

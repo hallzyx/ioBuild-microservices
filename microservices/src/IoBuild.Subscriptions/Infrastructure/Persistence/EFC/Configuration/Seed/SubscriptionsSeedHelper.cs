@@ -4,22 +4,32 @@ using Microsoft.EntityFrameworkCore;
 namespace IoBuild.Subscriptions.Infrastructure.Persistence.EFC.Configuration.Seed;
 
 /// <summary>
-/// Runtime seed helper for Plans and Subscriptions.
-/// Executed at startup after EnsureCreated() because Plan stores features as a serialized JSON string,
-/// which is better handled at runtime than via HasData.
+/// Runtime seed helper for subscription Plans.
+/// Executed at startup after EnsureCreated() because Plan stores features as a serialized
+/// JSON string, which is better handled at runtime than via HasData.
+///
+/// WU-3 seed reset: the two demo Subscription rows (builderId=1, builderId=2) have been
+/// removed. Only Plan rows are seeded. A fresh stack starts with 0 rows in `subscriptions`.
+///
+/// IMPORTANT — EnsureCreated stale-volume trap:
+/// EnsureCreated never re-runs once the schema exists, so removed rows here WILL survive
+/// on an existing Docker volume. To fully reset to demo-from-zero, the operator MUST run:
+///   docker compose down -v
+/// before the first start of this slice. Established convention — see memory:
+/// "Analytics EnsureCreated schema trap".
 /// </summary>
 public static class SubscriptionsSeedHelper
 {
     public static void Seed(SubscriptionsDbContext context)
     {
-        // Check if plans already exist
+        // Idempotency guard: if plans already exist, the full seed ran — skip.
         if (context.Set<Plan>().Any())
         {
-            return; // Data already seeded
+            return;
         }
 
-        // Seed Plans
-        // Features are stored as JSON arrays to match the monolith's value converter format
+        // ==================== SEED PLANS ====================
+        // Features are stored as JSON arrays to match the monolith's value converter format.
         var starterPlan = new Plan(
             name: "Starter",
             price: 299m,
@@ -88,28 +98,10 @@ public static class SubscriptionsSeedHelper
         context.Set<Plan>().AddRange(starterPlan, professionalPlan, enterprisePlan);
         context.SaveChanges();
 
-        // Get the IDs of the saved plans
-        var professionalPlanId = context.Set<Plan>().First(p => p.Name == "Professional").Id;
-        var starterPlanId = context.Set<Plan>().First(p => p.Name == "Starter").Id;
-
-        // Seed Subscriptions
-        var subscription1 = new Subscription(
-            builderId: 1,
-            planId: professionalPlanId,
-            startDate: new DateTime(2024, 1, 1),
-            endDate: new DateTime(2025, 1, 1)
-        );
-        subscription1.Activate();
-
-        var subscription2 = new Subscription(
-            builderId: 2,
-            planId: starterPlanId,
-            startDate: new DateTime(2024, 6, 1),
-            endDate: new DateTime(2025, 6, 1)
-        );
-        subscription2.Activate();
-
-        context.Set<Subscription>().AddRange(subscription1, subscription2);
-        context.SaveChanges();
+        // ==================== DEMO SUBSCRIPTIONS REMOVED ====================
+        // WU-3 seed reset: subscription1 (builderId=1, Professional) and
+        // subscription2 (builderId=2, Starter) have been removed.
+        // A fresh stack starts with 0 rows in `subscriptions`.
+        // Builders subscribe through the normal subscription flow.
     }
 }
