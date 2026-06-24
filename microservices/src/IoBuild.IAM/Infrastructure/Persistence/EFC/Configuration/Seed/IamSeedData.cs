@@ -1,28 +1,17 @@
-using IoBuild.IAM.Domain.Model.Aggregates;
 using Microsoft.EntityFrameworkCore;
-using BCryptNet = BCrypt.Net.BCrypt;
 
 namespace IoBuild.IAM.Infrastructure.Persistence.EFC.Configuration.Seed;
 
 public static class IamSeedData
 {
+    /// <summary>
+    /// WU-3 seed reset: demo users removed so a fresh stack starts with 0 rows in `users`.
+    /// The two demo rows (builder@iobuilt.com / owner@iobuilt.com) that were seeded via
+    /// HasData in AddOutbox migration are deleted by the RemoveDemoSeed migration.
+    /// Builder and owner now register themselves through the normal IAM flow.
+    /// </summary>
     public static void ApplyIamSeedData(this ModelBuilder builder)
     {
-        builder.Entity<User>().HasData(
-            new
-            {
-                Id = 1,
-                Email = "builder@iobuilt.com",
-                PasswordHash = BCryptNet.HashPassword("Builder123!"),
-                Role = "builder"
-            },
-            new
-            {
-                Id = 2,
-                Email = "owner@iobuilt.com",
-                PasswordHash = BCryptNet.HashPassword("Owner123!"),
-                Role = "owner"
-            }
-        );
+        // No demo seed — demo-from-zero reset (device-type-catalog WU-3).
     }
 }

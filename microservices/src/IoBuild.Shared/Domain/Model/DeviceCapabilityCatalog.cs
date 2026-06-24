@@ -41,6 +41,8 @@ public static class DeviceCapabilityCatalog
     /// Per-type capability declarations. Keyed by device type code (Ordinal, matches KnownTypes).
     /// Only controllable types appear here; telemetry-only types are absent by design.
     /// </summary>
+    // TODO: Kept alive for Slice 2 migration — do NOT remove until Projects/FloorProvisioningConsumer
+    // migrated to read from the device_types DB catalog. KnownTypes static dict also stays until then.
     public static readonly IReadOnlyDictionary<string, Capability> ByType =
         new Dictionary<string, Capability>(StringComparer.Ordinal)
         {
