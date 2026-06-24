@@ -37,8 +37,12 @@ public class ProjectCommandService : IProjectCommandService
 
         await _repository.AddAsync(project);
 
-        // Build and serialize the domain event for the outbox (ADR-8, REQ-DE-02)
-        // Note: project.Id is 0 until SaveChanges assigns it (identity column).
+        // Phase 1: persist the project so the DB assigns the real identity (ADR-A two-phase commit,
+        // mirroring ProjectStructureCommandService). Building the event before this commit would
+        // capture project.Id == 0 — the bug that broke the builder analytics rollup (GitHub #3).
+        await _unitOfWork.CompleteAsync();
+
+        // Phase 2: build the event with the real project.Id, then persist the outbox row.
         // BuilderUserId maps directly from Project.BuilderId.
         var evt = new ProjectCreatedEvent
         {
@@ -55,9 +59,7 @@ public class ProjectCommandService : IProjectCommandService
         };
 
         await _outboxRepository.AddAsync(outboxMessage);
-
-        // Single CompleteAsync covers BOTH the project row and the outbox row (REQ-DE-02)
-        await _unitOfWork.CompleteAsync();
+        await _unitOfWork.CompleteAsync(); // Phase 2 commit — outbox row with the real ProjectId
         return project.Id;
     }
 
