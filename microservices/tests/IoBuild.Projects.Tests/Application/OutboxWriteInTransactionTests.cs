@@ -6,10 +6,13 @@ using IoBuild.Projects.Domain.Model.Entities;
 using IoBuild.Projects.Domain.Repositories;
 using IoBuild.Projects.Domain.Services.Commands.Projects;
 using IoBuild.Projects.Domain.Services.Commands.Units;
+using IoBuild.Projects.Infrastructure.Persistence;
 using IoBuild.Projects.Infrastructure.Repositories;
 using IoBuild.Projects.Tests.Infrastructure;
 using IoBuild.Shared.Domain.Model.Events;
 using IoBuild.Shared.Domain.Repositories;
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
 using Moq;
 
 namespace IoBuild.Projects.Tests.Application;
@@ -45,8 +48,53 @@ public class OutboxWriteInTransactionTests
         Assert.Equal("ProjectCreatedEvent", addedMessages[0].EventType);
         Assert.NotEqual(Guid.Empty, addedMessages[0].EventId);
 
-        // CompleteAsync was called exactly once (single transaction)
-        unitOfWork.Verify(u => u.CompleteAsync(), Times.Once);
+        // ADR-A two-phase commit: first CompleteAsync persists the project (real Id),
+        // second CompleteAsync persists the outbox row with the real ProjectId.
+        unitOfWork.Verify(u => u.CompleteAsync(), Times.Exactly(2));
+    }
+
+    /// <summary>
+    /// [RED] Uses SQLite-in-memory, which assigns the identity column at INSERT time
+    /// (SaveChanges) exactly like the production MySQL provider — unlike EF InMemory, which
+    /// assigns keys on Add and therefore hides this bug. The current code builds
+    /// ProjectCreatedEvent BEFORE CompleteAsync, so project.Id is 0 at that point and the
+    /// serialized payload carries ProjectId=0 → this test MUST FAIL until the two-phase fix.
+    /// Regression guard for the builder-dashboard rollup bug (GitHub #3).
+    /// </summary>
+    [Fact]
+    public async Task Handle_CreateProject_WritesOutboxWithRealId()
+    {
+        // Arrange — SQLite-in-memory: identity assigned at INSERT (mirrors MySQL, not EF InMemory)
+        using var connection = new SqliteConnection("DataSource=:memory:");
+        connection.Open();
+        try
+        {
+            var options = new DbContextOptionsBuilder<AppDbContext>()
+                .UseSqlite(connection)
+                .Options;
+            await using var ctx = new AppDbContext(options);
+            ctx.Database.EnsureCreated();
+
+            var sut = new ProjectCommandService(
+                new ProjectRepository(ctx), ctx, new OutboxMessageRepository(ctx));
+            var command = new CreateProjectCommand("Torre Real Id", "Desc", "Lima", 0, 7, "http://img.png");
+
+            // Act
+            await sut.Handle(command);
+
+            // Assert — read back the outbox row and deserialise the payload
+            var outboxRow = ctx.OutboxMessages.Single(m => m.EventType == nameof(ProjectCreatedEvent));
+            var evt = JsonSerializer.Deserialize<ProjectCreatedEvent>(outboxRow.Payload);
+
+            evt.Should().NotBeNull();
+            evt!.ProjectId.Should().BeGreaterThan(0,
+                "ProjectCreatedEvent.ProjectId must carry the real DB-assigned identity, " +
+                "not the pre-commit value of 0 (GitHub #3 / ADR-A two-phase fix)");
+        }
+        finally
+        {
+            connection.Dispose();
+        }
     }
 
     [Fact]
