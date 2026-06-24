@@ -1,30 +1,69 @@
 using FluentAssertions;
+using IoBuild.Devices.Application.Internal.QueryServices;
+using IoBuild.Devices.Infrastructure.Persistence.EFC.DbContext;
+using IoBuild.Devices.Infrastructure.Persistence.EFC.Repositories;
 using IoBuild.Devices.Interfaces.REST;
 using IoBuild.Devices.Interfaces.REST.Resources;
-using IoBuild.Shared.Domain.Model;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
+using Moq;
 
 namespace IoBuild.Devices.Tests.UnitTests;
 
 /// <summary>
-/// Task 3.1 RED: GET /api/v1/devices/types must include ControllableAttributes populated
-/// from DeviceCapabilityCatalog.ByType. Telemetry-only types return empty list.
+/// Task 3.1 — GET /api/v1/devices/types must include ControllableAttributes populated
+/// from the DB catalog. Telemetry-only types return empty list.
+///
+/// Updated for device-type-catalog Slice 1 (WU-1):
+///   Source is now DB catalog seeded via HasData migration (design D4/D5).
+///   Controller requires DeviceTypeCatalogQueryService (injected).
 /// </summary>
-public class DeviceTypeCatalogControllableAttributesTests
+public class DeviceTypeCatalogControllableAttributesTests : IDisposable
 {
-    [Fact]
-    public void GetDeviceTypes_Returns_ControllableAttributes_ForAcAndSmartLight()
+    private readonly SqliteConnection _connection;
+
+    public DeviceTypeCatalogControllableAttributesTests()
     {
-        var controller = new DevicesController(null!, null!);
+        _connection = new SqliteConnection("DataSource=:memory:");
+        _connection.Open();
+    }
 
-        var result = (controller.GetDeviceTypes() as OkObjectResult)!;
-        var body = (result.Value as DeviceTypeCatalogResource)!;
+    public void Dispose() => _connection.Dispose();
 
-        // AirConditioner must have controllable attributes
+    private DevicesDbContext BuildRelationalContext()
+    {
+        var options = new DbContextOptionsBuilder<DevicesDbContext>()
+            .UseSqlite(_connection)
+            .Options;
+        var ctx = new DevicesDbContext(options);
+        ctx.Database.EnsureCreated();
+        return ctx;
+    }
+
+    private static DevicesController BuildController(DevicesDbContext db)
+    {
+        var cmdSvc = new Mock<IoBuild.Devices.Domain.Services.IDeviceCommandService>().Object;
+        var querySvc = new DeviceQueryService(new DeviceRepository(db));
+        var catalogSvc = new DeviceTypeCatalogQueryService(new DeviceTypeRepository(db));
+        return new DevicesController(cmdSvc, querySvc, catalogSvc);
+    }
+
+    [Fact]
+    public async Task GetDeviceTypes_Returns_ControllableAttributes_ForAcAndSmartLight()
+    {
+        await using var db = BuildRelationalContext();
+        var controller = BuildController(db);
+
+        var actionResult = await controller.GetDeviceTypes();
+        var result = actionResult.Should().BeOfType<OkObjectResult>().Subject;
+        var body = result.Value.Should().BeOfType<DeviceTypeCatalogResource>().Subject;
+
+        // AirConditioner must have controllable attributes from DB catalog
         var acEntry = body.DeviceTypes.SingleOrDefault(t => t.Code == "AirConditioner");
         acEntry.Should().NotBeNull("AirConditioner must be in the catalog");
         acEntry!.ControllableAttributes.Should().NotBeEmpty(
-            "AirConditioner has targetTemperature, mode, power in DeviceCapabilityCatalog");
+            "AirConditioner has targetTemperature, mode, power in the DB catalog");
 
         var tempAttr = acEntry.ControllableAttributes.SingleOrDefault(a => a.Name == "targetTemperature");
         tempAttr.Should().NotBeNull("targetTemperature must be declared for AirConditioner");
@@ -33,11 +72,11 @@ public class DeviceTypeCatalogControllableAttributesTests
         tempAttr.Max.Should().Be(30);
         tempAttr.Unit.Should().Be("C");
 
-        // SmartLight must have controllable attributes
+        // SmartLight must have controllable attributes from DB catalog
         var slEntry = body.DeviceTypes.SingleOrDefault(t => t.Code == "SmartLight");
         slEntry.Should().NotBeNull("SmartLight must be in the catalog");
         slEntry!.ControllableAttributes.Should().NotBeEmpty(
-            "SmartLight has brightness and power in DeviceCapabilityCatalog");
+            "SmartLight has brightness and power in the DB catalog");
 
         var brightnessAttr = slEntry.ControllableAttributes.SingleOrDefault(a => a.Name == "brightness");
         brightnessAttr.Should().NotBeNull("brightness must be declared for SmartLight");
@@ -46,12 +85,14 @@ public class DeviceTypeCatalogControllableAttributesTests
     }
 
     [Fact]
-    public void GetDeviceTypes_TelemetryOnlyTypes_HaveEmptyControllableAttributes()
+    public async Task GetDeviceTypes_TelemetryOnlyTypes_HaveEmptyControllableAttributes()
     {
-        var controller = new DevicesController(null!, null!);
+        await using var db = BuildRelationalContext();
+        var controller = BuildController(db);
 
-        var result = (controller.GetDeviceTypes() as OkObjectResult)!;
-        var body = (result.Value as DeviceTypeCatalogResource)!;
+        var actionResult = await controller.GetDeviceTypes();
+        var result = actionResult.Should().BeOfType<OkObjectResult>().Subject;
+        var body = result.Value.Should().BeOfType<DeviceTypeCatalogResource>().Subject;
 
         // Telemetry-only types must have empty ControllableAttributes
         var telemetryTypes = new[] { "SmartMeter", "WaterSensor", "SmokeDetector" };
