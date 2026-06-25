@@ -213,12 +213,12 @@ const handlePayPlan = async (plan) => {
     <div class="subscription-container">
       <div class="header-row">
         <div class="header-left">
-          <h1 class="text-3xl font-extrabold text-gray-900 mb-1">
+          <h1 class="text-3xl text-gray-900 mb-1 page-title">
             {{ t("subscriptions.title") }}
           </h1>
           <p class="text-lg font-semibold text-gray-800">
             {{ t("subscriptions.current-plan") }}:
-            <span class="text-black font-bold">
+            <span class="text-gray-900 font-bold">
               {{ store.currentPlan?.name || "N/A" }}
             </span>
           </p>
@@ -234,7 +234,7 @@ const handlePayPlan = async (plan) => {
         </div>
       </div>
 
-      <div v-if="store.isLoading" class="flex justify-center items-center py-8">
+      <div v-if="store.isLoading" class="flex justify-content-center align-items-center py-8">
         <pv-progress-spinner />
       </div>
 
@@ -251,7 +251,7 @@ const handlePayPlan = async (plan) => {
 
         <div class="change-plan-section">
           <div
-            class="change-plan-header bg-white border border-green-500 text-green-600 font-semibold px-6 py-4 rounded-xl mb-6 text-center shadow-sm"
+            class="change-plan-header bg-white border border-green-500 text-green-600 font-semibold px-6 py-4 mb-6 text-center"
           >
             {{ t("subscriptions.change-plan") }}
           </div>
@@ -272,7 +272,7 @@ const handlePayPlan = async (plan) => {
         <p class="text-gray-500 mb-4">
           {{ t("subscriptions.no-subscription") }}
         </p>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div class="plans-grid">
           <PlanCard
             v-for="plan in store.availablePlans"
             :key="plan.name"
@@ -295,6 +295,30 @@ const handlePayPlan = async (plan) => {
 </template>
 
 <style scoped>
+
+/* ==================== TIPOGRAFÍA ==================== */
+.page-title {
+  font-weight: 800;
+}
+
+/* ==================== PLANS GRID (no-subscription state) ==================== */
+.plans-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+}
+
+@media (min-width: 768px) {
+  .plans-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .plans-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
 
 /* ==================== CONTENEDOR PRINCIPAL ==================== */
 .subscription-container {
@@ -349,7 +373,8 @@ li {
 
 .change-plan-header {
   justify-self: center;
-  border-radius: 10px;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .plan-cards-container {

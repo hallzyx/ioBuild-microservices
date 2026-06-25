@@ -13,13 +13,13 @@ defineEmits(['renew', 'cancel']);
 </script>
 
 <template>
-  <div class="current-plan-card border border-green-500 rounded-xl p-5 shadow-lg bg-white">
+  <div class="current-plan-card border border-green-500 p-5 bg-white">
     <h2 class="text-2xl font-bold mb-6 text-gray-800">
       {{ plan.description }}
     </h2>
 
     <div class="mb-6">
-      <p class="text-4xl font-extrabold text-gray-900 mb-3">
+      <p class="text-4xl text-gray-900 mb-3 plan-price">
         {{ plan.getFormattedPrice() }}
         <span class="text-lg font-normal text-gray-600">/{{ t("subscriptions.month") }}</span>
       </p>
@@ -31,17 +31,17 @@ defineEmits(['renew', 'cancel']);
       </p>
     </div>
 
-    <ul class="space-y-3 mb-8">
+    <ul class="flex flex-column gap-3 mb-8">
       <li
         v-for="(feature, i) in plan.features"
         :key="i"
-        class="flex items-start text-gray-700 text-lg"
+        class="flex align-items-start text-gray-700 text-lg"
       >
         <span class="text-green-500 mr-3 text-xl">✔</span> {{ feature }}
       </li>
     </ul>
 
-    <div class="flex flex-col gap-4">
+    <div class="flex flex-column gap-4">
       <pv-button
         :label="isProcessing ? 'Redirigiendo a Stripe...' : t('subscriptions.renew-plan')"
         class="custom-green-button-large"
@@ -67,8 +67,13 @@ defineEmits(['renew', 'cancel']);
   max-width: 650px;
   transform: scale(1.05);
   border-width: 3px !important;
+  border-radius: 0.75rem;
   box-shadow: 0 20px 50px rgba(16, 185, 129, 0.15), 0 10px 30px rgba(0, 0, 0, 0.1) !important;
   position: relative;
+}
+
+.plan-price {
+  font-weight: 800;
 }
 
 .current-plan-card::before {

@@ -21,7 +21,7 @@ const openReceipt = (url) => {
     :style="{ width: '700px' }"
     header="My Invoices"
   >
-    <div v-if="props.loading" class="flex justify-center items-center py-8">
+    <div v-if="props.loading" class="flex justify-content-center align-items-center py-8">
       <pv-progress-spinner />
     </div>
 

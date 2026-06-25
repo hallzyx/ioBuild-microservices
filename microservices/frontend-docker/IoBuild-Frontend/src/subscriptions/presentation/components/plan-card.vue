@@ -13,8 +13,8 @@ defineEmits(['select']);
 
 <template>
   <div
-    class="border border-green-500 rounded-xl p-6 bg-white shadow-sm hover:shadow-md transition plan-card"
-    :class="{ 'cursor-pointer': !isProcessing, 'cursor-not-allowed opacity-60': isProcessing }"
+    class="border border-green-500 p-6 bg-white plan-card"
+    :class="{ 'cursor-pointer': !isProcessing, 'plan-card--disabled': isProcessing }"
     @click="!isProcessing && $emit('select', plan)"
   >
     <h3 class="text-lg font-semibold text-gray-800 mb-1">
@@ -25,11 +25,11 @@ defineEmits(['select']);
       {{ plan.getFormattedPrice() }}
       <span class="text-base font-normal text-gray-600">/{{ t("subscriptions.month") }}</span>
     </p>
-    <ul class="space-y-2">
+    <ul class="flex flex-column gap-2">
       <li
         v-for="(feature, i) in plan.features"
         :key="i"
-        class="flex items-start text-gray-700"
+        class="flex align-items-start text-gray-700"
       >
         <span class="text-green-500 mr-2">✔</span> {{ feature }}
       </li>
@@ -44,6 +44,17 @@ defineEmits(['select']);
 
 li {
   line-height: 1.5rem;
+}
+
+.plan-card {
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: box-shadow 0.3s ease, transform 0.3s ease;
+}
+
+.plan-card--disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 /* Responsividad para las tarjetas de planes disponibles */
