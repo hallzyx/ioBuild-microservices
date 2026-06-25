@@ -237,8 +237,7 @@ function handleCancel() {
         v-model:visible="localVisible"
         modal
         header="Define Project Structure"
-        :style="{ width: '640px', maxWidth: '95vw' }"
-        :content-style="{ maxHeight: '70vh', overflowY: 'auto' }"
+        :style="{ width: '880px', maxWidth: '96vw', maxHeight: '90vh' }"
         class="define-structure-dialog"
     >
         <div class="ds-body">
@@ -391,6 +390,25 @@ function handleCancel() {
 <style scoped>
 /* ── Dialog shell (PrimeVue overrides) ─────────────────────────────── */
 :deep(.p-dialog) { background: #ffffff !important; }
+/* Robust height cap: header + footer stay pinned, only the body scrolls.
+   Guarantees the footer (Define Structure button) is always on screen,
+   no matter how many floors/units are configured.
+   Uses the generic .p-dialog selector — same pattern as the background
+   rules above that are known to apply; the custom-class selector did not match. */
+:deep(.p-dialog) {
+    display: flex;
+    flex-direction: column;
+    max-height: 90vh;
+}
+:deep(.p-dialog .p-dialog-content) {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+}
+:deep(.p-dialog .p-dialog-header),
+:deep(.p-dialog .p-dialog-footer) {
+    flex-shrink: 0;
+}
 :deep(.p-dialog .p-dialog-header),
 :deep(.p-dialog .p-dialog-content),
 :deep(.p-dialog .p-dialog-footer) {
@@ -475,9 +493,6 @@ function handleCancel() {
     display: flex;
     flex-direction: column;
     gap: 0.6rem;
-    max-height: 22rem;
-    overflow-y: auto;
-    padding-right: 0.25rem;
 }
 
 .floor-panel {
@@ -560,8 +575,8 @@ function handleCancel() {
 }
 
 .ds-units {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
     gap: 0.6rem;
 }
 
