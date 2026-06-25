@@ -147,7 +147,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="p-4">
+  <div class="device-management-view">
     <pv-toast />
 
     <!-- Owner: owner-scoped unit devices with control panel -->
@@ -191,8 +191,10 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.p-4 {
-  background: white !important;
+.device-management-view {
+  background: white;
+  padding: 1.5rem 2rem;
+  min-height: 100vh;
 }
 
 .owner-actions {

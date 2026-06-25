@@ -100,7 +100,7 @@ const onSave = () => {
     </div>
 
     <template #footer>
-      <div class="flex justify-end gap-2 w-full">
+      <div class="flex justify-content-end gap-2 w-full">
         <pv-button :label="t('devices.actions.cancel')" text @click="visible = false" />
         <pv-button :label="t('devices.actions.save')" :disabled="!isValid" @click="onSave" />
       </div>

@@ -14,7 +14,7 @@ defineProps({
 <template>
   <div class="mb-4">
     <div class="header-row">
-      <h1 class="text-3xl font-extrabold text-gray-900">{{ t('devices.title') }}</h1>
+      <h1 class="text-3xl text-gray-900 devices-title">{{ t('devices.title') }}</h1>
       <pv-button
         :label="t('devices.actions.add')"
         icon="pi pi-plus"
@@ -32,6 +32,10 @@ defineProps({
   justify-content: space-between;
   align-items: center;
   width: 100%;
+}
+
+.devices-title {
+  font-weight: 800;
 }
 
 /* Estilos para el botón Add Device */

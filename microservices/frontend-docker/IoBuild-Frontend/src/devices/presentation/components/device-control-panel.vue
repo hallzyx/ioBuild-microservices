@@ -159,20 +159,26 @@ async function onSend(attr) {
 .control-row {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 1rem;
   flex-wrap: wrap;
+  padding: 0.25rem 0;
 }
 
 .control-meta {
   display: flex;
   flex-direction: column;
-  min-width: 140px;
+  min-width: 160px;
+  max-width: 220px;
+  flex-shrink: 0;
 }
 
 .control-label {
   font-size: 0.8125rem;
   font-weight: 600;
   color: #374151;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.3;
 }
 
 .control-unit {

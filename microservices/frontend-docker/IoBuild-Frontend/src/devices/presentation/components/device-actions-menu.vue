@@ -50,7 +50,7 @@ const toggleMenu = (event, device) => {
       </template>
     </pv-menu>
 
-    <div class="flex gap-2 justify-end">
+    <div class="flex gap-2 justify-content-end">
       <pv-button icon="pi pi-cog" rounded text @click="emit('edit', device)" />
       <pv-button icon="pi pi-trash" rounded text severity="danger" @click="emit('delete', device)" />
     </div>
