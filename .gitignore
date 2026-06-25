@@ -65,6 +65,9 @@ coverage/
 # ── Split roles (guías locales para repo colaborativo - NO comitear) ──
 split-roles/
 
+# ── Local-only working files (script de demo, notas - NO comitear) ──
+local/
+
 context.md
 5.1_instructions.mdsdd/
 sdd/
