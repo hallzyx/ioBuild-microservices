@@ -91,4 +91,22 @@ const props = defineProps({
   color: #9CA3AF;
   margin-top: 0.25rem;
 }
+
+/* Icon background color variants (passed as prop strings) */
+.bg-blue-100   { background-color: #DBEAFE; }
+.bg-green-100  { background-color: #D1FAE5; }
+.bg-purple-100 { background-color: #EDE9FE; }
+.bg-orange-100 { background-color: #FFEDD5; }
+.bg-red-100    { background-color: #FEE2E2; }
+.bg-teal-100   { background-color: #CCFBF1; }
+.bg-yellow-100 { background-color: #FEF3C7; }
+
+/* Icon text color variants (passed as prop strings) */
+.text-blue-600   { color: #2563EB; }
+.text-green-600  { color: #16A34A; }
+.text-purple-600 { color: #7C3AED; }
+.text-orange-600 { color: #EA580C; }
+.text-red-600    { color: #DC2626; }
+.text-teal-600   { color: #0D9488; }
+.text-yellow-600 { color: #D97706; }
 </style>

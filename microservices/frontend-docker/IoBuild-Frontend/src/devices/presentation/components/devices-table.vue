@@ -50,7 +50,7 @@ const handleDelete = (device) => {
     :value="devices"
     dataKey="id"
     :loading="loading"
-    class="shadow-sm devices-table white-table-force"
+    class="devices-table white-table-force"
     :pt="{
       table: {
         style: 'min-width: 60rem; background: #ffffff !important; color-scheme: light !important;'
@@ -64,7 +64,7 @@ const handleDelete = (device) => {
       <div class="text-center py-4 text-gray-500">{{ t('devices.table.empty') }}</div>
     </template>
     <template #loading>
-      <div class="flex items-center gap-2 py-4">
+      <div class="flex align-items-center gap-2 py-4">
         <pv-progress-spinner style="width:24px;height:24px" strokeWidth="4" />
         <span class="font-medium text-gray-600">{{ t('devices.loading') }}</span>
       </div>
@@ -85,7 +85,7 @@ const handleDelete = (device) => {
     </pv-column>
     <pv-column :header="t('devices.table.actions')" style="width:8rem" bodyClass="text-right">
       <template #body="{ data }">
-        <div class="flex gap-2 justify-end">
+        <div class="flex gap-2 justify-content-end">
           <pv-button icon="pi pi-cog" rounded text @click="handleEdit(data)" />
           <pv-button icon="pi pi-trash" rounded text severity="danger" @click="handleDelete(data)" />
         </div>
@@ -98,6 +98,7 @@ const handleDelete = (device) => {
 .devices-table {
   color-scheme: light !important;
   background-color: #ffffff !important;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
 }
 
 .white-table-force {

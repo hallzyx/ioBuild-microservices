@@ -17,7 +17,7 @@ const getStatusColor = (status) => {
   <div class="unit-card">
     <div class="unit-header">
       <div class="unit-number">
-        <i class="pi pi-home text-purple-600"></i>
+        <i class="pi pi-home unit-home-icon"></i>
         <span>{{ unit.unitNumber }}</span>
       </div>
       <span class="connection-status" :class="getStatusColor(unit.connectionStatus)">
@@ -28,11 +28,11 @@ const getStatusColor = (status) => {
     
     <div class="unit-info">
       <p class="project-name">
-        <i class="pi pi-building text-sm"></i>
+        <i class="pi pi-building unit-info-icon"></i>
         {{ unit.projectName }}
       </p>
       <p class="device-count">
-        <i class="pi pi-box text-sm"></i>
+        <i class="pi pi-box unit-info-icon"></i>
         {{ unit.activeDevices }} Active Devices
       </p>
     </div>
@@ -101,4 +101,18 @@ const getStatusColor = (status) => {
   font-weight: 600;
   color: #111827;
 }
+
+.unit-home-icon {
+  color: #7C3AED;
+}
+
+.unit-info-icon {
+  font-size: 0.875rem;
+}
+
+/* Connection status color variants (returned from getStatusColor() in script) */
+.text-green-600 { color: #16A34A; }
+.bg-green-100   { background-color: #D1FAE5; }
+.text-red-600   { color: #DC2626; }
+.bg-red-100     { background-color: #FEE2E2; }
 </style>

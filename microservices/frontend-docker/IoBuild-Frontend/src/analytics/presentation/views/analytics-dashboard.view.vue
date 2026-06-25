@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, computed } from 'vue';
+import { onMounted, onActivated, onUnmounted, computed } from 'vue';
 import { useAnalyticsStore } from '../../application/analytics.store.js';
 import { useIamStore } from '../../../iam/application/iam.store.js';
 import BuilderDashboard from '../components/builder-dashboard.component.vue';
@@ -12,11 +12,37 @@ const currentUser = computed(() => iamStore.currentUser);
 const userRole = computed(() => currentUser.value?.role?.toLowerCase() || 'owner');
 const userId = computed(() => currentUser.value?.id || 1);
 
-onMounted(async () => {
+let retryTimer = null;
+
+async function loadDashboard() {
   if (userRole.value === 'builder') {
     await analyticsStore.fetchBuilderDashboard(userId.value);
+
+    // Single retry after 2.5 s when projects exist but units are still 0 —
+    // covers read-model eventual-consistency lag after structure is defined.
+    const dash = analyticsStore.builderDashboard;
+    if (dash && dash.activeProjectsCount > 0 && dash.totalUnits === 0) {
+      retryTimer = setTimeout(async () => {
+        retryTimer = null;
+        await analyticsStore.fetchBuilderDashboard(userId.value);
+      }, 2500);
+    }
   } else if (userRole.value === 'owner') {
     await analyticsStore.fetchOwnerDashboard(userId.value);
+  }
+}
+
+// onMounted fires on every fresh navigation (component is not keep-alive here).
+onMounted(loadDashboard);
+
+// onActivated fires only when the component IS wrapped in <keep-alive>.
+// Adding it here is defensive: ensures a fresh fetch if the router ever enables keep-alive.
+onActivated(loadDashboard);
+
+onUnmounted(() => {
+  if (retryTimer !== null) {
+    clearTimeout(retryTimer);
+    retryTimer = null;
   }
 });
 </script>
@@ -25,7 +51,7 @@ onMounted(async () => {
   <div class="analytics-view">
     <div v-if="analyticsStore.loading" class="loading-container">
       <pv-progress-spinner />
-      <p class="mt-4 text-gray-600">Loading dashboard...</p>
+      <p class="mt-4 loading-text">Loading dashboard...</p>
     </div>
 
     <div v-else-if="analyticsStore.errors.length" class="error-container">
@@ -46,7 +72,7 @@ onMounted(async () => {
       />
 
       <div v-else class="empty-state">
-        <p class="text-gray-500">No dashboard data available</p>
+        <p class="empty-text">No dashboard data available</p>
       </div>
     </div>
   </div>
@@ -77,5 +103,15 @@ onMounted(async () => {
   align-items: center;
   justify-content: center;
   min-height: 50vh;
+}
+
+.loading-text {
+  color: #4B5563;
+  margin-top: 1rem;
+}
+
+.empty-text {
+  color: #6B7280;
+  font-size: 0.875rem;
 }
 </style>
