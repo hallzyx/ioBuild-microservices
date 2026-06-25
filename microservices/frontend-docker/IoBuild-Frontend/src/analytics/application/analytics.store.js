@@ -100,6 +100,15 @@ export const useAnalyticsStore = defineStore("analytics", () => {
         errors.value = [];
     }
 
+    /**
+     * Invalidate the cached builder dashboard so the next navigation to the
+     * analytics view triggers a fresh fetch instead of showing a stale value.
+     * Called by project-details.vue after structure is successfully defined.
+     */
+    function invalidateBuilderDashboard() {
+        builderDashboard.value = null;
+    }
+
     return {
         builderDashboard,
         ownerDashboard,
@@ -118,7 +127,8 @@ export const useAnalyticsStore = defineStore("analytics", () => {
         fetchDeviceEnergy,
         fetchDeviceStatus,
         selectDevice,
-        clearErrors
+        clearErrors,
+        invalidateBuilderDashboard
     };
 });
 

@@ -4,6 +4,7 @@ import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { useConfirm } from "primevue/useconfirm";
 import useProjectStore from "../../application/project.store.js";
+import { useAnalyticsStore } from "../../../analytics/application/analytics.store.js";
 import DefineStructureDialog from "../components/define-structure-dialog.vue";
 import { ProjectApi } from "../../infrastructure/project-api.js";
 
@@ -12,6 +13,7 @@ const route = useRoute();
 const router = useRouter();
 const confirm = useConfirm();
 const store = useProjectStore();
+const analyticsStore = useAnalyticsStore();
 const projectApi = new ProjectApi();
 const project = ref(null);
 const units = ref([]);
@@ -93,6 +95,9 @@ const confirmDelete = () => {
 };
 
 async function onStructureDefined() {
+  // Invalidate the analytics builder dashboard so navigating to it re-fetches
+  // fresh data instead of showing a stale 0 from before structure was defined.
+  analyticsStore.invalidateBuilderDashboard();
   await store.fetchProjects();
   project.value = store.getProjectById(route.params.id);
   await loadUnits();
