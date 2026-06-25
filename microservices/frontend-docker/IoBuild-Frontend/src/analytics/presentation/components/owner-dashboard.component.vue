@@ -385,7 +385,7 @@ const chartOptions = {
         >
           <div class="device-health-header">
             <div class="device-info">
-              <i class="pi pi-box text-purple-600"></i>
+              <i class="pi pi-box device-health-icon"></i>
               <span class="device-name">{{ device.deviceName }}</span>
             </div>
             <span
@@ -421,8 +421,7 @@ const chartOptions = {
 <style scoped>
 .owner-dashboard {
   padding: 1.5rem;
-  max-width: 1400px;
-  margin: 0 auto;
+  max-width: 100%;
 }
 
 .dashboard-header {
@@ -525,6 +524,10 @@ const chartOptions = {
   gap: 0.5rem;
 }
 
+.device-health-icon {
+  color: #7C3AED;
+}
+
 .device-name {
   font-size: 0.875rem;
   font-weight: 700;
@@ -596,8 +599,20 @@ const chartOptions = {
 .no-data {
   text-align: center;
   color: #9CA3AF;
-  padding: 2rem;
-  font-size: 0.875rem;
+  padding: 1rem;
+  font-size: 0.8125rem;
+}
+
+/* Chart wrappers have fixed height; shrink the no-data placeholder so it doesn't
+   dominate the space when telemetry is intentionally empty (ADR-6). */
+.chart-wrapper .no-data {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 0;
+  margin: 0;
+  white-space: nowrap;
 }
 
 /* Telemetry Section */

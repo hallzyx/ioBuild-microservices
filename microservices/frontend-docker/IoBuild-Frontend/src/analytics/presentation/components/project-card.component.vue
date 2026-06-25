@@ -33,7 +33,7 @@ const getStatusColor = (status) => {
       <div class="project-info">
         <h4 class="project-name">{{ project.name }}</h4>
         <p class="project-location">
-          <i class="pi pi-map-marker text-sm"></i>
+          <i class="pi pi-map-marker location-icon"></i>
           {{ project.location }}
         </p>
       </div>
@@ -209,4 +209,18 @@ const getStatusColor = (status) => {
   border-radius: 9999px;
   transition: width 0.3s ease;
 }
+
+.location-icon {
+  font-size: 0.875rem;
+}
+
+/* Status badge color variants (returned from getStatusColor() in script) */
+.bg-green-100  { background-color: #D1FAE5; }
+.text-green-800 { color: #065F46; }
+.bg-orange-100 { background-color: #FFEDD5; }
+.text-orange-800 { color: #9A3412; }
+.bg-blue-100   { background-color: #DBEAFE; }
+.text-blue-800  { color: #1E40AF; }
+.bg-gray-100   { background-color: #F3F4F6; }
+.text-gray-800  { color: #1F2937; }
 </style>
