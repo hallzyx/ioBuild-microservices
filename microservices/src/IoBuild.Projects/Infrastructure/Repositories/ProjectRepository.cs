@@ -38,4 +38,11 @@ public class ProjectRepository : IProjectRepository
     {
         return await _context.Projects.ToListAsync();
     }
+
+    public async Task<IEnumerable<Project>> FindByBuilderIdAsync(int builderId)
+    {
+        return await _context.Projects
+            .Where(p => p.BuilderId == builderId)
+            .ToListAsync();
+    }
 }

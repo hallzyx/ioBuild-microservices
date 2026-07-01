@@ -31,9 +31,13 @@ public class ProjectsController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
-        var projects = await _queryService.Handle(new GetAllProjectsQuery());
-        var resources = ProjectResourceFromEntityAssembler.ToResourceEnumerable(projects);
-        return Ok(resources);
+        if (HttpContext.Items["UserId"] is int builderId)
+        {
+            var projects = await _queryService.Handle(new GetProjectsByBuilderIdQuery(builderId));
+            return Ok(ProjectResourceFromEntityAssembler.ToResourceEnumerable(projects));
+        }
+        var all = await _queryService.Handle(new GetAllProjectsQuery());
+        return Ok(ProjectResourceFromEntityAssembler.ToResourceEnumerable(all));
     }
 
     [HttpGet("{id}")]

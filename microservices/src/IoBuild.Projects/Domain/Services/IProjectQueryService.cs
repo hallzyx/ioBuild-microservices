@@ -6,5 +6,6 @@ namespace IoBuild.Projects.Domain.Services;
 public interface IProjectQueryService
 {
     Task<IEnumerable<Project>> Handle(GetAllProjectsQuery query);
+    Task<IEnumerable<Project>> Handle(GetProjectsByBuilderIdQuery query);
     Task<Project?> Handle(GetProjectByIdQuery query);
 }

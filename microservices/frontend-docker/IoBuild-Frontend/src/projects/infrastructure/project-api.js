@@ -14,9 +14,7 @@ export class ProjectApi extends BaseApi {
 
     async getProjectsByBuilderId(builderId) {
         const response = await this.#projectsEndpoint.getAll();
-        const allProjects = response.data;
-        const filtered = allProjects.filter(p => p.builderId === builderId);
-        return { data: filtered };
+        return response;
     }
 
     getProjectById(id) {
