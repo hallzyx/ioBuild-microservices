@@ -426,6 +426,7 @@ public class AnalyticsEventConsumer : BackgroundService
         row.OwnerUserId = evt.OwnerUserId;
         if (!string.IsNullOrEmpty(evt.OwnerEmail))
             row.OwnerEmail = evt.OwnerEmail;
+        row.Status      = "Occupied";
         row.LastEventAt = evt.OccurredOn;
         await db.SaveChangesAsync();
     }

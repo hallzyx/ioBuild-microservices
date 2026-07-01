@@ -29,6 +29,14 @@ async function loadDashboard() {
     }
   } else if (userRole.value === 'owner') {
     await analyticsStore.fetchOwnerDashboard(userId.value);
+
+    const ownerDash = analyticsStore.ownerDashboard;
+    if (ownerDash && ownerDash.myUnitsCount === 0) {
+      retryTimer = setTimeout(async () => {
+        retryTimer = null;
+        await analyticsStore.fetchOwnerDashboard(userId.value);
+      }, 2500);
+    }
   }
 }
 

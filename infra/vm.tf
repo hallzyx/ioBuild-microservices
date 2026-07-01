@@ -122,6 +122,8 @@ resource "azurerm_linux_virtual_machine" "main" {
     stripe_secret_key      = var.stripe_secret_key
     stripe_publishable_key = var.stripe_publishable_key
     stripe_webhook_secret  = var.stripe_webhook_secret
+    rabbitmq_user          = var.rabbitmq_user
+    rabbitmq_pass          = var.rabbitmq_pass
   }))
 
   tags = { project = "iobuild-demo", lifecycle = "ephemeral" }

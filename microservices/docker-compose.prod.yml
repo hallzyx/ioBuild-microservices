@@ -29,6 +29,7 @@ services:
     mem_limit: 256m
     depends_on:
       mysql: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
     environment:
       - ASPNETCORE_URLS=http://+:5001
       - ASPNETCORE_ENVIRONMENT=Production
@@ -38,13 +39,14 @@ services:
       - DB_PASSWORD=${DB_PASSWORD:-iobuild123}
       - DB_NAME=iobuild_iam
       - JWT_SECRET=${JWT_SECRET:-dev-fallback-key-minimum-32-characters!!}
+      - RabbitMq__ConnectionString=amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672/
     networks: [iobuild-network]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
       interval: 10s
       timeout: 5s
-      retries: 5
-      start_period: 20s
+      retries: 10
+      start_period: 90s
 
   devices:
     image: ghcr.io/hallzyx/iobuild-devices:${IMAGE_TAG:-latest}
@@ -74,8 +76,8 @@ services:
       test: ["CMD", "curl", "-f", "http://localhost:5002/health"]
       interval: 10s
       timeout: 5s
-      retries: 5
-      start_period: 20s
+      retries: 10
+      start_period: 60s
 
   projects:
     image: ghcr.io/hallzyx/iobuild-projects:${IMAGE_TAG:-latest}
@@ -100,8 +102,8 @@ services:
       test: ["CMD", "curl", "-f", "http://localhost:5003/health"]
       interval: 10s
       timeout: 5s
-      retries: 5
-      start_period: 20s
+      retries: 10
+      start_period: 60s
 
   subscriptions:
     image: ghcr.io/hallzyx/iobuild-subscriptions:${IMAGE_TAG:-latest}
@@ -127,8 +129,8 @@ services:
       test: ["CMD", "curl", "-f", "http://localhost:5004/health"]
       interval: 10s
       timeout: 5s
-      retries: 5
-      start_period: 20s
+      retries: 10
+      start_period: 60s
 
   analytics:
     image: ghcr.io/hallzyx/iobuild-analytics:${IMAGE_TAG:-latest}
@@ -152,8 +154,8 @@ services:
       test: ["CMD", "curl", "-f", "http://localhost:5005/health"]
       interval: 10s
       timeout: 5s
-      retries: 5
-      start_period: 20s
+      retries: 10
+      start_period: 60s
 
   profiles:
     image: ghcr.io/hallzyx/iobuild-profiles:${IMAGE_TAG:-latest}
@@ -176,8 +178,8 @@ services:
       test: ["CMD", "curl", "-f", "http://localhost:5006/health"]
       interval: 10s
       timeout: 5s
-      retries: 5
-      start_period: 20s
+      retries: 10
+      start_period: 60s
 
   gateway:
     image: ghcr.io/hallzyx/iobuild-gateway:${IMAGE_TAG:-latest}
@@ -199,8 +201,8 @@ services:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 15s
       timeout: 5s
-      retries: 5
-      start_period: 30s
+      retries: 10
+      start_period: 90s
 
   rabbitmq:
     image: rabbitmq:4-management
