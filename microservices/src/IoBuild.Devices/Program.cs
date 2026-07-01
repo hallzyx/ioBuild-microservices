@@ -1,3 +1,4 @@
+using IoBuild.Shared.Infrastructure.Observability;
 using IoBuild.Shared.Infrastructure.Tokens;
 using Microsoft.EntityFrameworkCore;
 using IoBuild.Devices.Application.Internal.CommandServices;
@@ -121,6 +122,8 @@ builder.Services.AddHostedService<UnitOwnerProjectionConsumer>();
 
 // ── DeviceRegistryAnnouncer: re-announce all devices to MQTT registry/# on startup (simulator discovery) ──
 builder.Services.AddHostedService<DeviceRegistryAnnouncer>();
+
+builder.Services.AddIoBuildObservability("IoBuild.Devices");
 
 builder.Services.AddCors(options =>
 {

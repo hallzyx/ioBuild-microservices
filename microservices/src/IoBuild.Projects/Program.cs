@@ -1,4 +1,5 @@
 using IoBuild.Projects.Application.Services;
+using IoBuild.Shared.Infrastructure.Observability;
 using IoBuild.Projects.Infrastructure.Persistence;
 using IoBuild.Projects.Domain.Repositories;
 using IoBuild.Projects.Domain.Services;
@@ -110,6 +111,8 @@ builder.Services.AddCors(options =>
               .AllowAnyHeader();
     });
 });
+
+builder.Services.AddIoBuildObservability("IoBuild.Projects");
 
 var app = builder.Build();
 

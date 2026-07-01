@@ -1,4 +1,5 @@
 using IoBuild.IAM.Application.Internal.CommandServices;
+using IoBuild.Shared.Infrastructure.Observability;
 using IoBuild.IAM.Application.Internal.OutboundServices;
 using IoBuild.IAM.Application.Internal.QueryServices;
 using IoBuild.IAM.Domain.Repositories;
@@ -114,6 +115,8 @@ builder.Services.AddControllers(options =>
 {
     options.Conventions.Add(new KebabCaseRouteNamingConvention());
 });
+
+builder.Services.AddIoBuildObservability("IoBuild.IAM");
 
 var app = builder.Build();
 

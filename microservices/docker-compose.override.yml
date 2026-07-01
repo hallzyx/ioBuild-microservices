@@ -81,3 +81,7 @@ services:
   redis:
     ports:
       - "6379:6379"   # Redis — local debugging only
+
+  jaeger:
+    ports:
+      - "16686:16686"   # Jaeger UI — http://localhost:16686
