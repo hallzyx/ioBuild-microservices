@@ -71,5 +71,9 @@ services:
 
   rabbitmq:
     ports:
-      - "5672:5672"   # AMQP (already published in base, kept explicit for clarity)
-      - "15672:15672" # Management UI — http://localhost:15672 (guest/iobuild)
+      - "5672:5672"   # AMQP — local debugging only
+      - "15672:15672" # Management UI — http://localhost:15672
+
+  mosquitto:
+    ports:
+      - "1883:1883"   # MQTT — local debugging only
