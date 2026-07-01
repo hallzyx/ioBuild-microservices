@@ -47,7 +47,7 @@ const chartData = computed(() => {
   if (!data?.length) return null;
 
   return {
-    labels: data.map(p => new Date(p.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })),
+    labels: data.map(p => new Date(p.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })),
     datasets: [{
       label: 'Energy (kWh)',
       data: data.map(p => p.totalEnergyKwh),
