@@ -2,6 +2,7 @@ using IoBuild.Analytics.Domain.Model.Aggregates;
 using IoBuild.Analytics.Domain.Model.Entities;
 using IoBuild.Analytics.Domain.Model.Queries;
 using IoBuild.Analytics.Domain.Services;
+using IoBuild.Analytics.Infrastructure.InfluxDB;
 using Microsoft.EntityFrameworkCore;
 
 namespace IoBuild.Analytics.Application.Internal.QueryServices;
@@ -24,6 +25,7 @@ public class AnalyticsQueryService : IAnalyticsQueryService
 
     private readonly AnalyticsDbContext _db;
     private readonly ILogger<AnalyticsQueryService> _logger;
+    private readonly ILiveEnergyService _liveEnergyService;
 
     // ACL facades (IDevicesContextFacade / IProjectsContextFacade) have been removed.
     // All metrics are now computed from the local projection tables populated by
@@ -31,10 +33,12 @@ public class AnalyticsQueryService : IAnalyticsQueryService
 
     public AnalyticsQueryService(
         AnalyticsDbContext db,
-        ILogger<AnalyticsQueryService> logger)
+        ILogger<AnalyticsQueryService> logger,
+        ILiveEnergyService liveEnergyService)
     {
         _db = db;
         _logger = logger;
+        _liveEnergyService = liveEnergyService;
     }
 
     /// <summary>
@@ -223,5 +227,39 @@ public class AnalyticsQueryService : IAnalyticsQueryService
 
         // Eventually consistent — telemetry out of scope
         return Task.FromResult<IEnumerable<HistoricalDataPoint>>([]);
+    }
+
+    /// <summary>
+    /// Returns per-minute aggregated energy_kwh for all devices in the builder's projects,
+    /// queried from InfluxDB over the requested time window.
+    /// </summary>
+    public async Task<IEnumerable<EnergyMinutePoint>> Handle(GetBuilderLiveEnergyQuery query)
+    {
+        _logger.LogInformation("GetBuilderLiveEnergy for user {UserId}, {Minutes}m", query.UserId, query.Minutes);
+
+        var deviceIds = await _db.DeviceProjections
+            .Where(d => d.ProjectId != null && _db.ProjectProjections
+                .Any(p => p.BuilderUserId == query.UserId && p.ProjectId == d.ProjectId!.Value))
+            .Select(d => d.DeviceId.ToString())
+            .ToListAsync();
+
+        return await _liveEnergyService.GetAggregatedAsync(deviceIds, query.Minutes);
+    }
+
+    /// <summary>
+    /// Returns per-minute aggregated energy_kwh for all devices in units owned by the user,
+    /// queried from InfluxDB over the requested time window.
+    /// </summary>
+    public async Task<IEnumerable<EnergyMinutePoint>> Handle(GetOwnerLiveEnergyQuery query)
+    {
+        _logger.LogInformation("GetOwnerLiveEnergy for user {UserId}, {Minutes}m", query.UserId, query.Minutes);
+
+        var deviceIds = await _db.DeviceProjections
+            .Where(d => d.UnitId != null && _db.UnitProjections
+                .Any(u => u.OwnerUserId == query.UserId && u.UnitId == d.UnitId!.Value))
+            .Select(d => d.DeviceId.ToString())
+            .ToListAsync();
+
+        return await _liveEnergyService.GetAggregatedAsync(deviceIds, query.Minutes);
     }
 }

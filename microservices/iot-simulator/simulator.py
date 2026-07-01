@@ -43,10 +43,18 @@ _lock = threading.Lock()
 
 
 def generate_payload(device_id: int, desired: dict) -> dict:
+    # Scale energy by intensity/brightness if set (0-100 range, default 100).
+    # Allows owner-controlled dimming commands to reflect in telemetry consumption.
+    intensity = desired.get('intensity', 100)
+    brightness = desired.get('brightness', intensity)  # fallback alias
+    scale = max(0.0, min(1.0, brightness / 100.0))
+    base_energy = random.uniform(0.5, 3.0)
+    energy_kwh = round(base_energy * scale if scale < 1.0 else base_energy, 2)
+
     payload = {
         "deviceId": device_id,
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "energy_kwh": round(random.uniform(0.5, 3.0), 2),
+        "energy_kwh": energy_kwh,
         "temperature_c": round(random.uniform(18.0, 35.0), 1),
         "voltage_v": round(random.uniform(215.0, 230.0), 1),
         "status": random.choice(STATUS_WEIGHTS),

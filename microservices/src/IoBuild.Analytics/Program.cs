@@ -1,5 +1,6 @@
 using IoBuild.Analytics.Application.Internal.QueryServices;
 using IoBuild.Analytics.Domain.Services;
+using IoBuild.Analytics.Infrastructure.InfluxDB;
 using IoBuild.Analytics.Infrastructure.Messaging;
 using Microsoft.EntityFrameworkCore;
 using IoBuild.Analytics;
@@ -55,6 +56,18 @@ builder.Services.AddDbContext<AnalyticsDbContext>(options =>
 // AnalyticsEventConsumer (ADR-6, REQ-AQ-01).
 // The facade classes are retained under Interfaces/ACL/ and Application/ACL/ for
 // rollback reference — they are orphaned and no longer registered in DI.
+
+// ── InfluxDB ──
+var influxToken = Environment.GetEnvironmentVariable("INFLUXDB_TOKEN") ?? "iobuild-telemetry-token";
+builder.Services.Configure<InfluxDbOptions>(opts =>
+{
+    opts.Host = Environment.GetEnvironmentVariable("INFLUXDB_HOST") ?? "influxdb";
+    opts.Port = 8086;
+    opts.Token = influxToken;
+    opts.Org = "iobuild";
+    opts.Bucket = "iobuild-telemetry";
+});
+builder.Services.AddSingleton<ILiveEnergyService, LiveEnergyService>();
 
 builder.Services.AddScoped<IAnalyticsQueryService, AnalyticsQueryService>();
 

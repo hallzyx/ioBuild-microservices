@@ -121,6 +121,21 @@ export class AnalyticsApi extends BaseApi {
     }
 
     /**
+     * Get live per-minute energy aggregation for a builder or owner
+     * @param {number} userId - The user ID
+     * @param {'builder'|'owner'} role - The user role
+     * @param {number} [minutes=10] - Time window in minutes (1-60)
+     * @returns {Promise<Array<{timestamp: string, totalEnergyKwh: number}>>}
+     */
+    async getLiveEnergy(userId, role, minutes = 10) {
+        const path = role === 'builder'
+            ? `${analyticsBasePath}/builders/${userId}/energy`
+            : `${analyticsBasePath}/owners/${userId}/energy`;
+        const response = await this.http.get(path, { params: { minutes } });
+        return response.data;
+    }
+
+    /**
      * Get the current status of a device
      * @param {number|string} deviceId - The device ID
      * @returns {Promise<{deviceId: string, status: string, lastSeen: string, temperatureC: number, voltageV: number}>}

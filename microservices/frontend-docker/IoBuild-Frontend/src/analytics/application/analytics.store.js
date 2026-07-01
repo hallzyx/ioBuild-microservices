@@ -19,6 +19,10 @@ export const useAnalyticsStore = defineStore("analytics", () => {
     const devices = ref([]);
     const telemetryLoading = ref(false);
 
+    const liveEnergyData = ref([]);
+    const liveEnergyLoading = ref(false);
+    let _liveEnergyInterval = null;
+
     async function fetchBuilderDashboard(builderId) {
         loading.value = true;
         try {
@@ -96,6 +100,29 @@ export const useAnalyticsStore = defineStore("analytics", () => {
         selectedDeviceId.value = deviceId;
     }
 
+    async function fetchLiveEnergy(userId, role, minutes = 10) {
+        liveEnergyLoading.value = true;
+        try {
+            liveEnergyData.value = await analyticsApi.getLiveEnergy(userId, role, minutes);
+        } catch (e) {
+            liveEnergyData.value = [];
+        } finally {
+            liveEnergyLoading.value = false;
+        }
+    }
+
+    function startLiveEnergyPolling(userId, role, minutes = 10) {
+        fetchLiveEnergy(userId, role, minutes);
+        _liveEnergyInterval = setInterval(() => fetchLiveEnergy(userId, role, minutes), 30000);
+    }
+
+    function stopLiveEnergyPolling() {
+        if (_liveEnergyInterval) {
+            clearInterval(_liveEnergyInterval);
+            _liveEnergyInterval = null;
+        }
+    }
+
     function clearErrors() {
         errors.value = [];
     }
@@ -128,7 +155,12 @@ export const useAnalyticsStore = defineStore("analytics", () => {
         fetchDeviceStatus,
         selectDevice,
         clearErrors,
-        invalidateBuilderDashboard
+        invalidateBuilderDashboard,
+        liveEnergyData,
+        liveEnergyLoading,
+        fetchLiveEnergy,
+        startLiveEnergyPolling,
+        stopLiveEnergyPolling
     };
 });
 

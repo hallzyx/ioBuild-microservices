@@ -5,7 +5,9 @@ import { Line, Bar } from 'vue-chartjs';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, Filler } from 'chart.js';
 import StatCard from './stat-card.component.vue';
 import UnitCard from './unit-card.component.vue';
+import LiveEnergyChart from './live-energy-chart.component.vue';
 import { useAnalyticsStore } from '../../application/analytics.store.js';
+import { useIamStore } from '../../../iam/application/iam.store.js';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, Filler);
 
@@ -24,6 +26,10 @@ const props = defineProps({
 });
 
 const analyticsStore = useAnalyticsStore();
+const iamStore = useIamStore();
+
+const userId = computed(() => iamStore.currentUser?.id || 1);
+const liveMinutes = ref(10);
 
 const timeRange = ref('24h');
 const timeRangeOptions = [
@@ -303,6 +309,15 @@ const chartOptions = {
       </div>
     </div>
     
+    <!-- Live Energy Chart -->
+    <div class="chart-container live-energy-section">
+      <h3 class="chart-title">Live Energy — Last {{ liveMinutes }} min</h3>
+      <p class="chart-subtitle">Auto-refreshes every 30s</p>
+      <div class="chart-wrapper">
+        <LiveEnergyChart :user-id="userId" role="owner" :minutes="liveMinutes" />
+      </div>
+    </div>
+
     <!-- Device Telemetry Section -->
     <div class="section telemetry-section">
       <h3 class="section-title">{{ $t('devices.telemetry.selectDevice') }}</h3>
@@ -469,7 +484,17 @@ const chartOptions = {
   font-size: 1.125rem;
   font-weight: 700;
   color: #111827;
+  margin-bottom: 0.25rem;
+}
+
+.chart-subtitle {
+  font-size: 0.75rem;
+  color: #6B7280;
   margin-bottom: 1rem;
+}
+
+.live-energy-section {
+  margin-bottom: 1.5rem;
 }
 
 .chart-wrapper {

@@ -3,6 +3,7 @@ using IoBuild.Analytics.Domain.Model.Queries;
 using IoBuild.Analytics.Domain.Services;
 using IoBuild.Analytics.Interfaces.REST.Assemblers;
 using Swashbuckle.AspNetCore.Annotations;
+using IoBuild.Analytics.Infrastructure.InfluxDB;
 
 namespace IoBuild.Analytics.Interfaces.REST;
 
@@ -42,6 +43,26 @@ public class AnalyticsController : ControllerBase
         if (result == null)
             return NotFound(new { message = "No owner metrics found for the specified user." });
         return Ok(OwnerDashboardAssembler.ToResource(result));
+    }
+
+    [HttpGet("builders/{userId}/energy")]
+    [SwaggerOperation(Summary = "Gets live energy consumption for a builder", Description = "Returns per-minute aggregated energy_kwh across all devices in the builder's projects")]
+    [SwaggerResponse(200, "Live energy data retrieved successfully")]
+    public async Task<IActionResult> GetBuilderLiveEnergy(int userId, [FromQuery] int minutes = 10)
+    {
+        var query = new GetBuilderLiveEnergyQuery(userId, Math.Clamp(minutes, 1, 60));
+        var result = await _analyticsQueryService.Handle(query);
+        return Ok(result.Select(p => new { timestamp = p.Timestamp, totalEnergyKwh = p.TotalEnergyKwh }));
+    }
+
+    [HttpGet("owners/{userId}/energy")]
+    [SwaggerOperation(Summary = "Gets live energy consumption for an owner", Description = "Returns per-minute aggregated energy_kwh across all devices in units owned by the user")]
+    [SwaggerResponse(200, "Live energy data retrieved successfully")]
+    public async Task<IActionResult> GetOwnerLiveEnergy(int userId, [FromQuery] int minutes = 10)
+    {
+        var query = new GetOwnerLiveEnergyQuery(userId, Math.Clamp(minutes, 1, 60));
+        var result = await _analyticsQueryService.Handle(query);
+        return Ok(result.Select(p => new { timestamp = p.Timestamp, totalEnergyKwh = p.TotalEnergyKwh }));
     }
 
     [HttpGet("insights")]
