@@ -155,7 +155,7 @@ public class AnalyticsQueryService : IAnalyticsQueryService
         // translation limitation; same constraint documented at builder dashboard, line ~51).
         // DeviceProjection.OwnerUserId is always 0 — do NOT filter on it.
         var devices = await _db.DeviceProjections
-            .Where(d => d.UnitId != null && _db.UnitProjections
+            .Where(d => d.UnitId != null && d.FloorNumber == null && _db.UnitProjections
                 .Any(u => u.OwnerUserId == query.UserId && u.UnitId == d.UnitId!.Value))
             .ToListAsync();
 
