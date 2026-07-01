@@ -37,9 +37,29 @@ services:
     ports:
       - "5006:5006"
 
-  mysql:
+  mysql-iam:
     ports:
-      - "3306:3306" # Acceso con MySQL Workbench/DBeaver
+      - "3307:3306"
+
+  mysql-devices:
+    ports:
+      - "3308:3306"
+
+  mysql-projects:
+    ports:
+      - "3309:3306"
+
+  mysql-subscriptions:
+    ports:
+      - "3310:3306"
+
+  mysql-analytics:
+    ports:
+      - "3311:3306"
+
+  mysql-profiles:
+    ports:
+      - "3312:3306"
 
   frontend:
     ports:
