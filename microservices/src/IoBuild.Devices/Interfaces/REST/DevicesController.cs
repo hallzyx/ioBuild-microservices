@@ -45,7 +45,7 @@ public class DevicesController(
     /// Returns 200 on success, 400 on invalid attribute/range, 403 on missing ownership,
     /// 404 on missing device.
     /// </summary>
-    [HttpPost("{id}/command")]
+    [HttpPost("{id}/commands")]
     public async Task<IActionResult> SendDeviceCommand(int id, [FromBody] SendCommandResource resource)
     {
         if (actuationService is null)
@@ -130,9 +130,8 @@ public class DevicesController(
     public async Task<IActionResult> UpdateDevice(int id, [FromBody] UpdateDeviceResource resource)
     {
         var command = DeviceResourceToCommandAssembler.ToCommandFromResource(id, resource);
-        var device = await commandService.Handle(command);
-        var deviceResource = DeviceResourceFromEntityAssembler.ToResourceFromEntity(device);
-        return Ok(deviceResource);
+        await commandService.Handle(command);
+        return NoContent();
     }
 
     [HttpDelete("{id}")]

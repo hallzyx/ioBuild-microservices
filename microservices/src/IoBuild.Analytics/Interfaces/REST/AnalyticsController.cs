@@ -18,30 +18,30 @@ public class AnalyticsController : ControllerBase
         _analyticsQueryService = analyticsQueryService;
     }
 
-    [HttpGet("metrics/{userId}")]
-    [SwaggerOperation(Summary = "Gets dashboard metrics by user and role", Description = "Returns builder or owner dashboard metrics based on the role parameter")]
+    [HttpGet("builders/{userId}/metrics")]
+    [SwaggerOperation(Summary = "Gets builder dashboard metrics", Description = "Returns builder dashboard metrics for the specified user")]
     [SwaggerResponse(200, "Dashboard metrics retrieved successfully")]
     [SwaggerResponse(404, "User not found or no data available")]
-    public async Task<IActionResult> GetDashboardMetrics(int userId, [FromQuery] string role = "builder")
+    public async Task<IActionResult> GetBuilderDashboardMetrics(int userId)
     {
-        if (role.Equals("builder", StringComparison.OrdinalIgnoreCase))
-        {
-            var query = new GetBuilderDashboardQuery(userId);
-            var result = await _analyticsQueryService.Handle(query);
-            if (result == null)
-                return NotFound(new { message = "No builder metrics found for the specified user." });
-            return Ok(BuilderDashboardAssembler.ToResource(result));
-        }
-        else if (role.Equals("owner", StringComparison.OrdinalIgnoreCase))
-        {
-            var query = new GetOwnerDashboardQuery(userId);
-            var result = await _analyticsQueryService.Handle(query);
-            if (result == null)
-                return NotFound(new { message = "No owner metrics found for the specified user." });
-            return Ok(OwnerDashboardAssembler.ToResource(result));
-        }
+        var query = new GetBuilderDashboardQuery(userId);
+        var result = await _analyticsQueryService.Handle(query);
+        if (result == null)
+            return NotFound(new { message = "No builder metrics found for the specified user." });
+        return Ok(BuilderDashboardAssembler.ToResource(result));
+    }
 
-        return BadRequest(new { message = "Invalid role. Use 'builder' or 'owner'." });
+    [HttpGet("owners/{userId}/metrics")]
+    [SwaggerOperation(Summary = "Gets owner dashboard metrics", Description = "Returns owner dashboard metrics for the specified user")]
+    [SwaggerResponse(200, "Dashboard metrics retrieved successfully")]
+    [SwaggerResponse(404, "User not found or no data available")]
+    public async Task<IActionResult> GetOwnerDashboardMetrics(int userId)
+    {
+        var query = new GetOwnerDashboardQuery(userId);
+        var result = await _analyticsQueryService.Handle(query);
+        if (result == null)
+            return NotFound(new { message = "No owner metrics found for the specified user." });
+        return Ok(OwnerDashboardAssembler.ToResource(result));
     }
 
     [HttpGet("insights")]

@@ -23,7 +23,7 @@ namespace IoBuild.Devices.Interfaces.REST;
 /// return 403 when role != "Owner". The [Authorize] filter guards unauthenticated callers (401).
 /// </summary>
 [ApiController]
-[Route("api/v1/devices/types/custom")]
+[Route("api/v1/custom-device-types")]
 [Authorize]
 public class CustomDeviceTypeController(
     CustomDeviceTypeCommandService commandService,

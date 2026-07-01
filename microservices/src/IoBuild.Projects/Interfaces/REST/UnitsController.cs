@@ -30,7 +30,7 @@ public class UnitsController : ControllerBase
         return Ok(resources);
     }
 
-    [HttpGet("by-project/{projectId}")]
+    [HttpGet("/api/v1/projects/{projectId}/units")]
     public async Task<IActionResult> GetByProjectId(int projectId)
     {
         var units = await _queryService.Handle(new GetUnitsByProjectIdQuery(projectId));
@@ -80,6 +80,6 @@ public class UnitsController : ControllerBase
     public async Task<IActionResult> Delete(int id)
     {
         // Soft delete not implemented; remove all related data or mark as inactive.
-        return Ok(new { message = $"Unit {id} deletion is not yet implemented." });
+        return StatusCode(501, new { message = "Unit deletion is not yet implemented." });
     }
 }

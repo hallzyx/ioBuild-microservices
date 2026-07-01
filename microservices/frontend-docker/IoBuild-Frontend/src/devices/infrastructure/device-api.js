@@ -91,7 +91,7 @@ export class DeviceApi extends BaseApi {
   async sendCommand(deviceId, attribute, value) {
     // Let the caller handle HTTP errors (status codes matter for UX)
     const response = await this.http.post(
-      `${this.devicesEndpoint}/${deviceId}/command`,
+      `${this.devicesEndpoint}/${deviceId}/commands`,
       { attribute, value }
     );
     return response.data;
@@ -110,14 +110,14 @@ export class DeviceApi extends BaseApi {
    */
   async createCustomType(payload) {
     const response = await this.http.post(
-      `${this.devicesEndpoint}/types/custom`,
+      `/custom-device-types`,
       payload
     );
     return response.data;
   }
 
   /**
-   * GET /api/v1/devices/types/custom?ownerId={ownerId}
+   * GET /api/v1/custom-device-types?ownerId={ownerId}
    * Owner-only. Lists all custom device types for the given owner.
    * The server validates ownerId matches the JWT principal (returns 403 on mismatch).
    *
@@ -126,7 +126,7 @@ export class DeviceApi extends BaseApi {
    */
   async listCustomTypes(ownerId) {
     const response = await this.http.get(
-      `${this.devicesEndpoint}/types/custom`,
+      `/custom-device-types`,
       { params: { ownerId } }
     );
     return response.data;

@@ -23,22 +23,25 @@ public class ClientsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAll()
+    public async Task<IActionResult> GetAll([FromQuery] int? projectId = null)
     {
-        var clients = await _queryService.Handle(new GetAllClientsQuery());
-        var resources = ClientResourceFromEntityAssembler.ToResourceEnumerable(clients);
-        return Ok(resources);
-    }
+        if (projectId.HasValue)
+        {
+            var clients = await _queryService.Handle(new GetClientsByProjectIdQuery(projectId.Value));
+            var resources = ClientResourceFromEntityAssembler.ToResourceEnumerable(clients);
+            return Ok(resources);
+        }
 
-    [HttpGet("mine")]
-    public async Task<IActionResult> GetMine()
-    {
-        if (HttpContext.Items["UserId"] is not int builderId)
-            return Unauthorized();
+        if (HttpContext.Items["UserId"] is int builderId)
+        {
+            var clients = await _queryService.Handle(new GetClientsByBuilderIdQuery(builderId));
+            var resources = ClientResourceFromEntityAssembler.ToResourceEnumerable(clients);
+            return Ok(resources);
+        }
 
-        var clients = await _queryService.Handle(new GetClientsByBuilderIdQuery(builderId));
-        var resources = ClientResourceFromEntityAssembler.ToResourceEnumerable(clients);
-        return Ok(resources);
+        var allClients = await _queryService.Handle(new GetAllClientsQuery());
+        var allResources = ClientResourceFromEntityAssembler.ToResourceEnumerable(allClients);
+        return Ok(allResources);
     }
 
     [HttpGet("{id}")]
@@ -50,14 +53,6 @@ public class ClientsController : ControllerBase
 
         var resource = ClientResourceFromEntityAssembler.ToResource(client);
         return Ok(resource);
-    }
-
-    [HttpGet("by-project/{projectId}")]
-    public async Task<IActionResult> GetByProjectId(int projectId)
-    {
-        var clients = await _queryService.Handle(new GetClientsByProjectIdQuery(projectId));
-        var resources = ClientResourceFromEntityAssembler.ToResourceEnumerable(clients);
-        return Ok(resources);
     }
 
     [HttpPost]

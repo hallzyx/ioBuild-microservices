@@ -27,11 +27,12 @@ export class AnalyticsApi extends BaseApi {
      */
     async getDashboardMetrics(userId, role) {
         try {
-            const response = await this.http.get(`${analyticsBasePath}/metrics/${userId}?role=${role}`);
-            
+            let response;
             if (role === 'builder') {
+                response = await this.http.get(`${analyticsBasePath}/builders/${userId}/metrics`);
                 return BuilderDashboardAssembler.toEntity(response.data);
             } else {
+                response = await this.http.get(`${analyticsBasePath}/owners/${userId}/metrics`);
                 return OwnerDashboardAssembler.toEntity(response.data);
             }
         } catch (error) {

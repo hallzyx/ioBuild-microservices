@@ -8,35 +8,34 @@ using Microsoft.AspNetCore.Mvc;
 namespace IoBuild.IAM.Interfaces.REST;
 
 [ApiController]
-[Route("api/v1/[controller]")]
 public class AuthenticationController(
     IUserCommandService userCommandService,
     ITokenBlacklistService tokenBlacklistService) : ControllerBase
 {
-    [HttpPost("sign-in")]
+    [HttpPost("api/v1/sessions")]
     [AllowAnonymous]
     public async Task<IActionResult> SignIn([FromBody] SignInResource resource)
     {
         var command = SignInCommandFromResourceAssembler.ToCommand(resource);
         var (user, token) = await userCommandService.Handle(command);
         var authenticatedUser = AuthenticatedUserResourceFromEntityAssembler.ToResource(user, token);
-        return Ok(authenticatedUser);
+        return StatusCode(201, authenticatedUser);
     }
 
-    [HttpPost("sign-up")]
+    [HttpPost("api/v1/users")]
     [AllowAnonymous]
     public async Task<IActionResult> SignUp([FromBody] SignUpResource resource)
     {
         var command = SignUpCommandFromResourceAssembler.ToCommand(resource);
         await userCommandService.Handle(command);
-        return Ok(new { message = "User created successfully." });
+        return StatusCode(201, new { message = "User created successfully." });
     }
 
     /// <summary>
     /// Revokes the current user's JWT token.
     /// Implements QA-1: Global JWT revocation via blacklist.
     /// </summary>
-    [HttpPost("logout")]
+    [HttpDelete("api/v1/sessions/current")]
     public async Task<IActionResult> Logout()
     {
         var authHeader = HttpContext.Request.Headers.Authorization.FirstOrDefault();
@@ -49,6 +48,6 @@ public class AuthenticationController(
         // In production, decode JWT to get actual exp claim
         tokenBlacklistService.RevokeToken(token, DateTime.UtcNow.AddDays(7));
 
-        return Ok(new { message = "Logged out successfully. Token revoked." });
+        return NoContent();
     }
 }
