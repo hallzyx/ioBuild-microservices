@@ -59,7 +59,7 @@ variable "image_tag" {
 variable "repo_branch" {
   description = "Git branch the VM clones for compose/config files (docker-compose.prod.yml lives here)"
   type        = string
-  default     = "feat/azure-ephemeral-demo"
+  default     = "main"
 }
 
 # App secrets injected into the VM .env via cloud-init
@@ -88,6 +88,14 @@ variable "stripe_publishable_key" {
   sensitive = true
 }
 variable "stripe_webhook_secret" {
+  type      = string
+  sensitive = true
+}
+variable "rabbitmq_user" {
+  type      = string
+  sensitive = true
+}
+variable "rabbitmq_pass" {
   type      = string
   sensitive = true
 }
