@@ -22,41 +22,12 @@ public class UnitsController : ControllerBase
         _queryService = queryService;
     }
 
-    [HttpGet]
-    public async Task<IActionResult> GetAll()
-    {
-        var units = await _queryService.Handle(new GetAllUnitsQuery());
-        var resources = UnitResourceFromEntityAssembler.ToResourceEnumerable(units);
-        return Ok(resources);
-    }
-
     [HttpGet("/api/v1/projects/{projectId}/units")]
     public async Task<IActionResult> GetByProjectId(int projectId)
     {
         var units = await _queryService.Handle(new GetUnitsByProjectIdQuery(projectId));
         var resources = UnitResourceFromEntityAssembler.ToResourceEnumerable(units);
         return Ok(resources);
-    }
-
-    [HttpGet("{id}")]
-    public async Task<IActionResult> GetById(int id)
-    {
-        var unit = await _queryService.Handle(new GetUnitByIdQuery(id));
-        if (unit == null)
-            return NotFound();
-
-        var resource = UnitResourceFromEntityAssembler.ToResource(unit);
-        return Ok(resource);
-    }
-
-    [HttpPost]
-    public async Task<IActionResult> Create([FromBody] CreateUnitResource resource)
-    {
-        var command = CreateUnitCommandFromResourceAssembler.ToCommand(resource);
-        var id = await _commandService.Handle(command);
-        var unit = await _queryService.Handle(new GetUnitByIdQuery(id));
-        var result = UnitResourceFromEntityAssembler.ToResource(unit!);
-        return CreatedAtAction(nameof(GetById), new { id }, result);
     }
 
     [HttpPatch("{id}")]
@@ -76,10 +47,4 @@ public class UnitsController : ControllerBase
         return Ok(UnitResourceFromEntityAssembler.ToResource(unit!));
     }
 
-    [HttpDelete("{id}")]
-    public async Task<IActionResult> Delete(int id)
-    {
-        // Soft delete not implemented; remove all related data or mark as inactive.
-        return StatusCode(501, new { message = "Unit deletion is not yet implemented." });
-    }
 }

@@ -31,25 +31,18 @@ export class SubscriptionApi extends BaseApi {
     }
 
     renewSubscription(subscriptionId) {
-
         return this.updateSubscription({
             id: subscriptionId,
             status: 'active',
-            endDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString() // 1 year from now
+            endDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
         });
     }
 
     cancelSubscription(subscriptionId) {
-
         return this.updateSubscription({
             id: subscriptionId,
             status: 'cancelled'
         });
-    }
-
-    async getPreviousInvoicesBySubscriptionId(subscriptionId) {
-
-        return this.http.get(`${subscriptionsEndpointPath}/${subscriptionId}/invoices`);
     }
 
     createCheckoutSession(builderId, planId) {

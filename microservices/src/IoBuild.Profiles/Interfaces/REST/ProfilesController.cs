@@ -27,19 +27,7 @@ public class ProfilesController(
         var profile = await profileCommandService.Handle(createProfileCommand);
         if (profile is null) return BadRequest();
         var profileResource = ProfileResourceFromEntityAssembler.ToResourceFromEntity(profile);
-        return CreatedAtAction(nameof(GetProfileById), new { profileId = profile.Id }, profileResource);
-    }
-
-    [HttpGet("{profileId:int}")]
-    [ProducesResponseType(typeof(ProfileResource), 200)]
-    [ProducesResponseType(404)]
-    public async Task<IActionResult> GetProfileById(int profileId)
-    {
-        var getProfileByIdQuery = new GetProfileByIdQuery(profileId);
-        var profile = await profileQueryService.Handle(getProfileByIdQuery);
-        if (profile is null) return NotFound();
-        var profileResource = ProfileResourceFromEntityAssembler.ToResourceFromEntity(profile);
-        return Ok(profileResource);
+        return StatusCode(201, profileResource);
     }
 
     [HttpGet]

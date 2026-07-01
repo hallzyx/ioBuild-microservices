@@ -60,48 +60,4 @@ public class SubscriptionsController : ControllerBase
         return NoContent();
     }
 
-    [HttpGet("current")]
-    public async Task<IActionResult> GetCurrentSubscription([FromQuery] int builderId)
-    {
-        var subscription = await _queryService.GetCurrentSubscriptionAsync(builderId);
-        if (subscription is null)
-            return NotFound(new { message = $"No active subscription found for builder {builderId}" });
-        return Ok(SubscriptionAssembler.ToResource(subscription));
-    }
-
-    [HttpPatch("{id}")]
-    public async Task<IActionResult> RenewSubscription(int id, [FromBody] RenewSubscriptionCommand command)
-    {
-        try
-        {
-            var subscription = await _commandService.RenewAsync(command.BuilderId, command.PlanId, command.SuccessUrl, command.CancelUrl);
-            return Ok(SubscriptionAssembler.ToResource(subscription));
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { error = ex.Message });
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new { error = ex.Message });
-        }
-    }
-
-    [HttpPatch("{id}/plan")]
-    public async Task<IActionResult> ChangePlan(int id, [FromBody] RenewSubscriptionCommand command)
-    {
-        try
-        {
-            var subscription = await _commandService.ChangePlanAsync(command.BuilderId, command.PlanId, command.SuccessUrl, command.CancelUrl);
-            return Ok(SubscriptionAssembler.ToResource(subscription));
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { error = ex.Message });
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new { error = ex.Message });
-        }
-    }
 }
