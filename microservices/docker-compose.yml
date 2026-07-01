@@ -144,6 +144,8 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       - ASPNETCORE_URLS=http://+:5001
       - ASPNETCORE_ENVIRONMENT=Production
@@ -153,6 +155,7 @@ services:
       - DB_PASSWORD=${DB_PASSWORD:-iobuild123}
       - DB_NAME=iobuild_iam
       - JWT_SECRET=${JWT_SECRET:-dev-fallback-key-minimum-32-characters!!}
+      - REDIS_CONNECTION=redis:6379
       - RabbitMq__ConnectionString=amqp://${RABBITMQ_USER:-iobuild}:${RABBITMQ_PASS:-iobuild}@rabbitmq:5672/
     networks:
       - iobuild-network
@@ -383,6 +386,26 @@ services:
       start_period: 90s
 
   # ──────────────────────────────────────────
+  # Redis — Token Blacklist (distributed JWT revocation)
+  # ──────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: iobuild-redis
+    restart: unless-stopped
+    mem_limit: 32m
+    command: redis-server --maxmemory 24mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    networks:
+      - iobuild-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ──────────────────────────────────────────
   # RabbitMQ — Message Broker (5672 / 15672)
   # ──────────────────────────────────────────
   rabbitmq:
@@ -508,4 +531,6 @@ volumes:
   mosquitto_data:
     driver: local
   influxdb_data:
+    driver: local
+  redis_data:
     driver: local

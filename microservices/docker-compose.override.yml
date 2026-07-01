@@ -77,3 +77,7 @@ services:
   mosquitto:
     ports:
       - "1883:1883"   # MQTT — local debugging only
+
+  redis:
+    ports:
+      - "6379:6379"   # Redis — local debugging only

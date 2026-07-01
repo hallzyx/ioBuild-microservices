@@ -50,8 +50,22 @@ builder.Services.AddDomainEventPublishing(builder.Configuration);
 builder.Services.AddHostedService<OutboxWorker>();
 
 // ── JWT Revocation (QA-1) ──
-builder.Services.AddMemoryCache();
-builder.Services.AddScoped<ITokenBlacklistService, TokenBlacklistService>();
+// Redis when available (distributed, survives restarts); in-memory fallback for local dev.
+var redisConnection = Environment.GetEnvironmentVariable("REDIS_CONNECTION");
+if (!string.IsNullOrWhiteSpace(redisConnection))
+{
+    builder.Services.AddStackExchangeRedisCache(opts =>
+    {
+        opts.Configuration = redisConnection;
+        opts.InstanceName = "iobuild:";
+    });
+    builder.Services.AddSingleton<ITokenBlacklistService, RedisTokenBlacklistService>();
+}
+else
+{
+    builder.Services.AddMemoryCache();
+    builder.Services.AddSingleton<ITokenBlacklistService, TokenBlacklistService>();
+}
 
 // ── JWT Secret: env var override > appsettings.json fallback ──
 var jwtSecret = Environment.GetEnvironmentVariable("JWT_SECRET")

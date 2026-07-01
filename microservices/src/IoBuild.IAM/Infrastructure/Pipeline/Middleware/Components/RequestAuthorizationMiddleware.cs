@@ -48,7 +48,7 @@ public class RequestAuthorizationMiddleware(RequestDelegate next)
         var token = authHeader["Bearer ".Length..].Trim();
 
         // ── JWT Revocation Check (QA-1) ──
-        if (blacklistService.IsTokenRevoked(token))
+        if (await blacklistService.IsTokenRevokedAsync(token))
         {
             context.Response.StatusCode = 401;
             await context.Response.WriteAsJsonAsync(new { error = "Token has been revoked." });
