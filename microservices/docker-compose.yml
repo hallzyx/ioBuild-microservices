@@ -11,20 +11,115 @@
 
 services:
   # ──────────────────────────────────────────
-  # MySQL 8 — Base de datos compartida
+  # MySQL — Base de datos por microservicio
+  # Cada servicio tiene su propio contenedor
+  # para aislamiento real de fallos.
   # ──────────────────────────────────────────
-  mysql:
+  mysql-iam:
     image: mysql:8.0
-    container_name: iobuild-mysql
+    container_name: iobuild-mysql-iam
     restart: unless-stopped
-    mem_limit: 384m
+    mem_limit: 256m
     environment:
       - MYSQL_ROOT_PASSWORD=${DB_PASSWORD:-iobuild123}
-    ports:
-      - "3306:3306"
+      - MYSQL_DATABASE=iobuild_iam
     volumes:
-      - mysql_data:/var/lib/mysql
-      - ./mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - mysql_iam_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - iobuild-network
+
+  mysql-devices:
+    image: mysql:8.0
+    container_name: iobuild-mysql-devices
+    restart: unless-stopped
+    mem_limit: 256m
+    environment:
+      - MYSQL_ROOT_PASSWORD=${DB_PASSWORD:-iobuild123}
+      - MYSQL_DATABASE=iobuild_devices
+    volumes:
+      - mysql_devices_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - iobuild-network
+
+  mysql-projects:
+    image: mysql:8.0
+    container_name: iobuild-mysql-projects
+    restart: unless-stopped
+    mem_limit: 256m
+    environment:
+      - MYSQL_ROOT_PASSWORD=${DB_PASSWORD:-iobuild123}
+      - MYSQL_DATABASE=iobuild_projects
+    volumes:
+      - mysql_projects_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - iobuild-network
+
+  mysql-subscriptions:
+    image: mysql:8.0
+    container_name: iobuild-mysql-subscriptions
+    restart: unless-stopped
+    mem_limit: 256m
+    environment:
+      - MYSQL_ROOT_PASSWORD=${DB_PASSWORD:-iobuild123}
+      - MYSQL_DATABASE=iobuild_subscriptions
+    volumes:
+      - mysql_subscriptions_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - iobuild-network
+
+  mysql-analytics:
+    image: mysql:8.0
+    container_name: iobuild-mysql-analytics
+    restart: unless-stopped
+    mem_limit: 256m
+    environment:
+      - MYSQL_ROOT_PASSWORD=${DB_PASSWORD:-iobuild123}
+      - MYSQL_DATABASE=iobuild_analytics
+    volumes:
+      - mysql_analytics_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - iobuild-network
+
+  mysql-profiles:
+    image: mysql:8.0
+    container_name: iobuild-mysql-profiles
+    restart: unless-stopped
+    mem_limit: 256m
+    environment:
+      - MYSQL_ROOT_PASSWORD=${DB_PASSWORD:-iobuild123}
+      - MYSQL_DATABASE=iobuild_profiles
+    volumes:
+      - mysql_profiles_data:/var/lib/mysql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 10s
@@ -45,14 +140,14 @@ services:
     restart: unless-stopped
     mem_limit: 256m
     depends_on:
-      mysql:
+      mysql-iam:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
     environment:
       - ASPNETCORE_URLS=http://+:5001
       - ASPNETCORE_ENVIRONMENT=Production
-      - DB_HOST=mysql
+      - DB_HOST=mysql-iam
       - DB_PORT=3306
       - DB_USER=root
       - DB_PASSWORD=${DB_PASSWORD:-iobuild123}
@@ -66,9 +161,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
-      # First boot does a cold .NET start + EF migration + seed under a tight
-      # mem_limit; give it generous headroom so it never flips to "unhealthy"
-      # (which would abort the whole `compose up` since everything gates on iam).
       start_period: 90s
 
   # ──────────────────────────────────────────
@@ -82,6 +174,8 @@ services:
     restart: unless-stopped
     mem_limit: 256m
     depends_on:
+      mysql-devices:
+        condition: service_healthy
       iam:
         condition: service_healthy
       influxdb:
@@ -93,7 +187,7 @@ services:
     environment:
       - ASPNETCORE_URLS=http://+:5002
       - ASPNETCORE_ENVIRONMENT=Production
-      - DB_HOST=mysql
+      - DB_HOST=mysql-devices
       - DB_PORT=3306
       - DB_USER=root
       - DB_PASSWORD=${DB_PASSWORD:-iobuild123}
@@ -123,6 +217,8 @@ services:
     restart: unless-stopped
     mem_limit: 256m
     depends_on:
+      mysql-projects:
+        condition: service_healthy
       iam:
         condition: service_healthy
       rabbitmq:
@@ -130,7 +226,7 @@ services:
     environment:
       - ASPNETCORE_URLS=http://+:5003
       - ASPNETCORE_ENVIRONMENT=Production
-      - DB_HOST=mysql
+      - DB_HOST=mysql-projects
       - DB_PORT=3306
       - DB_USER=root
       - DB_PASSWORD=${DB_PASSWORD:-iobuild123}
@@ -157,12 +253,14 @@ services:
     restart: unless-stopped
     mem_limit: 256m
     depends_on:
+      mysql-subscriptions:
+        condition: service_healthy
       iam:
         condition: service_healthy
     environment:
       - ASPNETCORE_URLS=http://+:5004
       - ASPNETCORE_ENVIRONMENT=Production
-      - DB_HOST=mysql
+      - DB_HOST=mysql-subscriptions
       - DB_PORT=3306
       - DB_USER=root
       - DB_PASSWORD=${DB_PASSWORD:-iobuild123}
@@ -191,6 +289,8 @@ services:
     restart: unless-stopped
     mem_limit: 256m
     depends_on:
+      mysql-analytics:
+        condition: service_healthy
       iam:
         condition: service_healthy
       rabbitmq:
@@ -198,7 +298,7 @@ services:
     environment:
       - ASPNETCORE_URLS=http://+:5005
       - ASPNETCORE_ENVIRONMENT=Production
-      - DB_HOST=mysql
+      - DB_HOST=mysql-analytics
       - DB_PORT=3306
       - DB_USER=root
       - DB_PASSWORD=${DB_PASSWORD:-iobuild123}
@@ -224,12 +324,14 @@ services:
     restart: unless-stopped
     mem_limit: 128m
     depends_on:
+      mysql-profiles:
+        condition: service_healthy
       iam:
         condition: service_healthy
     environment:
       - ASPNETCORE_URLS=http://+:5006
       - ASPNETCORE_ENVIRONMENT=Production
-      - DB_HOST=mysql
+      - DB_HOST=mysql-profiles
       - DB_PORT=3306
       - DB_USER=root
       - DB_PASSWORD=${DB_PASSWORD:-iobuild123}
@@ -268,7 +370,6 @@ services:
     environment:
       - ASPNETCORE_URLS=http://+:8080
       - ASPNETCORE_ENVIRONMENT=Docker
-    # Puerto interno (no expuesto al host — solo Nginx accede)
     expose:
       - "8080"
     networks:
@@ -289,8 +390,8 @@ services:
     restart: unless-stopped
     mem_limit: 256m
     ports:
-      - "5672:5672"     # AMQP
-      - "15672:15672"   # Management UI
+      - "5672:5672"
+      - "15672:15672"
     environment:
       - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER:-iobuild}
       - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASS:-iobuild}
@@ -365,7 +466,6 @@ services:
 
   # ──────────────────────────────────────────
   # Frontend — Vue 3 + Nginx (80)
-  # Build auto-contenido (copia independiente del monolite)
   # ──────────────────────────────────────────
   frontend:
     build:
@@ -378,7 +478,6 @@ services:
     restart: unless-stopped
     depends_on:
       - gateway
-    # Traefik/Dokploy maneja el enrutamiento externo
     expose:
       - "80"
     networks:
@@ -398,7 +497,17 @@ networks:
     driver: bridge
 
 volumes:
-  mysql_data:
+  mysql_iam_data:
+    driver: local
+  mysql_devices_data:
+    driver: local
+  mysql_projects_data:
+    driver: local
+  mysql_subscriptions_data:
+    driver: local
+  mysql_analytics_data:
+    driver: local
+  mysql_profiles_data:
     driver: local
   mosquitto_data:
     driver: local
