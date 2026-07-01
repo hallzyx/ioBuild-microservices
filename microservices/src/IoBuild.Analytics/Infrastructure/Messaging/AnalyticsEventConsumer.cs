@@ -440,6 +440,21 @@ public class AnalyticsEventConsumer : BackgroundService
             row.OwnerEmail = evt.OwnerEmail;
         row.Status      = "Occupied";
         row.LastEventAt = evt.OccurredOn;
+
+        // Propagate owner link to device projections on the same floor so that
+        // the owner dashboard query (WHERE u.unit_id = d.unit_id) can join correctly.
+        if (row.Floor > 0)
+        {
+            var floorDevices = await db.DeviceProjections
+                .Where(d => d.ProjectId == evt.ProjectId && d.FloorNumber == row.Floor)
+                .ToListAsync();
+            foreach (var d in floorDevices)
+            {
+                d.UnitId      = evt.UnitId;
+                d.OwnerUserId = evt.OwnerUserId;
+            }
+        }
+
         await db.SaveChangesAsync();
     }
 
