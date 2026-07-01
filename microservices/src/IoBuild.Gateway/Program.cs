@@ -1,4 +1,5 @@
 using IoBuild.Shared.Infrastructure.Middleware;
+using IoBuild.Shared.Infrastructure.Observability;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using System.Net.Http.Headers;
 
@@ -57,6 +58,8 @@ builder.Services.AddHttpClient("InternalServices", client =>
     client.DefaultRequestHeaders.Accept.Add(
         new MediaTypeWithQualityHeaderValue("application/json"));
 });
+
+builder.Services.AddIoBuildObservability("IoBuild.Gateway");
 
 var app = builder.Build();
 

@@ -1,69 +1,85 @@
+using System.Security.Cryptography;
+using System.Text;
+using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Caching.Memory;
 
 namespace IoBuild.Shared.Infrastructure.Tokens;
 
 /// <summary>
-/// Global JWT token blacklist for instant revocation.
-/// Addresses QA-1: "Revocation strategy for compromised tokens."
-/// Uses IMemoryCache with token's natural expiration as cache TTL.
-/// In production, replace with Redis for distributed invalidation.
+/// Global JWT token blacklist for instant revocation (QA-1).
+/// Production implementation uses Redis for distributed invalidation
+/// so revocations survive restarts and propagate across replicas.
 /// </summary>
 public interface ITokenBlacklistService
 {
-    /// <summary>
-    /// Revokes a token (adds it to the blacklist).
-    /// The token remains blacklisted until its natural expiration.
-    /// </summary>
-    /// <param name="token">The JWT to revoke</param>
-    /// <param name="expiration">Token's expiration DateTime</param>
-    void RevokeToken(string token, DateTime expiration);
-
-    /// <summary>
-    /// Checks if a token has been revoked.
-    /// </summary>
-    /// <param name="token">The JWT to check</param>
-    /// <returns>true if the token is blacklisted</returns>
-    bool IsTokenRevoked(string token);
+    Task RevokeTokenAsync(string token, DateTime expiration);
+    Task<bool> IsTokenRevokedAsync(string token);
 }
 
 /// <summary>
-/// In-memory implementation using IMemoryCache.
-/// Tokens remain cached until their natural expiration or absolute max of 1 hour.
+/// In-memory fallback — single-node only, revocations lost on restart.
+/// Used when REDIS_CONNECTION is not configured.
 /// </summary>
 public class TokenBlacklistService : ITokenBlacklistService
 {
     private readonly IMemoryCache _cache;
 
-    public TokenBlacklistService(IMemoryCache cache)
+    public TokenBlacklistService(IMemoryCache cache) => _cache = cache;
+
+    public Task RevokeTokenAsync(string token, DateTime expiration)
     {
-        _cache = cache;
-    }
-
-    public void RevokeToken(string token, DateTime expiration)
-    {
-        var cacheKey = $"blacklist:{token.GetHashCode():X}";
-
-        // Cache duration = time until token naturally expires
-        var remaining = expiration - DateTime.UtcNow;
-
-        // Cap at token's remaining validity (minimum 1 minute, maximum 7 days)
-        var cacheDuration = remaining.TotalSeconds switch
+        var duration = ClampDuration(expiration - DateTime.UtcNow);
+        _cache.Set(CacheKey(token), true, new MemoryCacheEntryOptions
         {
-            < 60 => TimeSpan.FromMinutes(1),
-            > 604800 => TimeSpan.FromDays(7), // 7 days in seconds
-            _ => remaining
-        };
-
-        _cache.Set(cacheKey, true, new MemoryCacheEntryOptions
-        {
-            AbsoluteExpirationRelativeToNow = cacheDuration,
-            Priority = CacheItemPriority.Normal
+            AbsoluteExpirationRelativeToNow = duration
         });
+        return Task.CompletedTask;
     }
 
-    public bool IsTokenRevoked(string token)
+    public Task<bool> IsTokenRevokedAsync(string token) =>
+        Task.FromResult(_cache.TryGetValue(CacheKey(token), out _));
+
+    private static string CacheKey(string token) => $"blacklist:{Sha256(token)}";
+
+    private static TimeSpan ClampDuration(TimeSpan remaining) => remaining.TotalSeconds switch
     {
-        var cacheKey = $"blacklist:{token.GetHashCode():X}";
-        return _cache.TryGetValue(cacheKey, out _);
-    }
+        < 60 => TimeSpan.FromMinutes(1),
+        > 604800 => TimeSpan.FromDays(7),
+        _ => remaining
+    };
+
+    private static string Sha256(string input) =>
+        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(input)));
+}
+
+/// <summary>
+/// Redis implementation — distributed, survives restarts, propagates to replicas.
+/// Used when REDIS_CONNECTION env var is present.
+/// </summary>
+public class RedisTokenBlacklistService : ITokenBlacklistService
+{
+    private readonly IDistributedCache _cache;
+
+    public RedisTokenBlacklistService(IDistributedCache cache) => _cache = cache;
+
+    public Task RevokeTokenAsync(string token, DateTime expiration) =>
+        _cache.SetStringAsync(CacheKey(token), "1", new DistributedCacheEntryOptions
+        {
+            AbsoluteExpirationRelativeToNow = ClampDuration(expiration - DateTime.UtcNow)
+        });
+
+    public async Task<bool> IsTokenRevokedAsync(string token) =>
+        await _cache.GetStringAsync(CacheKey(token)) is not null;
+
+    private static string CacheKey(string token) => $"blacklist:{Sha256(token)}";
+
+    private static TimeSpan ClampDuration(TimeSpan remaining) => remaining.TotalSeconds switch
+    {
+        < 60 => TimeSpan.FromMinutes(1),
+        > 604800 => TimeSpan.FromDays(7),
+        _ => remaining
+    };
+
+    private static string Sha256(string input) =>
+        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(input)));
 }

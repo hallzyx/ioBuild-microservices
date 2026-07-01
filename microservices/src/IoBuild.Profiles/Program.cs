@@ -1,4 +1,5 @@
 using IoBuild.Profiles.Application.Internal.CommandServices;
+using IoBuild.Shared.Infrastructure.Observability;
 using IoBuild.Profiles.Application.Internal.QueryServices;
 using IoBuild.Profiles.Application.ACL;
 using IoBuild.Profiles.Domain.Repositories;
@@ -88,6 +89,8 @@ builder.Services.AddCors(options =>
               .AllowAnyHeader();
     });
 });
+
+builder.Services.AddIoBuildObservability("IoBuild.Profiles");
 
 var app = builder.Build();
 

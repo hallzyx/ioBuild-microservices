@@ -24,6 +24,8 @@ public class OutboxWorker : BackgroundService
     private readonly ResiliencePipeline _pipeline;
     private readonly int _pollIntervalMs;
 
+    private const int MaxRetries = 5;
+
     // IAM only publishes UserRegisteredEvent (§6.3 routing-key table).
     private static readonly Dictionary<string, Type> EventTypeMap = new()
     {
@@ -81,6 +83,16 @@ public class OutboxWorker : BackgroundService
 
         foreach (var msg in pending)
         {
+            if (msg.RetryCount >= MaxRetries)
+            {
+                msg.Status = "Dead";
+                _logger.LogError(
+                    "IAM OutboxWorker: message id={Id} EventType={EventType} exceeded {Max} retries. Quarantining.",
+                    msg.Id, msg.EventType, MaxRetries);
+                try { await outboxRepo.UpdateAsync(msg); } catch { }
+                continue;
+            }
+
             try
             {
                 var domainEvent = DeserializeEvent(msg);

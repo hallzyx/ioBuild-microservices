@@ -77,66 +77,78 @@ public class AnalyticsEventConsumer : BackgroundService
 
         var factory = new ConnectionFactory { Uri = new Uri(_connectionString) };
 
-        IConnection? connection = null;
-        IChannel? channel = null;
-
-        try
+        while (!stoppingToken.IsCancellationRequested)
         {
-            connection = await factory.CreateConnectionAsync(stoppingToken);
-            channel = await connection.CreateChannelAsync(cancellationToken: stoppingToken);
+            IConnection? connection = null;
+            IChannel? channel = null;
 
-            // Declare exchange (idempotent)
-            await channel.ExchangeDeclareAsync(
-                exchange: ExchangeName,
-                type: ExchangeType.Topic,
-                durable: true,
-                autoDelete: false,
-                cancellationToken: stoppingToken);
-
-            // Declare queue (durable)
-            await channel.QueueDeclareAsync(
-                queue: QueueName,
-                durable: true,
-                exclusive: false,
-                autoDelete: false,
-                cancellationToken: stoppingToken);
-
-            // Bindings (ADR-3: device.# and project.# cover Unit events too)
-            await channel.QueueBindAsync(QueueName, ExchangeName, "device.#", cancellationToken: stoppingToken);
-            await channel.QueueBindAsync(QueueName, ExchangeName, "project.#", cancellationToken: stoppingToken);
-
-            // Manual ack
-            await channel.BasicQosAsync(prefetchSize: 0, prefetchCount: 10, global: false, cancellationToken: stoppingToken);
-
-            var consumer = new AsyncEventingBasicConsumer(channel);
-            consumer.ReceivedAsync += async (_, ea) =>
+            try
             {
-                await HandleDeliveryAsync(channel, ea, stoppingToken);
-            };
+                connection = await factory.CreateConnectionAsync(stoppingToken);
+                channel = await connection.CreateChannelAsync(cancellationToken: stoppingToken);
 
-            await channel.BasicConsumeAsync(
-                queue: QueueName,
-                autoAck: false,
-                consumer: consumer,
-                cancellationToken: stoppingToken);
+                // Declare exchange (idempotent)
+                await channel.ExchangeDeclareAsync(
+                    exchange: ExchangeName,
+                    type: ExchangeType.Topic,
+                    durable: true,
+                    autoDelete: false,
+                    cancellationToken: stoppingToken);
 
-            _logger.LogInformation("AnalyticsEventConsumer started. Listening on queue '{Queue}'", QueueName);
+                // Declare queue (durable)
+                await channel.QueueDeclareAsync(
+                    queue: QueueName,
+                    durable: true,
+                    exclusive: false,
+                    autoDelete: false,
+                    cancellationToken: stoppingToken);
 
-            // Keep alive until cancellation
-            await Task.Delay(Timeout.Infinite, stoppingToken).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-            // Normal shutdown
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "AnalyticsEventConsumer: fatal error in consumer loop");
-        }
-        finally
-        {
-            if (channel is not null) await channel.CloseAsync();
-            if (connection is not null) await connection.CloseAsync();
+                // Bindings (ADR-3: device.# and project.# cover Unit events too)
+                await channel.QueueBindAsync(QueueName, ExchangeName, "device.#", cancellationToken: stoppingToken);
+                await channel.QueueBindAsync(QueueName, ExchangeName, "project.#", cancellationToken: stoppingToken);
+
+                // Manual ack
+                await channel.BasicQosAsync(prefetchSize: 0, prefetchCount: 10, global: false, cancellationToken: stoppingToken);
+
+                var consumer = new AsyncEventingBasicConsumer(channel);
+                consumer.ReceivedAsync += async (_, ea) =>
+                {
+                    await HandleDeliveryAsync(channel, ea, stoppingToken);
+                };
+
+                await channel.BasicConsumeAsync(
+                    queue: QueueName,
+                    autoAck: false,
+                    consumer: consumer,
+                    cancellationToken: stoppingToken);
+
+                _logger.LogInformation("AnalyticsEventConsumer started. Listening on queue '{Queue}'", QueueName);
+
+                // Keep alive until cancellation or broker disconnect
+                await Task.Delay(Timeout.Infinite, stoppingToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                // Normal shutdown — exit the loop
+                break;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "AnalyticsEventConsumer: broker connection lost — reconnecting in 10s");
+                try
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+            }
+            finally
+            {
+                if (channel is not null) try { await channel.CloseAsync(); } catch { }
+                if (connection is not null) try { await connection.CloseAsync(); } catch { }
+            }
         }
     }
 

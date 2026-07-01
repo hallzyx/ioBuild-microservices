@@ -46,7 +46,7 @@ public class AuthenticationController(
 
         // Revoke the token (blacklist until natural expiration)
         // In production, decode JWT to get actual exp claim
-        tokenBlacklistService.RevokeToken(token, DateTime.UtcNow.AddDays(7));
+        await tokenBlacklistService.RevokeTokenAsync(token, DateTime.UtcNow.AddDays(7));
 
         return NoContent();
     }

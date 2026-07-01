@@ -1,4 +1,5 @@
 using IoBuild.Shared.Infrastructure.ASP.Configuration;
+using IoBuild.Shared.Infrastructure.Observability;
 using IoBuild.Shared.Infrastructure.Middleware;
 using IoBuild.Subscriptions.Application.Facades;
 using IoBuild.Subscriptions.Application.Services;
@@ -84,6 +85,8 @@ builder.Services.AddCors(options =>
               .AllowAnyHeader();
     });
 });
+
+builder.Services.AddIoBuildObservability("IoBuild.Subscriptions");
 
 var app = builder.Build();
 

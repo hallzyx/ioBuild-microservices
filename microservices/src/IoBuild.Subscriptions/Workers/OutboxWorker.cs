@@ -5,6 +5,8 @@ namespace IoBuild.Subscriptions.Workers;
 
 public class OutboxWorker : BackgroundService
 {
+    private const int MaxRetries = 5;
+
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<OutboxWorker> _logger;
 
@@ -41,7 +43,7 @@ public class OutboxWorker : BackgroundService
                         _logger.LogError(ex, "Failed to process outbox message {MessageId}", msg.Id);
                         msg.RetryCount++;
                         msg.Error = ex.Message;
-                        if (msg.RetryCount >= 3) msg.Status = "Failed";
+                        if (msg.RetryCount >= MaxRetries) msg.Status = "Dead";
                         await outboxRepo.UpdateAsync(msg);
                     }
                 }

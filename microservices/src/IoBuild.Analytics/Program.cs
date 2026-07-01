@@ -1,4 +1,5 @@
 using IoBuild.Analytics.Application.Internal.QueryServices;
+using IoBuild.Shared.Infrastructure.Observability;
 using IoBuild.Analytics.Domain.Services;
 using IoBuild.Analytics.Infrastructure.InfluxDB;
 using IoBuild.Analytics.Infrastructure.Messaging;
@@ -75,6 +76,8 @@ builder.Services.AddScoped<AnalyticsDbContextInitializer>();
 
 // Register the RabbitMQ consumer that keeps the projection tables up to date (REQ-RM-02)
 builder.Services.AddAnalyticsEventConsumer(builder.Configuration);
+
+builder.Services.AddIoBuildObservability("IoBuild.Analytics");
 
 var app = builder.Build();
 
