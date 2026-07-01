@@ -34,7 +34,7 @@ public class UsersController(
         return Ok(resources);
     }
 
-    [HttpPut("{userId}/password")]
+    [HttpPatch("{userId}/password")]
     public async Task<IActionResult> UpdatePassword(int userId, [FromBody] UpdatePasswordResource resource)
     {
         var command = UpdatePasswordCommandFromResourceAssembler.ToCommand(userId, resource);

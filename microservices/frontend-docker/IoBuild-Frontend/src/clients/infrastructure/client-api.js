@@ -16,7 +16,7 @@ export class ClientApi extends BaseApi {
     }
 
     async getMyClients() {
-        return this.http.get(`${clientsEndpointPath}/mine`);
+        return this.http.get(`${clientsEndpointPath}`);
     }
 
     async getClientsByBuilderId(builderId) {

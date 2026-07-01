@@ -16,7 +16,7 @@ public class PaymentsController : ControllerBase
         _stripePaymentService = stripePaymentService;
     }
 
-    [HttpPost("create-session")]
+    [HttpPost("sessions")]
     public async Task<IActionResult> CreateCheckoutSession([FromBody] CreateCheckoutSessionResource resource)
     {
         var (sessionId, checkoutUrl, amountInCents) =
@@ -29,10 +29,10 @@ public class PaymentsController : ControllerBase
         var response = PaymentAssembler.ToCheckoutSessionResource(
             sessionId, checkoutUrl, amountInCents);
 
-        return Ok(response);
+        return StatusCode(201, response);
     }
 
-    [HttpPost("confirm")]
+    [HttpPost("sessions/confirm")]
     public async Task<IActionResult> ConfirmPayment([FromBody] ConfirmPaymentResource resource)
     {
         var (status, subscriptionId, isNewSubscription) =

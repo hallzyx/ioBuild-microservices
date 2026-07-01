@@ -189,6 +189,6 @@ public class ProjectsController : ControllerBase
             return Conflict(new { error = ex.Message });
         }
 
-        return Ok(new { message = $"Project structure defined: {resource.Floors} floor(s), {resource.UnitsPerFloor} unit(s) per floor." });
+        return StatusCode(201, new { message = $"Project structure defined: {resource.Floors} floor(s), {resource.UnitsPerFloor} unit(s) per floor." });
     }
 }

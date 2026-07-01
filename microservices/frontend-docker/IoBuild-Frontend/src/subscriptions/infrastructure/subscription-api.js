@@ -59,7 +59,7 @@ export class SubscriptionApi extends BaseApi {
         const successUrl = `${baseUrl}/subscriptions/my-subscription?success=true`;
         const cancelUrl = `${baseUrl}/subscriptions/my-subscription?canceled=true`;
 
-        return this.http.post(`${subscriptionsEndpointPath}/payments/create-session`, {
+        return this.http.post(`${subscriptionsEndpointPath}/payments/sessions`, {
             builderId,
             planId,
             successUrl,
@@ -68,7 +68,7 @@ export class SubscriptionApi extends BaseApi {
     }
 
     confirmPayment(builderId, sessionId) {
-        return this.http.post(`${subscriptionsEndpointPath}/payments/confirm`, {
+        return this.http.post(`${subscriptionsEndpointPath}/payments/sessions/confirm`, {
             builderId,
             sessionId
         });

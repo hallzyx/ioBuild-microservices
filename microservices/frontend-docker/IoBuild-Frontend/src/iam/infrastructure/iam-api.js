@@ -1,6 +1,5 @@
 import { BaseApi } from "../../shared/infrastructure/base-api.js";
 
-const authenticationEndpoint = import.meta.env.VITE_AUTHENTICATION_ENDPOINT_PATH;
 const usersEndpoint = import.meta.env.VITE_USERS_ENDPOINT_PATH;
 
 /**
@@ -19,7 +18,7 @@ export class IamApi extends BaseApi {
      * @returns {Promise} Response with authenticated user and token
      */
     signIn(signInResource) {
-        return this.http.post(`${authenticationEndpoint}/sign-in`, signInResource);
+        return this.http.post(`/sessions`, signInResource);
     }
 
     /**
@@ -28,7 +27,7 @@ export class IamApi extends BaseApi {
      * @returns {Promise} Response with created user
      */
     signUp(signUpResource) {
-        return this.http.post(`${authenticationEndpoint}/sign-up`, signUpResource);
+        return this.http.post(`${usersEndpoint}`, signUpResource);
     }
 
     /**
@@ -55,6 +54,6 @@ export class IamApi extends BaseApi {
      * @returns {Promise} API response
      */
     changePassword(userId, updatePasswordResource) {
-        return this.http.put(`${usersEndpoint}/${userId}/password`, updatePasswordResource);
+        return this.http.patch(`${usersEndpoint}/${userId}/password`, updatePasswordResource);
     }
 }

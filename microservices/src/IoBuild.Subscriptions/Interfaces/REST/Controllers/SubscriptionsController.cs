@@ -56,8 +56,8 @@ public class SubscriptionsController : ControllerBase
     public async Task<IActionResult> UpdateSubscription(int id, [FromBody] UpdateSubscriptionResource resource)
     {
         var command = SubscriptionAssembler.ToCommand(id, resource);
-        var subscription = await _commandService.Handle(command);
-        return Ok(SubscriptionAssembler.ToResource(subscription));
+        await _commandService.Handle(command);
+        return NoContent();
     }
 
     [HttpGet("current")]
@@ -69,8 +69,8 @@ public class SubscriptionsController : ControllerBase
         return Ok(SubscriptionAssembler.ToResource(subscription));
     }
 
-    [HttpPost("renew")]
-    public async Task<IActionResult> RenewSubscription([FromBody] RenewSubscriptionCommand command)
+    [HttpPatch("{id}")]
+    public async Task<IActionResult> RenewSubscription(int id, [FromBody] RenewSubscriptionCommand command)
     {
         try
         {
@@ -87,26 +87,8 @@ public class SubscriptionsController : ControllerBase
         }
     }
 
-    [HttpPost("subscribe")]
-    public async Task<IActionResult> Subscribe([FromBody] RenewSubscriptionCommand command)
-    {
-        try
-        {
-            var subscription = await _commandService.SubscribeAsync(command.BuilderId, command.PlanId, command.SuccessUrl, command.CancelUrl);
-            return Ok(SubscriptionAssembler.ToResource(subscription));
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { error = ex.Message });
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new { error = ex.Message });
-        }
-    }
-
-    [HttpPost("change-plan")]
-    public async Task<IActionResult> ChangePlan([FromBody] RenewSubscriptionCommand command)
+    [HttpPatch("{id}/plan")]
+    public async Task<IActionResult> ChangePlan(int id, [FromBody] RenewSubscriptionCommand command)
     {
         try
         {
