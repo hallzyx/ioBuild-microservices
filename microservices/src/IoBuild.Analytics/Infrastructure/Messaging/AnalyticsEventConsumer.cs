@@ -299,14 +299,31 @@ public class AnalyticsEventConsumer : BackgroundService
             return;
         }
 
-        row.OwnerUserId  = evt.OwnerUserId;
         row.ProjectId    = evt.ProjectId;
         row.UnitId       = evt.UnitId;
         row.DeviceType   = evt.DeviceType;
         row.Status       = evt.Status;
-        row.FloorNumber  = evt.FloorNumber;   // PR 7 — §5.2
-        row.DeviceName   = evt.DeviceName;    // owner-custom-device-type: null for legacy events
+        row.FloorNumber  = evt.FloorNumber;
+        row.DeviceName   = evt.DeviceName;
         row.LastEventAt  = evt.OccurredOn;
+
+        // OwnerUserId = 0 in DeviceCreatedEvent by design (Devices service has no owner context).
+        // Derive owner from unit_projections when device is unit-scoped.
+        if (evt.UnitId.HasValue && evt.UnitId.Value > 0)
+        {
+            var unitRow = await db.UnitProjections
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.UnitId == evt.UnitId.Value);
+            if (unitRow is not null && unitRow.OwnerUserId > 0)
+            {
+                row.OwnerUserId = unitRow.OwnerUserId ?? 0;
+            }
+        }
+        else
+        {
+            row.OwnerUserId = evt.OwnerUserId;
+        }
+
         await db.SaveChangesAsync();
     }
 

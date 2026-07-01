@@ -61,19 +61,31 @@ public class DeviceCommandService(
             // Validate typeCode: Slice 3+ uses catalog; Slice 2 legacy path uses OwnerCustomDeviceTypes.
             if (deviceTypeRepository is not null)
             {
-                // Catalog-picker path (Slice 3): typeCode must exist in device_types and have
-                // scope "unit" or "both" — floor-only types cannot be added to a unit manually.
+                // Catalog-picker path (Slice 3): typeCode must exist in device_types (scope "unit"
+                // or "both") OR in the owner's custom device types.
                 var catalogEntry = await deviceTypeRepository.FindByCodeAsync(command.Type);
 
-                if (catalogEntry is null)
-                    throw new ArgumentException(
-                        $"Device type '{command.Type}' is not in the catalog. " +
-                        "Please select a type from the available catalog.");
+                if (catalogEntry is not null)
+                {
+                    if (catalogEntry.Scope == "floor")
+                        throw new ArgumentException(
+                            $"Device type '{command.Type}' cannot be added to a unit. " +
+                            "This type is designated for floor-level provisioning only.");
+                }
+                else
+                {
+                    // Fall back: check owner's custom device types before rejecting.
+                    var customType = await db.OwnerCustomDeviceTypes
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(t =>
+                            t.TypeCode == command.Type &&
+                            t.OwnerUserId == ownerId);
 
-                if (catalogEntry.Scope == "floor")
-                    throw new ArgumentException(
-                        $"Device type '{command.Type}' cannot be added to a unit. " +
-                        "This type is designated for floor-level provisioning only.");
+                    if (customType is null)
+                        throw new ArgumentException(
+                            $"Device type '{command.Type}' is not in the catalog. " +
+                            "Please select a type from the available catalog.");
+                }
             }
             else
             {
