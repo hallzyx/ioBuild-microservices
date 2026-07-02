@@ -121,7 +121,15 @@ router.beforeEach(async (to, from, next) => {
             || to.path.startsWith('/iam');
 
         if (isBuilder && !isAllowedWithoutSub) {
-            const active = await builderHasActiveSubscription();
+            // Retry up to 2 times with a short delay to handle the race window
+            // between Stripe checkout redirect and the incoming webhook setting
+            // status to 'active'. Without this, the first navigation after
+            // checkout fails the gate before the webhook fires.
+            let active = await builderHasActiveSubscription();
+            if (!active) {
+                await new Promise((r) => setTimeout(r, 1500));
+                active = await builderHasActiveSubscription();
+            }
             if (!active) {
                 next('/subscriptions/my-subscription');
                 return;

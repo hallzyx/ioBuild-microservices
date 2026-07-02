@@ -167,7 +167,7 @@ public class StripePaymentService
     /// Lists Stripe Checkout Session receipts for a specific builder, ordered by date descending.
     /// Returns an empty list if a Stripe error occurs.
     /// </summary>
-    public async Task<IReadOnlyList<(DateTime Date, long AmountInCents, string Currency, string? ReceiptUrl, string Description, string Status)>> ListReceiptsAsync(int builderId)
+    public async Task<IReadOnlyList<(DateTime Date, long AmountInCents, string Currency, string? ReceiptUrl, string Description, string Status)>> ListReceiptsAsync(int builderId, DateTime? since = null)
     {
         try
         {
@@ -183,7 +183,8 @@ public class StripePaymentService
                     s.Metadata != null &&
                     s.Metadata.TryGetValue("builder_id", out var bid) &&
                     bid == builderId.ToString() &&
-                    s.PaymentStatus == "paid")
+                    s.PaymentStatus == "paid" &&
+                    (since == null || s.Created >= since))
                 .OrderByDescending(s => s.Created)
                 .Select(s => (
                     Date: s.Created,

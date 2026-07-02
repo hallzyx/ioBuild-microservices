@@ -1,3 +1,5 @@
+using IoBuild.Subscriptions.Domain.Model.Queries;
+using IoBuild.Subscriptions.Domain.Repositories.Services;
 using IoBuild.Subscriptions.Infrastructure.Payment.Stripe.Services;
 using IoBuild.Subscriptions.Interfaces.REST.Assemblers;
 using IoBuild.Subscriptions.Interfaces.REST.Resources;
@@ -10,10 +12,14 @@ namespace IoBuild.Subscriptions.Interfaces.REST.Controllers;
 public class PaymentsController : ControllerBase
 {
     private readonly StripePaymentService _stripePaymentService;
+    private readonly ISubscriptionQueryService _subscriptionQueryService;
 
-    public PaymentsController(StripePaymentService stripePaymentService)
+    public PaymentsController(
+        StripePaymentService stripePaymentService,
+        ISubscriptionQueryService subscriptionQueryService)
     {
         _stripePaymentService = stripePaymentService;
+        _subscriptionQueryService = subscriptionQueryService;
     }
 
     [HttpPost("sessions")]
@@ -51,7 +57,14 @@ public class PaymentsController : ControllerBase
     [HttpGet("invoices")]
     public async Task<IActionResult> GetInvoices([FromQuery] int builderId)
     {
-        var receipts = await _stripePaymentService.ListReceiptsAsync(builderId);
+        // Filter to invoices created on or after the current subscription start date so
+        // prior-cycle Stripe sessions (from previous demo runs that reuse builder_id=1)
+        // don't bleed through.
+        var subscription = await _subscriptionQueryService.GetCurrentSubscriptionAsync(builderId);
+        // Subtract 10 minutes from StartDate to cover the gap between Stripe session
+        // creation (before checkout) and subscription record creation (after confirm).
+        var since = subscription?.StartDate.AddMinutes(-10);
+        var receipts = await _stripePaymentService.ListReceiptsAsync(builderId, since);
 
         var list = receipts.Select(r => new InvoiceResource(
             Date: r.Date.ToString("o"),

@@ -60,7 +60,7 @@ const handleCustomDeviceCreated = async (newDevice) => {
 
   for (let attempt = 0; attempt < 6; attempt++) {
     await analyticsStore.fetchOwnerDashboard(ownerId);
-    if (newDevice?.id == null || newDeviceVisible()) break;
+    if (newDeviceVisible()) break;
     await new Promise((resolve) => setTimeout(resolve, 800));
   }
 };

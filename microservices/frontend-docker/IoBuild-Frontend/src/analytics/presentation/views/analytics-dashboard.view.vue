@@ -30,12 +30,22 @@ async function loadDashboard() {
   } else if (userRole.value === 'owner') {
     await analyticsStore.fetchOwnerDashboard(userId.value);
 
-    const ownerDash = analyticsStore.ownerDashboard;
-    if (ownerDash && ownerDash.myUnitsCount === 0) {
+    // Retry until myUnitsCount > 0 to handle Analytics read-model propagation lag.
+    // Up to 4 attempts at 1.5 s intervals (~6 s total).
+    let ownerRetries = 4;
+    const scheduleOwnerRetry = () => {
+      if (ownerRetries-- <= 0) return;
       retryTimer = setTimeout(async () => {
         retryTimer = null;
         await analyticsStore.fetchOwnerDashboard(userId.value);
-      }, 2500);
+        if ((analyticsStore.ownerDashboard?.myUnitsCount ?? 1) === 0) {
+          scheduleOwnerRetry();
+        }
+      }, 1500);
+    };
+    const ownerDash = analyticsStore.ownerDashboard;
+    if (ownerDash && ownerDash.myUnitsCount === 0) {
+      scheduleOwnerRetry();
     }
   }
 }
