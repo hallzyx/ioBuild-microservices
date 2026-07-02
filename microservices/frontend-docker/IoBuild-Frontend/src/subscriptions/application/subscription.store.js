@@ -60,13 +60,18 @@ export const useSubscriptionStore = defineStore("subscriptions", () => {
         return subscriptionApi
             .getSubscriptionByBuilderId(builderId)
             .then((response) => {
-                if (response.data) {
-                    currentSubscription.value = SubscriptionAssembler.toEntityFromResponse(response);
-                }
+                currentSubscription.value = response.data
+                    ? SubscriptionAssembler.toEntityFromResponse(response)
+                    : null;
                 isLoading.value = false;
             })
             .catch((error) => {
-                errors.value.push(error);
+                // 404 means this builder has no subscription — clear any stale cached data.
+                if (error?.response?.status === 404) {
+                    currentSubscription.value = null;
+                } else {
+                    errors.value.push(error);
+                }
                 isLoading.value = false;
             });
     }
@@ -129,6 +134,11 @@ export const useSubscriptionStore = defineStore("subscriptions", () => {
     }
 
 
+    function clearUserSession() {
+        currentSubscription.value = null;
+        errors.value = [];
+    }
+
     return {
         currentSubscription,
         availablePlans,
@@ -140,7 +150,8 @@ export const useSubscriptionStore = defineStore("subscriptions", () => {
         fetchAvailablePlans,
         renewSubscription,
         cancelSubscription,
-        changePlan
+        changePlan,
+        clearUserSession
     };
 });
 

@@ -6,11 +6,14 @@ const props = defineProps({
   }
 });
 
-const getStatusColor = (status) => {
-  return status === 'Connected' 
-    ? 'text-green-600 bg-green-100' 
-    : 'text-red-600 bg-red-100';
+const unitLabel = () => {
+  if (props.unit.floor && props.unit.roomNumber) {
+    return `Floor ${props.unit.floor} · Unit ${props.unit.roomNumber}`;
+  }
+  return `Unit #${props.unit.unitId}`;
 };
+
+const isOccupied = () => props.unit.status === 'Occupied';
 </script>
 
 <template>
@@ -18,22 +21,18 @@ const getStatusColor = (status) => {
     <div class="unit-header">
       <div class="unit-number">
         <i class="pi pi-home unit-home-icon"></i>
-        <span>{{ unit.unitNumber }}</span>
+        <span>{{ unitLabel() }}</span>
       </div>
-      <span class="connection-status" :class="getStatusColor(unit.connectionStatus)">
-        <i :class="['pi', unit.connectionStatus === 'Connected' ? 'pi-check-circle' : 'pi-times-circle']"></i>
-        {{ unit.connectionStatus }}
+      <span class="connection-status" :class="isOccupied() ? 'status-occupied' : 'status-active'">
+        <i :class="['pi', isOccupied() ? 'pi-check-circle' : 'pi-home']"></i>
+        {{ isOccupied() ? 'Occupied' : 'Available' }}
       </span>
     </div>
-    
+
     <div class="unit-info">
       <p class="project-name">
         <i class="pi pi-building unit-info-icon"></i>
         {{ unit.projectName }}
-      </p>
-      <p class="device-count">
-        <i class="pi pi-box unit-info-icon"></i>
-        {{ unit.activeDevices }} Active Devices
       </p>
     </div>
   </div>
@@ -82,24 +81,28 @@ const getStatusColor = (status) => {
   font-weight: 600;
 }
 
+.status-occupied {
+  color: #16A34A;
+  background-color: #D1FAE5;
+}
+
+.status-active {
+  color: #2563EB;
+  background-color: #DBEAFE;
+}
+
 .unit-info {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
 }
 
-.project-name,
-.device-count {
+.project-name {
   font-size: 0.875rem;
   color: #6B7280;
   display: flex;
   align-items: center;
   gap: 0.375rem;
-}
-
-.device-count {
-  font-weight: 600;
-  color: #111827;
 }
 
 .unit-home-icon {
@@ -109,10 +112,4 @@ const getStatusColor = (status) => {
 .unit-info-icon {
   font-size: 0.875rem;
 }
-
-/* Connection status color variants (returned from getStatusColor() in script) */
-.text-green-600 { color: #16A34A; }
-.bg-green-100   { background-color: #D1FAE5; }
-.text-red-600   { color: #DC2626; }
-.bg-red-100     { background-color: #FEE2E2; }
 </style>

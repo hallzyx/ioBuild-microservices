@@ -46,22 +46,43 @@ const handleCustomDeviceCreated = async (newDevice) => {
     life: 3000,
   });
 
-  // The owner device list (MyUnitDevices) is sourced from the analytics projection
-  // (ownerDashboard.deviceHealthStatus), which updates asynchronously after the
-  // DeviceCreatedEvent propagates from the devices service. Re-fetch the owner dashboard,
-  // retrying briefly until the new device appears, so the list reflects the add without a
-  // manual page refresh. As soon as the projection has caught up the loop stops early.
+  // Optimistic update: inject the new device into the store immediately so
+  // MyUnitDevices reflects the add without waiting for analytics propagation.
+  if (analyticsStore.ownerDashboard && newDevice?.id) {
+    const already = (analyticsStore.ownerDashboard.deviceHealthStatus ?? [])
+      .some((d) => Number(d.deviceId) === Number(newDevice.id));
+    if (!already) {
+      analyticsStore.ownerDashboard.deviceHealthStatus = [
+        ...(analyticsStore.ownerDashboard.deviceHealthStatus ?? []),
+        {
+          deviceId: newDevice.id,
+          deviceName: newDevice.name,
+          type: newDevice.type,
+          status: 'active',
+          lastOnline: null,
+        },
+      ];
+      analyticsStore.ownerDashboard.totalDevices =
+        (analyticsStore.ownerDashboard.totalDevices ?? 0) + 1;
+    }
+  }
+
+  // Background confirmation: once the analytics projection catches up, replace
+  // the optimistic entry with the real data (status, lastOnline, etc.).
+  // DeviceCreatedEvent propagates via OutboxWorker → RabbitMQ → Analytics consumer.
   const ownerId = iamStore.currentUser?.id;
   if (ownerId == null) return;
 
-  const newDeviceVisible = () =>
+  const targetId = Number(newDevice?.id);
+  const isConfirmed = () =>
+    targetId > 0 &&
     (analyticsStore.ownerDashboard?.deviceHealthStatus ?? [])
-      .some((d) => d.deviceId === newDevice?.id);
+      .some((d) => Number(d.deviceId) === targetId && d.status !== 'active');
 
-  for (let attempt = 0; attempt < 6; attempt++) {
+  for (let attempt = 0; attempt < 12; attempt++) {
+    await new Promise((resolve) => setTimeout(resolve, 1000));
     await analyticsStore.fetchOwnerDashboard(ownerId);
-    if (newDeviceVisible()) break;
-    await new Promise((resolve) => setTimeout(resolve, 800));
+    if (isConfirmed()) break;
   }
 };
 

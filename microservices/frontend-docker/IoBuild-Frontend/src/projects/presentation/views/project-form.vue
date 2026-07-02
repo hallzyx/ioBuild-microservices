@@ -31,23 +31,24 @@ onMounted(() => {
   loadCloudinaryScript();
 });
 
-const loadCloudinaryScript = () => {
-  if (!window.cloudinary) {
-    const script = document.createElement('script');
-    script.src = 'https://widget.cloudinary.com/v2.0/global/all.js';
-    script.type = 'text/javascript';
-    document.head.appendChild(script);
-  }
-};
-
 const cloudinaryName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
 const cloudinaryPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+const cloudinaryReady = ref(false);
 
-const openUploadModal = () => {
-  if (!window.cloudinary) {
-    console.error('Cloudinary widget not loaded');
+const loadCloudinaryScript = () => {
+  if (window.cloudinary) {
+    cloudinaryReady.value = true;
     return;
   }
+  const script = document.createElement('script');
+  script.src = 'https://widget.cloudinary.com/v2.0/global/all.js';
+  script.type = 'text/javascript';
+  script.onload = () => { cloudinaryReady.value = true; };
+  document.head.appendChild(script);
+};
+
+const openUploadModal = () => {
+  if (!cloudinaryReady.value || !window.cloudinary) return;
 
   window.cloudinary.openUploadWidget(
     {
@@ -59,7 +60,7 @@ const openUploadModal = () => {
         form.value.imageUrl = result.info.secure_url || result.info.url;
       }
     }
-  ).open();
+  );
 };
 
 const save = async () => {
@@ -142,9 +143,9 @@ const cancel = () => {
             />
           </div>
 
-          <!-- Total Units — editable only at creation; on edit it's derived from
-               the defined structure and must stay read-only. -->
-          <div class="form-field mb-4">
+          <!-- Total Units — read-only on edit; hidden on creation because
+               define-structure always overwrites it with floors × unitsPerFloor. -->
+          <div v-if="isEdit" class="form-field mb-4">
             <label class="form-label">
               <i class="pi pi-building form-label__icon mr-2"></i>
               {{ t("projects.fields.total-units") }}
@@ -154,9 +155,9 @@ const cancel = () => {
                 :min="0"
                 class="w-full input-enhanced"
                 placeholder="0"
-                :disabled="isEdit"
+                :disabled="true"
             />
-            <small v-if="isEdit" class="field-hint">
+            <small class="field-hint">
               <i class="pi pi-lock"></i>
               Set by the project structure — edit floors and units from Define Structure.
             </small>
@@ -172,6 +173,7 @@ const cancel = () => {
                 :label="t('projects.actions.upload-image')"
                 icon="pi pi-cloud-upload"
                 @click="openUploadModal"
+                :disabled="!cloudinaryReady"
                 class="mb-3"
             />
             <div v-if="form.imageUrl" class="mt-3">

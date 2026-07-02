@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, onActivated, onUnmounted, computed } from 'vue';
+import { onMounted, onActivated, onUnmounted, computed, watch } from 'vue';
 import { useAnalyticsStore } from '../../application/analytics.store.js';
 import { useIamStore } from '../../../iam/application/iam.store.js';
 import BuilderDashboard from '../components/builder-dashboard.component.vue';
@@ -10,18 +10,21 @@ const iamStore = useIamStore();
 
 const currentUser = computed(() => iamStore.currentUser);
 const userRole = computed(() => currentUser.value?.role?.toLowerCase() || 'owner');
-const userId = computed(() => currentUser.value?.id || 1);
+// No fallback to 1 — null means "not authenticated yet"; guard in loadDashboard prevents bogus calls.
+const userId = computed(() => currentUser.value?.id ?? null);
 
 let retryTimer = null;
 
 async function loadDashboard() {
+  // Wait until the IAM store is hydrated; watch below re-triggers when userId becomes available.
+  if (!userId.value) return;
+
   if (userRole.value === 'builder') {
     await analyticsStore.fetchBuilderDashboard(userId.value);
 
-    // Single retry after 2.5 s when projects exist but units are still 0 —
-    // covers read-model eventual-consistency lag after structure is defined.
+    // Retry when projects exist but units/devices are still 0 — covers read-model eventual-consistency lag.
     const dash = analyticsStore.builderDashboard;
-    if (dash && dash.activeProjectsCount > 0 && dash.totalUnits === 0) {
+    if (dash && dash.activeProjectsCount > 0 && (dash.totalUnits === 0 || dash.totalDevices === 0)) {
       retryTimer = setTimeout(async () => {
         retryTimer = null;
         await analyticsStore.fetchBuilderDashboard(userId.value);
@@ -56,6 +59,14 @@ onMounted(loadDashboard);
 // onActivated fires only when the component IS wrapped in <keep-alive>.
 // Adding it here is defensive: ensures a fresh fetch if the router ever enables keep-alive.
 onActivated(loadDashboard);
+
+// Re-fetch when userId hydrates after mount (covers the timing gap where the IAM store
+// loads from localStorage asynchronously or after a page refresh with a cold store).
+watch(userId, (newId, oldId) => {
+  if (newId && !oldId) {
+    loadDashboard();
+  }
+});
 
 onUnmounted(() => {
   if (retryTimer !== null) {

@@ -162,7 +162,7 @@ public class ProjectStructureCommandService
                 Floor = unit.Floor,
                 RoomNumber = unit.RoomNumber,
                 OwnerEmail = unit.OwnerEmail,
-                Status = "Active"
+                Status = !string.IsNullOrEmpty(unit.OwnerEmail) ? "Occupied" : "Active"
             };
             outboxMessages.Add(new OutboxMessage(nameof(UnitCreatedEvent), JsonSerializer.Serialize(unitEvt))
             {

@@ -97,6 +97,20 @@ export class DeviceApi extends BaseApi {
     return response.data;
   }
 
+  /**
+   * GET /api/v1/devices/{id}/status
+   * Returns { deviceId, status, lastSeen, temperatureC, voltageV, desired? }
+   * `desired` is the shadow's desired state dict, present only when the owner
+   * has issued at least one command to this device.
+   *
+   * @param {number} deviceId
+   * @returns {Promise<object>}
+   */
+  async getDeviceStatus(deviceId) {
+    const response = await this.http.get(`${this.devicesEndpoint}/${deviceId}/status`);
+    return response.data;
+  }
+
   // ─── Owner Custom Device Type endpoints ──────────────────────────────────────
 
   /**

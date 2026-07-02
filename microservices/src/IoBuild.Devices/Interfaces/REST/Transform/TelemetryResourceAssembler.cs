@@ -11,7 +11,7 @@ public static class TelemetryResourceAssembler
         return new EnergyDataResource(point.Timestamp, point.EnergyKwh, point.TemperatureC, point.VoltageV);
     }
 
-    public static DeviceStatusResource ToStatusResource(DeviceStatusReport report)
+    public static DeviceStatusResource ToStatusResource(DeviceStatusReport report, Dictionary<string, object>? desired = null)
     {
         ArgumentNullException.ThrowIfNull(report);
         return new DeviceStatusResource(
@@ -19,6 +19,7 @@ public static class TelemetryResourceAssembler
             report.Status,
             report.LastSeen,
             report.TemperatureC,
-            report.VoltageV);
+            report.VoltageV,
+            desired);
     }
 }

@@ -1,3 +1,5 @@
+using System.Text.Json;
+using IoBuild.Devices.Infrastructure.Persistence.EFC.DbContext;
 using IoBuild.Shared.Infrastructure.ASP.Configuration;
 using Microsoft.AspNetCore.Mvc;
 using IoBuild.Devices.Domain.Model.Queries;
@@ -12,7 +14,8 @@ namespace IoBuild.Devices.Interfaces.REST;
 [Authorize]
 public class TelemetryController(
     IDeviceQueryService deviceQueryService,
-    ITelemetryQueryService telemetryQueryService) : ControllerBase
+    ITelemetryQueryService telemetryQueryService,
+    DevicesDbContext db) : ControllerBase
 {
     /// <summary>
     /// Obtiene datos de energía de un dispositivo en un rango de tiempo.
@@ -38,7 +41,7 @@ public class TelemetryController(
     }
 
     /// <summary>
-    /// Obtiene el estado actual de un dispositivo.
+    /// Obtiene el estado actual de un dispositivo, incluyendo el estado deseado del shadow.
     /// </summary>
     [HttpGet("{id}/status")]
     public async Task<IActionResult> GetDeviceStatus(int id)
@@ -47,16 +50,35 @@ public class TelemetryController(
         if (device is null)
             return NotFound(new { message = $"Device with ID {id} not found" });
 
-        var query = new GetDeviceStatusQuery(id);
-        var report = await telemetryQueryService.Handle(query);
+        var statusTask = telemetryQueryService.Handle(new GetDeviceStatusQuery(id));
+        var shadow = await db.DeviceShadows.FindAsync(id);
+        var report = await statusTask;
+
+        Dictionary<string, object>? desired = null;
+        if (shadow?.DesiredJson is not null && shadow.DesiredJson != "{}")
+        {
+            var raw = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(shadow.DesiredJson);
+            if (raw is not null)
+            {
+                desired = raw.ToDictionary(
+                    kv => kv.Key,
+                    kv => (object)(kv.Value.ValueKind switch
+                    {
+                        JsonValueKind.Number when kv.Value.TryGetDouble(out var d) => (object)d,
+                        JsonValueKind.True  => (object)true,
+                        JsonValueKind.False => (object)false,
+                        _                  => kv.Value.GetString() ?? kv.Value.GetRawText()
+                    }));
+            }
+        }
 
         if (report is null)
         {
-            var unknownResource = new DeviceStatusResource(id, "unknown", DateTime.MinValue, 0, 0);
+            var unknownResource = new DeviceStatusResource(id, "unknown", DateTime.MinValue, 0, 0, desired);
             return Ok(unknownResource);
         }
 
-        var resource = TelemetryResourceAssembler.ToStatusResource(report);
+        var resource = TelemetryResourceAssembler.ToStatusResource(report, desired);
         return Ok(resource);
     }
 }

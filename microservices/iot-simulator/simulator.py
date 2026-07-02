@@ -42,14 +42,74 @@ _device_desired: dict[int, dict] = {}
 _lock = threading.Lock()
 
 
-def generate_payload(device_id: int, desired: dict) -> dict:
-    # Scale energy by intensity/brightness if set (0-100 range, default 100).
-    # Allows owner-controlled dimming commands to reflect in telemetry consumption.
-    intensity = desired.get('intensity', 100)
-    brightness = desired.get('brightness', intensity)  # fallback alias
-    scale = max(0.0, min(1.0, brightness / 100.0))
-    base_energy = random.uniform(0.5, 3.0)
-    energy_kwh = round(base_energy * scale if scale < 1.0 else base_energy, 2)
+def _energy_for_ac(desired: dict) -> float:
+    """AirConditioner energy model based on power, mode and targetTemperature."""
+    power = str(desired.get('power', 'on')).lower()
+    if power in ('off', 'false', '0'):
+        return round(random.uniform(0.0, 0.05), 3)  # standby draw
+
+    mode = str(desired.get('mode', 'cooling')).lower()
+    if mode == 'fan':
+        return round(random.uniform(0.05, 0.2), 2)  # fan-only: low draw
+
+    # cooling / heating / auto: scale by how hard the compressor works.
+    # targetTemperature range 16–30 °C.
+    # Cooling: lower target → compressor works harder → more energy.
+    # Heating: higher target → heat pump works harder → more energy.
+    target = float(desired.get('targetTemperature', 22))
+    target = max(16.0, min(30.0, target))
+    if mode == 'heating':
+        factor = (target - 16.0) / 14.0        # 0.0 (16°C) → 1.0 (30°C)
+    else:
+        factor = (30.0 - target) / 14.0        # 1.0 (16°C) → 0.0 (30°C)
+
+    base = random.uniform(0.4, 1.2)            # base compressor draw (kWh)
+    return round(base + factor * random.uniform(0.5, 1.8), 2)
+
+
+def _energy_for_smartlight(desired: dict) -> float:
+    """SmartLight energy model: linear with brightness, near-zero when off."""
+    power = str(desired.get('power', 'on')).lower()
+    if power in ('off', 'false', '0'):
+        return round(random.uniform(0.0, 0.005), 4)  # LED standby: negligible
+
+    brightness = max(0.0, min(100.0, float(desired.get('brightness', 100))))
+    scale = brightness / 100.0
+    # Full brightness: 0.08–0.15 kWh; scales linearly down to near-zero at 0%.
+    base = random.uniform(0.08, 0.15)
+    return round(base * scale, 3)
+
+
+def _energy_generic(desired: dict) -> float:
+    """Passive sensor / generic energy model: low fixed draw, no controls affect it."""
+    # Telemetry-only devices (SmartMeter, WaterSensor, SmokeDetector) consume very
+    # little power — they're passive sensors. Range: 0.01–0.05 kWh.
+    return round(random.uniform(0.01, 0.05), 3)
+
+
+def _device_status(desired: dict, device_type: str) -> str:
+    """Derive online/idle status from the device's desired power state.
+
+    Controllable devices (AirConditioner, SmartLight) are 'online' only when
+    powered on. Passive sensors have no power control and are always 'online'.
+    """
+    dtype = device_type.lower()
+    if dtype in ('airconditioner', 'smartlight'):
+        power = str(desired.get('power', 'on')).lower()
+        return 'idle' if power in ('off', 'false', '0') else 'online'
+    # Passive sensors (SmartMeter, WaterSensor, SmokeDetector, custom types)
+    # are always online — they run continuously.
+    return 'online'
+
+
+def generate_payload(device_id: int, desired: dict, device_type: str = '') -> dict:
+    dtype = device_type.lower()
+    if dtype == 'airconditioner':
+        energy_kwh = _energy_for_ac(desired)
+    elif dtype == 'smartlight':
+        energy_kwh = _energy_for_smartlight(desired)
+    else:
+        energy_kwh = _energy_generic(desired)
 
     payload = {
         "deviceId": device_id,
@@ -57,7 +117,7 @@ def generate_payload(device_id: int, desired: dict) -> dict:
         "energy_kwh": energy_kwh,
         "temperature_c": round(random.uniform(18.0, 35.0), 1),
         "voltage_v": round(random.uniform(215.0, 230.0), 1),
-        "status": random.choice(STATUS_WEIGHTS),
+        "status": _device_status(desired, device_type),
         "location": LOCATIONS[(device_id - 1) % len(LOCATIONS)],
     }
     if desired:
@@ -105,7 +165,9 @@ def _handle_command(client, device_id: int, raw: bytes):
         desired = dict(_device_desired[device_id])
     applied = ", ".join(f"{k}={v}" for k, v in command.items())
     print(f"[CMD] device={device_id} applied: {applied} | desired={desired}")
-    ack = generate_payload(device_id, desired)
+    with _lock:
+        dtype = _devices.get(device_id, {}).get('type', '')
+    ack = generate_payload(device_id, desired, dtype)
     client.publish(f"telemetry/{device_id}", json.dumps(ack), qos=1)
     print(f"[ACK] Published updated telemetry to telemetry/{device_id}")
 
@@ -147,7 +209,8 @@ def main():
         with _lock:
             snapshot = [(d, dict(_device_desired.get(d, {}))) for d in _devices]
         for device_id, desired in snapshot:
-            payload = generate_payload(device_id, desired)
+            dtype = _devices.get(device_id, {}).get('type', '')
+            payload = generate_payload(device_id, desired, dtype)
             client.publish(f"telemetry/{device_id}", json.dumps(payload), qos=1)
             print(
                 f"[{payload['timestamp']}] Published to telemetry/{device_id}: "

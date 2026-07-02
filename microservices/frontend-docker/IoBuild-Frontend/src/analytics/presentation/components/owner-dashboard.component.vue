@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, watch } from 'vue';
+import { computed, ref, watch, onMounted, onActivated } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { Line, Bar } from 'vue-chartjs';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, Filler } from 'chart.js';
@@ -123,6 +123,16 @@ const formatLastSeen = (lastSeen) => {
   return new Date(lastSeen).toLocaleString();
 };
 
+const formatDesiredValue = (val) => {
+  if (val === null || val === undefined) return '—';
+  if (typeof val === 'boolean') return val ? 'On' : 'Off';
+  if (typeof val === 'number') return val;
+  const s = String(val);
+  if (s.toLowerCase() === 'true') return 'On';
+  if (s.toLowerCase() === 'false') return 'Off';
+  return s;
+};
+
 // Fetch telemetry when device or time range changes
 const fetchTelemetry = async (deviceId) => {
   if (!deviceId) {
@@ -161,6 +171,16 @@ watch(() => deviceOptions.value, (opts) => {
     analyticsStore.selectDevice(opts[0]?.id ?? null);
   }
 }, { immediate: true });
+
+// Re-fetch device status every time this component mounts (navigation back from Device Management).
+// The selectedDeviceId watcher doesn't fire if the id didn't change, so we need this guard.
+const refetchStatusOnMount = () => {
+  if (analyticsStore.selectedDeviceId) {
+    fetchTelemetry(analyticsStore.selectedDeviceId);
+  }
+};
+onMounted(refetchStatusOnMount);
+onActivated(refetchStatusOnMount);
 
 // Energy consumption chart (last 30 days)
 const energyConsumptionChartData = computed(() => {
@@ -367,11 +387,30 @@ const chartOptions = {
               <span class="status-label">{{ $t('devices.telemetry.lastSeen') }}</span>
               <span class="status-value">{{ formatLastSeen(analyticsStore.deviceStatus.lastSeen) }}</span>
             </div>
-            <div class="status-field">
-              <span class="status-label">{{ $t('devices.telemetry.temperature') }}</span>
-              <span class="status-value">{{ analyticsStore.deviceStatus.temperatureC != null ? `${analyticsStore.deviceStatus.temperatureC.toFixed(1)} °C` : '—' }}</span>
-            </div>
-            <div class="status-field">
+            <!-- Device-specific parameters from shadow (desired state) -->
+            <template v-if="analyticsStore.deviceStatus.desired && Object.keys(analyticsStore.deviceStatus.desired).length">
+              <div
+                v-for="(val, key) in analyticsStore.deviceStatus.desired"
+                :key="key"
+                class="status-field"
+              >
+                <span class="status-label">{{ key }}</span>
+                <span class="status-value">{{ formatDesiredValue(val) }}</span>
+              </div>
+            </template>
+            <!-- Fallback: ambient sensor readings when no desired state exists -->
+            <template v-else>
+              <div class="status-field">
+                <span class="status-label">{{ $t('devices.telemetry.temperature') }}</span>
+                <span class="status-value">{{ analyticsStore.deviceStatus.temperatureC != null ? `${analyticsStore.deviceStatus.temperatureC.toFixed(1)} °C` : '—' }}</span>
+              </div>
+              <div class="status-field">
+                <span class="status-label">{{ $t('devices.telemetry.voltage') }}</span>
+                <span class="status-value">{{ analyticsStore.deviceStatus.voltageV != null ? `${analyticsStore.deviceStatus.voltageV.toFixed(1)} V` : '—' }}</span>
+              </div>
+            </template>
+            <!-- Voltage always shown -->
+            <div v-if="analyticsStore.deviceStatus.desired && Object.keys(analyticsStore.deviceStatus.desired).length" class="status-field">
               <span class="status-label">{{ $t('devices.telemetry.voltage') }}</span>
               <span class="status-value">{{ analyticsStore.deviceStatus.voltageV != null ? `${analyticsStore.deviceStatus.voltageV.toFixed(1)} V` : '—' }}</span>
             </div>

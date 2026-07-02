@@ -23,7 +23,7 @@ const props = defineProps({
 const analyticsStore = useAnalyticsStore();
 const iamStore = useIamStore();
 
-const userId = computed(() => iamStore.currentUser?.id || 1);
+const userId = computed(() => iamStore.currentUser?.id ?? null);
 const liveMinutes = ref(10);
 
 const timeRange = ref('24h'); // '1h' or '24h'
@@ -33,9 +33,26 @@ const timeRangeOptions = [
   { label: t('devices.telemetry.last24h'), value: '24h' }
 ];
 
-const deviceOptions = computed(() =>
-  analyticsStore.devices.map(d => ({ name: d.name, id: d.id }))
+// Filter devices to those belonging to this builder's projects only.
+// Without this guard, getAllDevices() returns devices from ALL builders.
+const builderProjectIds = computed(() =>
+  (props.dashboard?.projectsOverview ?? []).map(p => p.id)
 );
+
+const deviceOptions = computed(() =>
+  analyticsStore.devices
+    .filter(d => builderProjectIds.value.includes(d.projectId))
+    .map(d => ({ name: d.name, id: d.id }))
+);
+
+// Keep selectedDeviceId in sync: clear stale selection when the device list changes
+// (e.g. switching between builders, or when this builder has no devices yet).
+watch(deviceOptions, (opts) => {
+  const ids = opts.map(o => o.id);
+  if (!ids.includes(analyticsStore.selectedDeviceId)) {
+    analyticsStore.selectDevice(opts[0]?.id ?? null);
+  }
+}, { immediate: true });
 
 const selectedDevice = computed({
   get: () => analyticsStore.selectedDeviceId,

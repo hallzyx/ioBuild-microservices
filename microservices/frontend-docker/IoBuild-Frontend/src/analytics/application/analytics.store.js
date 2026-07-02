@@ -63,10 +63,9 @@ export const useAnalyticsStore = defineStore("analytics", () => {
         try {
             const result = await deviceApi.getAllDevices();
             devices.value = result;
-            // Auto-select first device when devices are loaded
-            if (result.length > 0 && selectedDeviceId.value === null) {
-                selectDevice(result[0].id);
-            }
+            // Auto-selection is intentionally removed — the component's watch on
+            // deviceOptions (filtered by builder's projects) handles selection so
+            // that devices from other builders are never auto-selected.
         } catch (error) {
             errors.value.push(error);
             console.error('Error fetching devices for telemetry:', error);
@@ -98,6 +97,12 @@ export const useAnalyticsStore = defineStore("analytics", () => {
 
     function selectDevice(deviceId) {
         selectedDeviceId.value = deviceId;
+        // Clear stale telemetry data when deselecting so the chart/status panel
+        // doesn't show readings that belong to a different device or builder.
+        if (!deviceId) {
+            deviceEnergyReadings.value = [];
+            deviceStatus.value = null;
+        }
     }
 
     async function fetchLiveEnergy(userId, role, minutes = 10) {
@@ -125,6 +130,19 @@ export const useAnalyticsStore = defineStore("analytics", () => {
 
     function clearErrors() {
         errors.value = [];
+    }
+
+    function clearUserSession() {
+        builderDashboard.value = null;
+        ownerDashboard.value = null;
+        historicalData.value = [];
+        devices.value = [];
+        deviceEnergyReadings.value = [];
+        deviceStatus.value = null;
+        selectedDeviceId.value = null;
+        liveEnergyData.value = [];
+        errors.value = [];
+        stopLiveEnergyPolling();
     }
 
     /**
@@ -155,6 +173,7 @@ export const useAnalyticsStore = defineStore("analytics", () => {
         fetchDeviceStatus,
         selectDevice,
         clearErrors,
+        clearUserSession,
         invalidateBuilderDashboard,
         liveEnergyData,
         liveEnergyLoading,

@@ -116,29 +116,30 @@ public class DeviceActuationService(
         // ── 5. DB transaction: upsert shadow + outbox row ─────────────────────
         var acceptedAt = DateTime.UtcNow;
 
-        // Build desired JSON: { "attribute": value }
-        var desiredJson = BuildDesiredJson(command.Attribute, command.Value);
-
-        // Upsert shadow row (insert-or-update)
+        // Upsert shadow row (insert-or-update), merging the new attribute into existing desired state.
         var existingShadow = await db.DeviceShadows
             .FirstOrDefaultAsync(s => s.DeviceId == command.DeviceId);
+
+        var mergedJson = MergeDesiredJson(existingShadow?.DesiredJson, command.Attribute, command.Value);
 
         if (existingShadow is null)
         {
             db.DeviceShadows.Add(new DeviceShadow
             {
                 DeviceId = command.DeviceId,
-                DesiredJson = desiredJson,
+                DesiredJson = mergedJson,
                 UpdatedByUserId = command.RequestingUserId,
                 UpdatedAt = acceptedAt
             });
         }
         else
         {
-            existingShadow.DesiredJson = desiredJson;
+            existingShadow.DesiredJson = mergedJson;
             existingShadow.UpdatedByUserId = command.RequestingUserId;
             existingShadow.UpdatedAt = acceptedAt;
         }
+
+        var desiredJson = mergedJson;
 
         // Insert DeviceCommandIssuedEvent outbox row
         var auditEvent = new DeviceCommandIssuedEvent
@@ -235,22 +236,35 @@ public class DeviceActuationService(
 
     // ── Private helpers ────────────────────────────────────────────────────────
 
-    private static string BuildDesiredJson(string attribute, object? value)
+    /// <summary>
+    /// Merges one attribute into the existing desired JSON dict.
+    /// Existing attributes are preserved; the new one is added or updated.
+    /// </summary>
+    private static string MergeDesiredJson(string? existingJson, string attribute, object? value)
     {
-        // Produce {"attribute": value} — value type determines JSON representation
-        if (value is JsonElement elem)
+        // Parse existing state (or start empty)
+        var dict = new Dictionary<string, JsonElement>();
+        if (!string.IsNullOrWhiteSpace(existingJson) && existingJson != "{}")
         {
-            return JsonSerializer.Serialize(new Dictionary<string, JsonElement>
-            {
-                [attribute] = elem
-            });
+            dict = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(existingJson)
+                   ?? new Dictionary<string, JsonElement>();
         }
 
-        // Numeric / boolean / string scalar
-        return JsonSerializer.Serialize(new Dictionary<string, object?>
+        // Upsert the new attribute as a JsonElement
+        JsonElement newElem;
+        if (value is JsonElement je)
         {
-            [attribute] = value
-        });
+            newElem = je;
+        }
+        else
+        {
+            var raw = JsonSerializer.SerializeToElement(value);
+            newElem = raw;
+        }
+
+        dict[attribute] = newElem;
+
+        return JsonSerializer.Serialize(dict);
     }
 
     private static bool TryParseNumeric(object? value, out double result)

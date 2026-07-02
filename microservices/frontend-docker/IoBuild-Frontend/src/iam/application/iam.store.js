@@ -6,6 +6,8 @@ import { UserAssembler } from "../infrastructure/user.assembler.js";
 import { ProfileApi } from "../../profiles/infrastructure/profile-api.js";
 import { useProfileStore } from "../../profiles/application/profile.store.js";
 import { Profile } from "../../profiles/domain/model/profile.entity.js";
+import { useSubscriptionStore } from "../../subscriptions/application/subscription.store.js";
+import { useAnalyticsStore } from "../../analytics/application/analytics.store.js";
 
 const profileApi = new ProfileApi();
 
@@ -26,6 +28,17 @@ export const useIamStore = defineStore('iam', () => {
     const getUserRole = computed(() => currentUser.value?.role || '');
 
     // Actions
+
+    function clearAllUserStores() {
+        useSubscriptionStore().clearUserSession();
+        useAnalyticsStore().clearUserSession();
+        const profileStore = useProfileStore();
+        profileStore.profile = new Profile({});
+        profileStore.profileLoaded = false;
+        profileStore.viewType = '';
+        profileStore.errors = [];
+    }
+
     /**
      * Sign in with email and password
      * @param {string} email - User email
@@ -33,6 +46,8 @@ export const useIamStore = defineStore('iam', () => {
      * @returns {Promise<AuthenticatedUser>} Authenticated user with token
      */
     async function signIn(email, password) {
+        // Clear previous user's cached data before loading the new session.
+        clearAllUserStores();
         try {
             const response = await iamApi.signIn({ email, password });
             const authenticatedUser = AuthenticatedUserAssembler.toEntityFromResponse(response.data);
@@ -91,21 +106,12 @@ export const useIamStore = defineStore('iam', () => {
      * Sign out current user
      */
     function signOut() {
-        // Reset IAM store
         currentUser.value = null;
         token.value = '';
         isAuthenticated.value = false;
         localStorage.removeItem('token');
         localStorage.removeItem('currentUser');
-
-        // Reset profile store to ensure clean state for next login
-        const profileStore = useProfileStore();
-        profileStore.profile = new Profile({});
-        profileStore.profileLoaded = false;
-        profileStore.viewType = '';
-        profileStore.errors = [];
-
-        console.log('iam.store: User signed out, stores reset');
+        clearAllUserStores();
     }
 
     /**

@@ -95,6 +95,7 @@
               :label="$t('iam.registerBuilder.uploadPhoto')"
               icon="pi pi-cloud-upload"
               @click="openUploadModal"
+              :disabled="!cloudinaryReady"
               severity="secondary"
               outlined
               class="w-full mb-2"
@@ -219,25 +220,26 @@ const currentStep = ref(1);
 // Cloudinary configuration
 const cloudinaryName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
 const cloudinaryPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+const cloudinaryReady = ref(false);
 
 onMounted(() => {
   loadCloudinaryScript();
 });
 
 const loadCloudinaryScript = () => {
-  if (!window.cloudinary) {
-    const script = document.createElement('script');
-    script.src = 'https://widget.cloudinary.com/v2.0/global/all.js';
-    script.type = 'text/javascript';
-    document.head.appendChild(script);
+  if (window.cloudinary) {
+    cloudinaryReady.value = true;
+    return;
   }
+  const script = document.createElement('script');
+  script.src = 'https://widget.cloudinary.com/v2.0/global/all.js';
+  script.type = 'text/javascript';
+  script.onload = () => { cloudinaryReady.value = true; };
+  document.head.appendChild(script);
 };
 
 const openUploadModal = () => {
-  if (!window.cloudinary) {
-    console.error('Cloudinary widget not loaded');
-    return;
-  }
+  if (!cloudinaryReady.value || !window.cloudinary) return;
 
   window.cloudinary.openUploadWidget(
     {
@@ -252,7 +254,7 @@ const openUploadModal = () => {
         registerForm.value.photoUrl = result.info.secure_url || result.info.url;
       }
     }
-  ).open();
+  );
 };
 
 const registerForm = ref({

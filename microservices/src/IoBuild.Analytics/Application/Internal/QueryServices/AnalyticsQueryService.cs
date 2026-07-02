@@ -97,6 +97,7 @@ public class AnalyticsQueryService : IAnalyticsQueryService
             var pUnits    = units.Where(u => u.ProjectId == p.ProjectId).ToList();
             var pOccupied = pUnits.Count(u => u.Status.Equals("Occupied", StringComparison.OrdinalIgnoreCase));
             var pTotal    = pUnits.Count;
+            var pDevices  = devices.Count(d => d.ProjectId == p.ProjectId);
             return new Dictionary<string, object>
             {
                 ["id"]            = p.ProjectId,
@@ -104,7 +105,8 @@ public class AnalyticsQueryService : IAnalyticsQueryService
                 ["status"]        = p.Status,
                 ["totalUnits"]    = pTotal,
                 ["occupiedUnits"] = pOccupied,
-                ["occupancyRate"] = pTotal > 0 ? (double)pOccupied / pTotal * 100 : 0.0
+                ["occupancyRate"] = pTotal > 0 ? (double)pOccupied / pTotal * 100 : 0.0,
+                ["deviceCount"]   = pDevices
             };
         }).ToList<Dictionary<string, object>>();
 
@@ -154,8 +156,11 @@ public class AnalyticsQueryService : IAnalyticsQueryService
         // Correlated EXISTS subquery — do NOT use List.Contains (MySQL primitive-collection
         // translation limitation; same constraint documented at builder dashboard, line ~51).
         // DeviceProjection.OwnerUserId is always 0 — do NOT filter on it.
+        // UnitId != null already excludes floor-provisioned devices (UnitId = null).
+        // FloorNumber == null was removed: unit-package devices have both UnitId and
+        // FloorNumber set, so that guard was incorrectly hiding them from the owner.
         var devices = await _db.DeviceProjections
-            .Where(d => d.UnitId != null && d.FloorNumber == null && _db.UnitProjections
+            .Where(d => d.UnitId != null && _db.UnitProjections
                 .Any(u => u.OwnerUserId == query.UserId && u.UnitId == d.UnitId!.Value))
             .ToListAsync();
 
@@ -193,7 +198,9 @@ public class AnalyticsQueryService : IAnalyticsQueryService
             ["unitId"]      = u.UnitId,
             ["projectId"]   = u.ProjectId,
             ["projectName"] = projectNames.GetValueOrDefault(u.ProjectId, "Unknown"),
-            ["status"]      = u.Status
+            ["status"]      = u.Status,
+            ["floor"]       = u.Floor ?? 0,
+            ["roomNumber"]  = u.RoomNumber ?? string.Empty
         }).ToList<Dictionary<string, object>>();
 
         return new OwnerMetrics

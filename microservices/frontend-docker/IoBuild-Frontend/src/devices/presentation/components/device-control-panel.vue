@@ -1,6 +1,7 @@
 <script setup>
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { useCommandStore } from '../../application/command.store.js';
+import { DeviceApi } from '../../infrastructure/device-api.js';
 import { useToast } from 'primevue/usetoast';
 
 const props = defineProps({
@@ -27,6 +28,7 @@ const props = defineProps({
 
 const commandStore = useCommandStore();
 const toast = useToast();
+const deviceApi = new DeviceApi();
 
 // Fixed dropdown options for boolean attributes — the catalog does not send enumMembers for them.
 const BOOLEAN_OPTIONS = [
@@ -41,16 +43,26 @@ function kind(attr) {
 
 // Local reactive values — one entry per controllable attribute
 const localValues = ref({});
+// Desired state fetched from the device shadow (null until loaded)
+const shadowDesired = ref(null);
 
-// Initialise local values whenever attributes change
-watch(
-  () => props.controllableAttributes,
-  (attrs) => {
-    const init = {};
-    attrs.forEach((attr) => {
+function initFromAttrs(attrs, desired) {
+  const init = {};
+  attrs.forEach((attr) => {
+    // Prefer the shadow's desired value; fall back to sensible defaults.
+    if (desired && Object.prototype.hasOwnProperty.call(desired, attr.name)) {
+      const raw = desired[attr.name];
       const k = kind(attr);
       if (k === 'number') {
-        // Start at min (or 0)
+        init[attr.name] = Number(raw);
+      } else if (k === 'boolean') {
+        init[attr.name] = raw === true || raw === 'true' || raw === 'On' || raw === 'on';
+      } else {
+        init[attr.name] = raw;
+      }
+    } else {
+      const k = kind(attr);
+      if (k === 'number') {
         init[attr.name] = attr.min ?? 0;
       } else if (k === 'boolean') {
         init[attr.name] = false;
@@ -59,11 +71,32 @@ watch(
       } else {
         init[attr.name] = '';
       }
-    });
-    localValues.value = init;
-  },
+    }
+  });
+  localValues.value = init;
+}
+
+// Re-initialise whenever attributes change (device change or catalog load)
+watch(
+  () => props.controllableAttributes,
+  (attrs) => initFromAttrs(attrs, shadowDesired.value),
   { immediate: true }
 );
+
+// Fetch the shadow desired state from the backend on mount, then re-seed localValues.
+onMounted(async () => {
+  const id = deviceId.value;
+  if (!id) return;
+  try {
+    const status = await deviceApi.getDeviceStatus(id);
+    if (status?.desired && Object.keys(status.desired).length) {
+      shadowDesired.value = status.desired;
+      initFromAttrs(props.controllableAttributes, status.desired);
+    }
+  } catch {
+    // Shadow not available — keep defaults
+  }
+});
 
 const hasControls = computed(() => props.controllableAttributes.length > 0);
 

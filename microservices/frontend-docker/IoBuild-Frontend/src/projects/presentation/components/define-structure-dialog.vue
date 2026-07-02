@@ -136,14 +136,16 @@ function buildPayload() {
         }
     }
 
-    // Include all floors in deviceTypesPerFloor; empty selection is valid
-    // (backend treats empty array as "use legacy defaults" per S6.3 / SC-6.3).
+    // Only include floors where the builder explicitly selected device types.
+    // Sending [] was interpreted by the backend as "use legacy defaults", which
+    // created default devices on every floor even when the builder made no selection,
+    // causing phantom device inflation (N floors × default count).
     const deviceTypesPerFloor = [];
     for (let f = 1; f <= floors.value; f++) {
-        deviceTypesPerFloor.push({
-            floor: f,
-            deviceTypes: deviceTypesByFloor.value[f] ?? []
-        });
+        const types = deviceTypesByFloor.value[f];
+        if (types && types.length > 0) {
+            deviceTypesPerFloor.push({ floor: f, deviceTypes: types });
+        }
     }
 
     // Unit device packages — only include units with at least one type selected

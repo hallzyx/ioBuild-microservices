@@ -225,32 +225,29 @@ public class FloorProvisioningConsumer : BackgroundService
             .OrderBy(dt => dt.Id)
             .ToListAsync();
 
-        List<(string Type, string NamePrefix)> selected;
-        if (evt.DeviceTypes is { Count: > 0 })
+        // If the builder made no explicit device selection for this floor, skip provisioning.
+        // The legacy default fallback (SmartMeter/WaterSensor/SmokeDetector) was removed:
+        // builders now control exactly which devices get installed per floor. An empty/null
+        // DeviceTypes means "no floor-wide devices for this floor."
+        if (evt.DeviceTypes is not { Count: > 0 })
         {
-            var nameByCode = catalog.ToDictionary(dt => dt.Code, dt => dt.DisplayName);
-            // Resolve display name from the catalog by Code; fall back to the type code itself
-            // if the type is not found (consumer is tolerant of future additions).
-            selected = evt.DeviceTypes
-                .Select(t => (Type: t, NamePrefix: nameByCode.GetValueOrDefault(t, t)))
-                .ToList();
+            _logger.LogInformation(
+                "FloorProvisioningConsumer: no device types selected for ProjectId={ProjectId} Floor={Floor} — skipping.",
+                evt.ProjectId, evt.Floor);
+            return;
         }
-        else
-        {
-            // Default fallback: all floor-scoped types from the DB catalog, ordered by Id.
-            // Yields exactly SmartMeter, WaterSensor, SmokeDetector — behavior preserved.
-            selected = catalog
-                .Where(dt => dt.Scope == "floor")
-                .Select(dt => (Type: dt.Code, NamePrefix: dt.DisplayName))
-                .ToList();
-        }
+
+        var nameByCode = catalog.ToDictionary(dt => dt.Code, dt => dt.DisplayName);
+        List<(string Type, string NamePrefix)> selected = evt.DeviceTypes
+            .Select(t => (Type: t, NamePrefix: nameByCode.GetValueOrDefault(t, t)))
+            .ToList();
 
         // Idempotency pre-check (count-based, replaces SmartMeter sentinel — ADR-7 / SC-4.4).
         // If existing device count >= selected count, floor is already provisioned → skip.
         // The unique index (ProjectId, FloorNumber, Type) remains the hard backstop for
         // concurrent redelivery that sneaks past this pre-check (ADR-C).
         var existingCount = await db.Devices.CountAsync(
-            d => d.ProjectId == evt.ProjectId && d.FloorNumber == evt.Floor);
+            d => d.ProjectId == evt.ProjectId && d.FloorNumber == evt.Floor && d.Source == "FloorProvisioned");
 
         if (existingCount >= selected.Count)
         {
