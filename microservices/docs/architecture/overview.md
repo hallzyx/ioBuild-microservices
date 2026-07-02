@@ -210,7 +210,9 @@ Idempotency Keys evitan procesar el mismo webhook dos veces.
 | **ADR-09** | Transactional Outbox Pattern para eventos de pago | ✅ Implementado |
 | **ADR-10** | Idempotency Keys en webhooks Stripe | ✅ Implementado |
 | **ADR-11** | IoBuild.Shared como Class Library (no NuGet) | ✅ Implementado |
-| **ADR-12** | MySQL compartido (1 instancia, 6 bases de datos separadas) | ✅ Implementado |
+| **ADR-12** | MySQL por servicio (6 contenedores independientes, no instancia compartida) | ✅ Implementado — ver [MS-03](../migrations/support-migrations.md#ms-03-mysql-por-servicio-database-per-service-real) |
+| **ADR-13** | OpenTelemetry con auto-instrumentación (ASP.NET Core + HttpClient) en los 7 microservicios | ✅ Implementado — Iteración 4 |
+| **ADR-14** | Jaeger All-in-One sin almacenamiento persistente (memoria efímera) | ✅ Implementado — Iteración 4 |
 
 Para la justificación detallada de cada ADR, ver los [reportes de iteración](../iterations/).
 
@@ -256,3 +258,4 @@ Para la justificación detallada de cada ADR, ver los [reportes de iteración](.
 > 1. [Iteración 1 — Base y Seguridad](../iterations/iteration-1-base-seguridad.md)
 > 2. [Iteración 2 — Pipeline IoT](../iterations/iteration-2-pipeline-iot.md)
 > 3. [Iteración 3 — Pagos Seguros](../iterations/iteration-3-pagos-seguros.md)
+> 4. [Iteración 4 — Observabilidad y Trazabilidad Distribuida](../iterations/iteration-4-observabilidad.md)

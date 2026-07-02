@@ -140,7 +140,7 @@ IoBuild.Shared/
 │   │   └── JwtAuthenticationMiddleware.cs        # Auth compartida para Projects, Devices
 │   ├── Tokens/
 │   │   ├── TokenSettings.cs            # Configuración JWT unificada
-│   │   └── ITokenBlacklistService.cs   # Revocación de tokens (QA-1)
+│   │   └── ITokenBlacklistService.cs   # Revocación de tokens (QA-1) — ver nota abajo sobre RedisTokenBlacklistService
 │   ├── ASP/
 │   │   └── Configuration/
 │   │       ├── AuthorizeAttribute.cs       # Atributo [Authorize] compartido
@@ -161,6 +161,8 @@ IoBuild.Shared/
 **¿Por qué incluir middleware de auth aquí?**
 - Los microservicios Projects y Devices necesitan validar JWT pero no deberían duplicar lógica de autenticación.
 - Centralizar el middleware en Shared permite que cualquier microservicio futuro herede seguridad automáticamente.
+
+**Nota (evolución de QA-1):** `ITokenBlacklistService` nació como `TokenBlacklistService` en memoria (suficiente con una sola instancia de IAM). Cuando el driver QA-1 (revocación de tokens) tuvo que sostenerse entre reinicios y potenciales réplicas, se agregó `RedisTokenBlacklistService` (Redis vía `IDistributedCache`) como segunda implementación de la misma interfaz — patrón Strategy, mismo driver QA-1, mejor táctica. No es una migración fuera de alcance: sigue siendo la misma pieza de la Iteración 1, solo que con Redis en vez de memoria in-process. Config: servicio `redis:7-alpine` en `docker-compose.yml`.
 
 ### 3.3 Arquitectura Interna de Cada Microservicio
 
@@ -531,6 +533,8 @@ iobuild-mysql             Up (healthy)     3306/tcp
 | **ADR-06** | Frontend como copia independiente (no monorepo) | No modificar el monolito original. La copia tiene sus propias variables de entorno y fixes sin afectar el repo original. | Divergencia potencial entre copia y original — mitigado documentando los fixes aplicados |
 | **ADR-07** | `depends_on` con health checks en vez de `wait-for-it` | Los health checks son nativos de Docker, no requieren scripts externos, y verifican que el servicio está realmente listo (no solo el puerto abierto). | Tiempo de arranque inicial más lento — aceptable porque solo ocurre en deploy, no en runtime |
 | **ADR-08** | Tres capas de proxy: Traefik + Nginx + YARP | Cada capa tiene una responsabilidad distinta y no redundante: Traefik = TLS + edge routing, Nginx = archivos estáticos + SPA fallback, YARP = API Gateway con health checks agregados. | Percepción de "sobre-ingeniería" — mitigado documentando la separación clara de responsabilidades y el hecho de que dos de los tres componentes (Traefik, Nginx) son ubicuos en la industria |
+
+> **Nota (estado posterior):** ADR-03 y ADR-08 reflejan las decisiones tomadas en esta iteración, sobre un VPS pequeño con Dokploy + Traefik. Ambas cambiaron más adelante: el MySQL compartido se dividió en un contenedor por servicio ([MS-03](../migrations/support-migrations.md#ms-03-mysql-por-servicio-database-per-service-real)), y el deploy se movió a una VM de Azure con Cloudflare en el borde en vez de Traefik (ver [`docs/deployment/azure-terraform.md`](../deployment/azure-terraform.md)). Este documento se deja intacto como registro histórico de la decisión original.
 
 ---
 

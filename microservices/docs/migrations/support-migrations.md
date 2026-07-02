@@ -124,9 +124,71 @@ El cluster ya existe (`subscriptions-cluster` apunta a `:5004`), así que la mig
 
 ---
 
+## MS-03: MySQL por servicio (database-per-service real)
+
+**Reemplaza:** ADR-03 de la Iteración 1 ("MySQL compartido, misma instancia, diferentes BDs").
+
+### Qué hace
+
+Cada microservicio con persistencia (IAM, Devices, Projects, Subscriptions, Analytics, Profiles) corre su **propio contenedor MySQL 8.0** en vez de compartir una sola instancia con 6 bases de datos separadas. En desarrollo se exponen en puertos `3307-3312` (`docker-compose.override.yml`); en producción cada uno vive en la red interna de Docker sin puerto publicado.
+
+### Por qué se revirtió la decisión original
+
+La Iteración 1 aceptó el riesgo de "una instancia, varias BDs" como compromiso pragmático para un VPS de 2 GB. Una vez que el deploy se movió a una VM de Azure con más memoria disponible, ese compromiso ya no era necesario y el aislamiento real de fallos a nivel de base de datos (si `mysql-devices` se cae, `mysql-iam` sigue sirviendo) pasó a ser alcanzable sin costo relevante.
+
+### Configuración
+
+```yaml
+mysql-iam:
+  image: mysql:8.0
+  container_name: iobuild-mysql-iam
+  mem_limit: 256m
+# ... un servicio análogo por cada microservicio (mysql-devices, mysql-projects,
+# mysql-subscriptions, mysql-analytics, mysql-profiles)
+```
+
+Cada microservicio apunta a su propio host vía `DB_HOST=mysql-<servicio>`.
+
+> **Nota:** la blacklist de tokens en Redis (`RedisTokenBlacklistService`) **no** es una migración de soporte — sigue satisfaciendo el driver QA-1 de la Iteración 1 (revocación de tokens), solo que con una táctica distinta. Está documentada como evolución de QA-1 en [`docs/iterations/iteration-1-base-seguridad.md`](../iterations/iteration-1-base-seguridad.md), no acá.
+
+---
+
+## MS-04: RabbitMQ como bus de eventos de dominio (Outbox distribuido)
+
+**Contexto:** la Iteración 3 introdujo el Transactional Outbox Pattern para satisfacer QA-3 (consistencia pago↔suscripción) y explícitamente descartó RabbitMQ para ese caso puntual ("Overkill para la escala actual, el `OutboxWorker` en el mismo proceso es suficiente"). Esa parte del Outbox (Subscriptions, evento `subscription.activated`) sigue siendo responsabilidad de QA-3 y no es lo que documenta esta migración.
+
+### Qué hace
+
+`RabbitMqDomainEventPublisher` (`src/IoBuild.Shared/Infrastructure/Messaging/`) publica eventos de dominio al exchange topic `iobuild.domain.events` en RabbitMQ. El patrón Outbox se replicó, con RabbitMQ como transporte, a **IAM, Devices y Projects** — cada uno con su propio `OutboxWorker` + tabla `OutboxMessage` — para casos de uso que ninguna de las 3 iteraciones ADD cubre: provisión de dispositivos por piso (`FloorProvisioningConsumer`), vinculación de dueño-unidad (`OwnerLinkingConsumer`, `UnitOwnerProjectionConsumer`) y anuncios de propietario (`UnitOwnerAnnouncer`).
+
+### Por qué es una migración de soporte (no una reversión de QA-3)
+
+QA-3 solo exige consistencia entre el pago y la suscripción — un evento, un consumidor, in-process alcanza y sigue alcanzando. Lo que forzó a introducir un broker real fue la necesidad de comunicación asíncrona entre **varios** bounded contexts (Devices ⇄ Projects ⇄ Analytics) para features nuevas (aprovisionamiento de dispositivos por piso, vinculación de dueños) que no estaban en el backlog de ninguna de las 3 iteraciones. RabbitMQ resultó ser la pieza de infraestructura compartida que ya existía y que ambos casos (pagos y eventos de dominio) terminaron reutilizando.
+
+### Configuración
+
+```yaml
+rabbitmq:
+  image: rabbitmq:4-management
+  container_name: iobuild-rabbitmq
+  healthcheck:
+    test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+```
+
+```csharp
+private const string ExchangeName = "iobuild.domain.events";
+private const string ExchangeType = "topic";
+```
+
+---
+
 ## Resumen
 
 | ID | Tipo | Descripción | Estado |
 |----|------|-------------|--------|
 | **MS-01** | Nuevo microservicio | `IoBuild.Profiles` — puerto 5006, BD `iobuild_profiles` | ✅ Implementado |
 | **MS-02** | Routing Gateway | `/api/v1/webhooks/*` → `subscriptions-cluster` | ✅ Implementado |
+| **MS-03** | Infraestructura | MySQL por servicio (6 contenedores en vez de 1 instancia compartida) — decisión de ops no cubierta por CON-1 | ✅ Implementado |
+| **MS-04** | Infraestructura | RabbitMQ como bus de eventos de dominio para IAM/Devices/Projects (aprovisionamiento de dispositivos, vinculación de dueños) — no cubierto por QA-3 | ✅ Implementado |
+
+> **Nota:** OpenTelemetry + Jaeger (tracing distribuido) **ya no aparece acá** — se formalizó como driver propio (**QA-4**) en la [Iteración 4](../iterations/iteration-4-observabilidad.md), así que dejó de ser una migración "fuera de alcance de las 3 iteraciones ADD". Tampoco aparece la blacklist de tokens en Redis, que es una evolución del driver QA-1 (Iteración 1) documentada en [`iteration-1-base-seguridad.md`](../iterations/iteration-1-base-seguridad.md).

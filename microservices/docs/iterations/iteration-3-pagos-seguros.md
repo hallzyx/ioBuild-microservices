@@ -70,6 +70,8 @@ La Iteración 2 estableció el pipeline de telemetría IoT. El sistema ya podía
 | **Consistencia eventual básica** | No aceptable para operaciones de dinero — se exige ACID en la BD de suscripciones |
 | **RabbitMQ para el Outbox** | Overkill para la escala actual. El `OutboxWorker` en el mismo proceso es suficiente |
 
+> **Nota (estado posterior):** esta decisión sigue vigente para el caso puntual de Subscriptions — QA-3 no necesita RabbitMQ, el `OutboxWorker` in-process alcanza. Lo que cambió es que RabbitMQ se introdujo después por una razón distinta: coordinar eventos de dominio entre Devices, Projects e IAM para features fuera del alcance de esta iteración (aprovisionamiento de dispositivos, vinculación de dueños). Ver [MS-04](../migrations/support-migrations.md#ms-04-rabbitmq-como-bus-de-eventos-de-dominio-outbox-distribuido) para el detalle. Esta sección se deja intacta como registro histórico de la decisión original en el alcance de la Iteración 3.
+
 ---
 
 ## 4. Componentes Implementados
