@@ -70,9 +70,12 @@ DB_NAME=iobuild_profiles      dotnet run --project src/IoBuild.Profiles
 | Analytics | 5005 | Dashboards y Métricas | ✅ Healthy |
 | Profiles | 5006 | Perfiles de Usuario | ✅ Healthy |
 | Frontend (Nginx) | 80 | Vue 3 SPA | ✅ Healthy |
-| MySQL | 3306/33065 | Persistencia (6 bases de datos) | ✅ Healthy |
+| MySQL | 3307-3312 | Persistencia (6 contenedores, 1 por servicio) | ✅ Healthy |
 | InfluxDB | 8086 | Telemetría IoT (7 días retención) | ✅ Healthy |
 | Mosquitto | 1883 | MQTT Broker | ✅ Healthy |
+| RabbitMQ | 5672/15672 | Broker de eventos (Outbox Pattern) | ✅ Healthy |
+| Redis | 6379 | Token blacklist distribuido (revocación JWT) | ✅ Healthy |
+| Jaeger | 16686 | Tracing distribuido (OpenTelemetry) | ✅ Healthy |
 | IoT Simulator | — | Generador de datos (dev only) | ✅ Running |
 
 ---
@@ -108,8 +111,9 @@ microservices/
 │   ├── IoBuild.Projects.Tests/          # BDD: ProjectsManagement (4 escenarios)
 │   └── IoBuild.Subscriptions.Tests/     # BDD: SubscriptionRenewal + Outbox (4+ escenarios)
 ├── mosquitto/                           # Config del broker MQTT
-├── mysql/                               # Scripts de inicialización de bases de datos
-└── iot-simulator/                       # Simulador IoT en Python
+├── mysql/                               # Scripts de inicialización de bases de datos (1 por servicio)
+├── iot-simulator/                       # Simulador IoT en Python
+└── frontend-docker/                     # Build Docker del frontend (Nginx)
 ```
 
 ---

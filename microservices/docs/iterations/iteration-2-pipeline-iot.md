@@ -1,4 +1,4 @@
-# IoBuild — Iteration 2 Final Report
+# IoBuild — Reporte Final de la Iteración 2
 
 ## Pipeline de Telemetría IoT: MQTT + InfluxDB + Worker + Simulador
 

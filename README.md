@@ -141,6 +141,8 @@ Dashboards y métricas consolidadas de todo el sistema.
 
 ### Fase 3: El Resultado
 
+> **Nota:** el diagrama de abajo muestra el resultado de la Iteración 1 (5 servicios + Gateway). El sistema evolucionó desde entonces — ver [`ARCHITECTURE.md`](ARCHITECTURE.md) para el estado actual (7 servicios de dominio + RabbitMQ + Redis + Jaeger + pipeline IoT completo).
+
 ```
 Arquitectura Final (Iteración 1)
 ═════════════════════════════════
@@ -234,15 +236,22 @@ PRUEBA 10: Planes     → ✅ Lista vacía (correcto)
 fundamentos_arq/
 │
 ├── README.md                     ← Este archivo (la historia)
+├── ARCHITECTURE.md                ← Estado actual as-built del sistema (ver esto para "cómo es hoy")
 ├── .gitignore                    ← Archivos excluidos del repo
 │
 ├── 5.1_Section.md                ← Documentación académica del Capítulo V
-├── 5.1_instructions.md           ← Instrucciones originales
-├── CONTEXT.md                    ← Contexto histórico del proyecto
+├── context.md                    ← Contexto histórico del proyecto
+├── deploy-flow.md                ← Flujo de despliegue actual (Azure + Terraform + Cloudflare)
 │
-├── ADD_Iteration_1_IoBuild.md    ← ADD Iteración 1 (documento de diseño)
-├── ADD_Iteration_2_IoBuild.md    ← ADD Iteración 2 (diseño, no implementado aún)
-├── ADD_Iteration_3_IoBuild.md    ← ADD Iteración 3 (diseño, no implementado aún)
+├── ADD_Iteration_1_IoBuild.md    ← ADD Iteración 1 (documento de diseño, histórico)
+├── ADD_Iteration_2_IoBuild.md    ← ADD Iteración 2 (documento de diseño, histórico)
+├── ADD_Iteration_3_IoBuild.md    ← ADD Iteración 3 (documento de diseño, histórico)
+│
+├── local/
+│   └── DEMO-JOURNEY.md           ← Guion de demo end-to-end del sistema actual
+│
+├── infra/                        ← Terraform (Azure VM efímera)
+│   └── README.md
 │
 ├── IoBuild-Backend/              ← Monolito ORIGINAL (no tocar)
 │   └── IoBuilt.API/
@@ -254,29 +263,34 @@ fundamentos_arq/
 │
 ├── IoBuild-Frontend/             ← Frontend Vue ORIGINAL
 │
-└── microservices/                ← NUEVA ARQUITECTURA
+└── microservices/                ← ARQUITECTURA ACTUAL EN PRODUCCIÓN
     ├── README.md                 ← Documentación técnica
-    ├── .env                      ← Template de variables de entorno
-    ├── start_services.ps1        ← Script para iniciar todo
-    ├── kill_services.ps1         ← Script para detener todo
-    ├── docs/                     ← Documentación detallada
-    │   ├── architecture-overview.md
-    │   ├── api-gateway-routes.md
-    │   ├── iteration_1_imp.md
-    │   └── iteration-1-closure.md
+    ├── docker-compose.yml        ← Stack completo (dev): 7 servicios + MySQL×6 + RabbitMQ + Redis + Jaeger + Mosquitto + InfluxDB
+    ├── docker-compose.prod.yml   ← Stack de producción (imágenes GHCR)
+    ├── start_all.sh / kill_all.sh← Ciclo de vida de servicios
+    ├── docs/
+    │   ├── architecture/         ← Vista arquitectónica actual (overview.md, api-gateway-routes.md)
+    │   ├── iterations/           ← Reportes por iteración ADD
+    │   ├── migrations/           ← Cambios de soporte fuera de las iteraciones ADD
+    │   ├── testing/              ← Evidencia de testing
+    │   └── deployment/           ← Deploy actual (Azure + Terraform)
     ├── src/
     │   ├── IoBuild.Shared/       ← Librería compartida
     │   ├── IoBuild.IAM/          ← Auth (5001)
-    │   ├── IoBuild.Devices/      ← IoT (5002)
+    │   ├── IoBuild.Devices/      ← IoT + telemetría MQTT→InfluxDB (5002)
     │   ├── IoBuild.Projects/     ← Proyectos (5003)
-    │   ├── IoBuild.Subscriptions/← Pagos (5004)
+    │   ├── IoBuild.Subscriptions/← Pagos + Outbox + Idempotency (5004)
     │   ├── IoBuild.Analytics/    ← Dashboards (5005)
+    │   ├── IoBuild.Profiles/     ← Perfiles de usuario (5006)
     │   └── IoBuild.Gateway/      ← Gateway YARP (8080)
-    └── tests/
-        ├── IoBuild.IAM.Tests/    ← BDD Authentication
-        ├── IoBuild.Devices.Tests/← BDD DeviceManagement
-        ├── IoBuild.Projects.Tests/← BDD ProjectsManagement
-        └── IoBuild.Subscriptions.Tests/← BDD SubscriptionRenewal
+    ├── tests/
+    │   ├── IoBuild.IAM.Tests/    ← BDD Authentication
+    │   ├── IoBuild.Devices.Tests/← BDD DeviceManagement + Telemetry
+    │   ├── IoBuild.Projects.Tests/← BDD ProjectsManagement
+    │   └── IoBuild.Subscriptions.Tests/← BDD SubscriptionRenewal + Outbox
+    ├── mosquitto/                ← Config del broker MQTT
+    ├── mysql/                    ← Scripts de inicialización (1 por servicio)
+    └── iot-simulator/            ← Simulador IoT en Python
 ```
 
 ---
@@ -284,25 +298,19 @@ fundamentos_arq/
 ## Cómo Correr (En 30 Segundos)
 
 ```bash
-# Requisitos: .NET 9 SDK + MySQL (XAMPP :33065)
+# Requisitos: Docker + Docker Compose
 
-# 1. Copiar variables de entorno
-cp microservices/.env microservices/.env.local
-# Editar .env.local con tus credenciales
-
-# 2. Crear bases de datos (una vez)
-mysql -u root -h 127.0.0.1 -P 33065 < microservices/scripts/create_databases.sql
-
-# 3. Iniciar todo (Batch)
 cd microservices
-start_all.bat
+docker compose up --build
 
-# 4. Verificar
+# Verificar que todo esté healthy
 curl http://localhost:8080/health
 
-# 5. Detener todo
-kill_all.bat
+# Detener todo
+docker compose down
 ```
+
+Para desarrollo sin Docker (dotnet run por servicio) y detalles de cada base de datos, ver [`microservices/README.md`](microservices/README.md).
 
 ---
 
@@ -310,8 +318,10 @@ kill_all.bat
 
 | Documento | Contenido |
 |-----------|-----------|
-| [`docs/architecture-overview.md`](microservices/docs/architecture-overview.md) | Visión general de la arquitectura |
-| [`docs/iteration_1_imp.md`](microservices/docs/iteration_1_imp.md) | Reporte técnico de implementación |
+| [`ARCHITECTURE.md`](ARCHITECTURE.md) | **Estado actual as-built** — cómo es el sistema hoy, validado contra el código |
+| [`microservices/docs/architecture/overview.md`](microservices/docs/architecture/overview.md) | Visión arquitectónica técnica detallada |
+| [`local/DEMO-JOURNEY.md`](local/DEMO-JOURNEY.md) | Guion de demo end-to-end del sistema completo |
+| [`deploy-flow.md`](deploy-flow.md) | Flujo de despliegue actual (Azure + Terraform + Cloudflare) |
 | [`5.1_Section.md`](5.1_Section.md) | Documentación académica Capítulo V |
 
 ---
