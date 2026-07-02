@@ -7,7 +7,7 @@
 
 ## 1. Visión General del Sistema
 
-IoBuild es una plataforma de gestión de propiedades con monitoreo IoT. El sistema opera como una arquitectura de microservicios con **7 servicios de dominio** más un API Gateway y una capa de infraestructura IoT.
+IoBuild es una plataforma de gestión de propiedades con monitoreo IoT. El sistema opera como una arquitectura de microservicios con **6 servicios de dominio** más un API Gateway y una capa de infraestructura IoT.
 
 ### Diagrama de Contenedores (C4)
 
@@ -70,6 +70,11 @@ IoBuild es una plataforma de gestión de propiedades con monitoreo IoT. El siste
                                         │ Telemetry    │──────────▶│ InfluxDB │
                                         │ Worker (.NET)│           │  :8086   │
                                         └──────────────┘           └──────────┘
+
+Infraestructura transversal (todos los servicios):
+  RabbitMQ  — bus de eventos de dominio (Topic Exchange `iobuild.domain.events`, Transactional Outbox)
+  Redis     — token blacklist distribuido (revocación JWT entre réplicas de IAM)
+  Jaeger    — tracing distribuido (OpenTelemetry OTLP), UI expuesta en watcher.arroz.dev
 ```
 
 ---
@@ -78,7 +83,7 @@ IoBuild es una plataforma de gestión de propiedades con monitoreo IoT. El siste
 
 | Servicio | Puerto | Bounded Context | Responsabilidad |
 |----------|--------|-----------------|----------------|
-| **IoBuild.IAM** | 5001 | Identidad y Acceso | Auth JWT, registro, logout, revocación de tokens |
+| **IoBuild.IAM** | 5001 | Identidad y Acceso | Auth JWT, registro, logout, revocación de tokens (blacklist distribuido en Redis) |
 | **IoBuild.Devices** | 5002 | Gestión de Dispositivos IoT | CRUD dispositivos + pipeline telemetría MQTT→InfluxDB |
 | **IoBuild.Projects** | 5003 | Gestión de Proyectos | CRUD proyectos, unidades, clientes |
 | **IoBuild.Subscriptions** | 5004 | Suscripciones y Pagos | Planes, Stripe, webhooks, Outbox Pattern, Idempotency Keys |
@@ -228,9 +233,12 @@ Para la justificación detallada de cada ADR, ver los [reportes de iteración](.
 | **Base de datos relacional** | MySQL 8.0 |
 | **ORM** | Entity Framework Core |
 | **Base de datos de series temporales** | InfluxDB OSS 2.7 |
-| **Message Broker** | Eclipse Mosquitto (MQTT) |
+| **Message Broker (IoT)** | Eclipse Mosquitto (MQTT) |
+| **Message Broker (eventos de dominio)** | RabbitMQ 4 (Topic Exchange, Transactional Outbox) |
+| **Cache / Token Blacklist** | Redis (revocación JWT distribuida) |
+| **Tracing distribuido** | OpenTelemetry (auto-instrumentación) + Jaeger All-in-One |
 | **API Gateway** | YARP (Yet Another Reverse Proxy) |
-| **Proxy Edge** | Traefik (TLS, Docker labels) |
+| **Proxy Edge** | Cloudflare (TLS + DNS) + Nginx (SPA/reverse proxy) — reemplazaron Traefik + Dokploy de la Iteración 1 |
 | **Frontend** | Vue 3 (SPA) + Nginx |
 | **Autenticación** | JWT (HMAC-SHA256) + BCrypt |
 | **Pagos** | Stripe (Checkout + Webhooks) |

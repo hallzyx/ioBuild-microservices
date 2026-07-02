@@ -24,7 +24,7 @@
 
 ## 1. Objetivo de la Iteración
 
-Con 7 microservicios .NET comunicándose por HTTP (Gateway → servicio) y por eventos (RabbitMQ, ver [MS-04](../migrations/support-migrations.md#ms-04-rabbitmq-como-bus-de-eventos-de-dominio-outbox-distribuido)), una sola request de usuario puede cruzar varios procesos y contenedores. Sin tracing distribuido, diagnosticar una request lenta o un error intermitente significaba correlacionar logs de varios contenedores a mano — lento y propenso a error.
+Con 7 microservicios .NET comunicándose por HTTP (Gateway → servicio) y por eventos (RabbitMQ, ver [Iteración 5](iteration-5-eventos-dominio.md)), una sola request de usuario puede cruzar varios procesos y contenedores. Sin tracing distribuido, diagnosticar una request lenta o un error intermitente significaba correlacionar logs de varios contenedores a mano — lento y propenso a error.
 
 **El objetivo de esta iteración:**
 > *"Instrumentar el sistema con tracing distribuido para que cualquier request cruzando Gateway → microservicio(s) → infraestructura sea reconstruible como un único trace end-to-end, sin agregar lógica de negocio nueva."*

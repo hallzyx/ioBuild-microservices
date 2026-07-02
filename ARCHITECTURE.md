@@ -8,7 +8,7 @@
 
 ## 1. Visión General
 
-IoBuild es una plataforma de gestión de propiedades con monitoreo IoT, operando como **7 microservicios de dominio** + API Gateway + capa de infraestructura de eventos, tracing e IoT.
+IoBuild es una plataforma de gestión de propiedades con monitoreo IoT, operando como **6 microservicios de dominio** + API Gateway + capa de infraestructura de eventos, tracing e IoT.
 
 ### Diagrama de Contenedores
 

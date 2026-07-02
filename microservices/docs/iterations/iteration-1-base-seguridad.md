@@ -395,7 +395,7 @@ services:
 
 1. **`depends_on` con `condition: service_healthy`:** Los servicios no arrancan hasta que sus dependencias pasan health checks. Esto evita race conditions al inicio.
 
-2. **`mem_limit` por servicio:** 256 MB para microservicios .NET, 128 MB para el Gateway, 384 MB para MySQL. Optimizado para VPS de 2 GB RAM.
+2. **`mem_limit` por servicio:** 256 MB para microservicios .NET, 128 MB para el Gateway, 384 MB para MySQL. Optimizado para VPS de 6 GB RAM.
 
 3. **`expose` en vez de `ports` para producción:** Los puertos no se exponen al host. Solo Traefik (Dokploy) puede acceder. Esto reduce la superficie de ataque.
 
@@ -447,7 +447,7 @@ server {
 
 | Componente | Detalle |
 |-----------|--------|
-| **VPS** | Linux (Ubuntu), 2 GB RAM, 2 vCPU |
+| **VPS** | Linux (Ubuntu), 6 GB RAM, 4 vCPU, 400 GB SSD |
 | **Orquestador** | Dokploy (auto-hosted, Traefik integrado) |
 | **Proxy Reverso** | Traefik (manejado por Dokploy) |
 | **TLS** | Let's Encrypt vía Traefik (auto-renovación) |
@@ -468,7 +468,7 @@ server {
 
 **Síntoma:** Contenedores morían aleatoriamente con OOM (Out of Memory).
 
-**Causa:** 8 contenedores (MySQL + 5 microservicios + Gateway + Frontend) sin límites de memoria en un VPS de 2 GB.
+**Causa:** 8 contenedores (MySQL + 5 microservicios + Gateway + Frontend) sin límites de memoria en un VPS de 6 GB.
 
 **Solución:**
 - Aplicar `mem_limit` a cada servicio (128-384 MB).
@@ -527,7 +527,7 @@ iobuild-mysql             Up (healthy)     3306/tcp
 |-----|----------|--------------|-------------------|
 | **ADR-01** | API Gateway con YARP | Centralizar enrutamiento, seguridad y health checks. Un solo punto de entrada para el frontend. | Single Point of Failure — mitigado con health checks activos y política de reintentos |
 | **ADR-02** | IAM como microservicio separado | Aislar seguridad del resto del sistema. Si IAM falla, los demás servicios pueden seguir operando con tokens ya emitidos. | Latencia extra por llamada HTTP — mitigado porque el JWT es stateless (no requiere llamada a IAM en cada request) |
-| **ADR-03** | MySQL compartido (misma instancia, diferentes BDs) | En Iteración 1, 5 instancias de MySQL en un VPS de 2 GB es inviable. Una instancia con 5 bases de datos separadas es el compromiso pragmático. | No hay aislamiento total de fallos a nivel BD — aceptable para MVP, migrable a instancias separadas en el futuro |
+| **ADR-03** | MySQL compartido (misma instancia, diferentes BDs) | En Iteración 1, levantar 5 instancias de MySQL independientes en un VPS de 6 GB agrega overhead y complejidad operativa sin necesidad real. Una instancia con 5 bases de datos separadas es el compromiso pragmático. | No hay aislamiento total de fallos a nivel BD — aceptable para MVP, migrable a instancias separadas en el futuro |
 | **ADR-04** | Docker Compose (no Kubernetes) | Para 8 contenedores en un VPS pequeño, Kubernetes es overkill masivo. Docker Compose + Dokploy da orquestación suficiente con mínima complejidad operativa. | Menos escalabilidad horizontal automatizada — aceptable para la escala actual |
 | **ADR-05** | Clean Architecture (4 capas) en cada microservicio | Separación de responsabilidades, testeabilidad, independencia de frameworks externos. El Domain no conoce EF Core ni ASP.NET. | Más archivos y carpetas — compensado por claridad estructural y facilidad de onboarding |
 | **ADR-06** | Frontend como copia independiente (no monorepo) | No modificar el monolito original. La copia tiene sus propias variables de entorno y fixes sin afectar el repo original. | Divergencia potencial entre copia y original — mitigado documentando los fixes aplicados |
@@ -627,7 +627,7 @@ Internet (HTTPS)
 | **Complejidad percibida** (3 proxies) | Cada uno tiene una responsabilidad distinta y documentada. No hay redundancia funcional. |
 | **Latencia adicional** (3 saltos HTTP internos) | Todos los saltos son en localhost/Docker network. Latencia < 1ms por salto. Imperceptible. |
 | **Mayor superficie de configuración** | Dos de los tres (Traefik, Nginx) son estándar de industria. Cualquier developer los conoce. |
-| **Mayor consumo de memoria** (+128 MB YARP, +50 MB Nginx) | Un VPS minimo tiene +2 GB. El overhead total de proxies es <200 MB. Aceptable. |
+| **Mayor consumo de memoria** (+128 MB YARP, +50 MB Nginx) | El VPS de la Iteración 1 tiene 6 GB. El overhead total de proxies es <200 MB. Aceptable. |
 
 #### Evolución en Siguientes Iteraciones
 

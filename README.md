@@ -141,7 +141,7 @@ Dashboards y métricas consolidadas de todo el sistema.
 
 ### Fase 3: El Resultado
 
-> **Nota:** el diagrama de abajo muestra el resultado de la Iteración 1 (5 servicios + Gateway). El sistema evolucionó desde entonces — ver [`ARCHITECTURE.md`](ARCHITECTURE.md) para el estado actual (7 servicios de dominio + RabbitMQ + Redis + Jaeger + pipeline IoT completo).
+> **Nota:** el diagrama de abajo muestra el resultado de la Iteración 1 (5 servicios + Gateway). El sistema evolucionó desde entonces — ver [`ARCHITECTURE.md`](ARCHITECTURE.md) para el estado actual (6 servicios de dominio + Gateway + RabbitMQ + Redis + Jaeger + pipeline IoT completo).
 
 ```
 Arquitectura Final (Iteración 1)
@@ -289,7 +289,9 @@ fundamentos_arq/
     │   ├── IoBuild.IAM.Tests/    ← BDD Authentication
     │   ├── IoBuild.Devices.Tests/← BDD DeviceManagement + Telemetry
     │   ├── IoBuild.Projects.Tests/← BDD ProjectsManagement
-    │   └── IoBuild.Subscriptions.Tests/← BDD SubscriptionRenewal + Outbox
+    │   ├── IoBuild.Subscriptions.Tests/← BDD SubscriptionRenewal + Outbox
+    │   ├── IoBuild.Analytics.Tests/← Unit Tests dashboards/métricas
+    │   └── IoBuild.Shared.Tests/  ← Unit Tests librería compartida
     ├── mosquitto/                ← Config del broker MQTT
     ├── mysql/                    ← Scripts de inicialización (1 por servicio)
     └── iot-simulator/            ← Simulador IoT en Python
