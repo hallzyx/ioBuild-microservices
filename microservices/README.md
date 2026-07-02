@@ -128,6 +128,7 @@ microservices/
 | [`docs/iterations/iteration-2-pipeline-iot.md`](docs/iterations/iteration-2-pipeline-iot.md) | Iteración 2: Pipeline MQTT + InfluxDB + telemetría en tiempo real |
 | [`docs/iterations/iteration-3-pagos-seguros.md`](docs/iterations/iteration-3-pagos-seguros.md) | Iteración 3: Pagos seguros con Stripe, Outbox y Idempotency Keys |
 | [`docs/iterations/iteration-4-observabilidad.md`](docs/iterations/iteration-4-observabilidad.md) | Iteración 4: Tracing distribuido con OpenTelemetry + Jaeger |
+| [`docs/iterations/iteration-5-eventos-dominio.md`](docs/iterations/iteration-5-eventos-dominio.md) | Iteración 5: Bus de eventos de dominio con RabbitMQ entre bounded contexts |
 | [`docs/migrations/support-migrations.md`](docs/migrations/support-migrations.md) | Migraciones de soporte — cambios fuera del scope de las iteraciones ADD |
 | [`docs/testing/iteration-1-evidence.md`](docs/testing/iteration-1-evidence.md) | Evidencia de testing completa de la Iteración 1 |
 | [`docs/deployment/azure-terraform.md`](docs/deployment/azure-terraform.md) | **Deploy actual** — Azure VM efímera con Terraform + Cloudflare |

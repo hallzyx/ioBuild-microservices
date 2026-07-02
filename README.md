@@ -247,6 +247,7 @@ fundamentos_arq/
 ├── ADD_Iteration_2_IoBuild.md    ← ADD Iteración 2 (documento de diseño, histórico)
 ├── ADD_Iteration_3_IoBuild.md    ← ADD Iteración 3 (documento de diseño, histórico)
 ├── ADD_Iteration_4_IoBuild.md    ← ADD Iteración 4 (Observabilidad y Trazabilidad Distribuida)
+├── ADD_Iteration_5_IoBuild.md    ← ADD Iteración 5 (Comunicación Asíncrona entre Bounded Contexts)
 │
 ├── local/
 │   └── DEMO-JOURNEY.md           ← Guion de demo end-to-end del sistema actual

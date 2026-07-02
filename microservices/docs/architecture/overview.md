@@ -134,8 +134,8 @@ El Domain no conoce EF Core, Stripe, ni ningún framework externo.
 | **Adapter** | `*Assembler.cs` | Convierte Resources ↔ Commands ↔ Entities sin acoplar capas |
 | **Decorator** | `GlobalExceptionHandlerMiddleware` | Envuelve el pipeline con manejo global de errores |
 | **Aggregate Root** | `User`, `Project`, `Device`, `Subscription`, `Profile` | Entidades con lógica de dominio encapsulada |
-| **Background Service** | `TelemetryWorker` (Devices), `OutboxWorker` (Subscriptions) | Procesos asíncronos long-running en el mismo proceso |
-| **Transactional Outbox** | `OutboxWorker` + `OutboxMessage` (Subscriptions) | Garantiza que eventos de "suscripción activada" no se pierdan |
+| **Background Service** | `TelemetryWorker` (Devices), `OutboxWorker` (IAM/Devices/Projects/Subscriptions), consumidores RabbitMQ | Procesos asíncronos long-running en el mismo proceso |
+| **Transactional Outbox** | `OutboxWorker` + `OutboxMessage` en IAM, Devices, Projects y Subscriptions | Garantiza que eventos de dominio (pago activado, dispositivo creado, dueño vinculado) no se pierdan |
 | **Idempotency Keys** | `IdempotencyKey` (Subscriptions) | Evita cobros duplicados en webhooks de Stripe |
 | **Anti-Corruption Layer (ACL)** | `ProfilesContextFacade`, `Analytics/ACL/` | Aísla la comunicación entre bounded contexts |
 | **Dependency Injection** | `Program.cs` en todos los servicios | Inversión de dependencias vía interfaces (SOLID DIP) |
@@ -213,6 +213,8 @@ Idempotency Keys evitan procesar el mismo webhook dos veces.
 | **ADR-12** | MySQL por servicio (6 contenedores independientes, no instancia compartida) | ✅ Implementado — ver [MS-03](../migrations/support-migrations.md#ms-03-mysql-por-servicio-database-per-service-real) |
 | **ADR-13** | OpenTelemetry con auto-instrumentación (ASP.NET Core + HttpClient) en los 7 microservicios | ✅ Implementado — Iteración 4 |
 | **ADR-14** | Jaeger All-in-One sin almacenamiento persistente (memoria efímera) | ✅ Implementado — Iteración 4 |
+| **ADR-15** | Topic Exchange único compartido (`iobuild.domain.events`) para eventos de dominio entre bounded contexts | ✅ Implementado — Iteración 5 |
+| **ADR-16** | Idempotencia por pre-check + índice único (backstop) en cada consumidor de dominio | ✅ Implementado — Iteración 5 |
 
 Para la justificación detallada de cada ADR, ver los [reportes de iteración](../iterations/).
 
@@ -259,3 +261,4 @@ Para la justificación detallada de cada ADR, ver los [reportes de iteración](.
 > 2. [Iteración 2 — Pipeline IoT](../iterations/iteration-2-pipeline-iot.md)
 > 3. [Iteración 3 — Pagos Seguros](../iterations/iteration-3-pagos-seguros.md)
 > 4. [Iteración 4 — Observabilidad y Trazabilidad Distribuida](../iterations/iteration-4-observabilidad.md)
+> 5. [Iteración 5 — Comunicación Asíncrona entre Bounded Contexts](../iterations/iteration-5-eventos-dominio.md)

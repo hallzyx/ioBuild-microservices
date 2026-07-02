@@ -153,35 +153,6 @@ Cada microservicio apunta a su propio host vía `DB_HOST=mysql-<servicio>`.
 
 ---
 
-## MS-04: RabbitMQ como bus de eventos de dominio (Outbox distribuido)
-
-**Contexto:** la Iteración 3 introdujo el Transactional Outbox Pattern para satisfacer QA-3 (consistencia pago↔suscripción) y explícitamente descartó RabbitMQ para ese caso puntual ("Overkill para la escala actual, el `OutboxWorker` en el mismo proceso es suficiente"). Esa parte del Outbox (Subscriptions, evento `subscription.activated`) sigue siendo responsabilidad de QA-3 y no es lo que documenta esta migración.
-
-### Qué hace
-
-`RabbitMqDomainEventPublisher` (`src/IoBuild.Shared/Infrastructure/Messaging/`) publica eventos de dominio al exchange topic `iobuild.domain.events` en RabbitMQ. El patrón Outbox se replicó, con RabbitMQ como transporte, a **IAM, Devices y Projects** — cada uno con su propio `OutboxWorker` + tabla `OutboxMessage` — para casos de uso que ninguna de las 3 iteraciones ADD cubre: provisión de dispositivos por piso (`FloorProvisioningConsumer`), vinculación de dueño-unidad (`OwnerLinkingConsumer`, `UnitOwnerProjectionConsumer`) y anuncios de propietario (`UnitOwnerAnnouncer`).
-
-### Por qué es una migración de soporte (no una reversión de QA-3)
-
-QA-3 solo exige consistencia entre el pago y la suscripción — un evento, un consumidor, in-process alcanza y sigue alcanzando. Lo que forzó a introducir un broker real fue la necesidad de comunicación asíncrona entre **varios** bounded contexts (Devices ⇄ Projects ⇄ Analytics) para features nuevas (aprovisionamiento de dispositivos por piso, vinculación de dueños) que no estaban en el backlog de ninguna de las 3 iteraciones. RabbitMQ resultó ser la pieza de infraestructura compartida que ya existía y que ambos casos (pagos y eventos de dominio) terminaron reutilizando.
-
-### Configuración
-
-```yaml
-rabbitmq:
-  image: rabbitmq:4-management
-  container_name: iobuild-rabbitmq
-  healthcheck:
-    test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
-```
-
-```csharp
-private const string ExchangeName = "iobuild.domain.events";
-private const string ExchangeType = "topic";
-```
-
----
-
 ## Resumen
 
 | ID | Tipo | Descripción | Estado |
@@ -189,6 +160,7 @@ private const string ExchangeType = "topic";
 | **MS-01** | Nuevo microservicio | `IoBuild.Profiles` — puerto 5006, BD `iobuild_profiles` | ✅ Implementado |
 | **MS-02** | Routing Gateway | `/api/v1/webhooks/*` → `subscriptions-cluster` | ✅ Implementado |
 | **MS-03** | Infraestructura | MySQL por servicio (6 contenedores en vez de 1 instancia compartida) — decisión de ops no cubierta por CON-1 | ✅ Implementado |
-| **MS-04** | Infraestructura | RabbitMQ como bus de eventos de dominio para IAM/Devices/Projects (aprovisionamiento de dispositivos, vinculación de dueños) — no cubierto por QA-3 | ✅ Implementado |
 
-> **Nota:** OpenTelemetry + Jaeger (tracing distribuido) **ya no aparece acá** — se formalizó como driver propio (**QA-4**) en la [Iteración 4](../iterations/iteration-4-observabilidad.md), así que dejó de ser una migración "fuera de alcance de las 3 iteraciones ADD". Tampoco aparece la blacklist de tokens en Redis, que es una evolución del driver QA-1 (Iteración 1) documentada en [`iteration-1-base-seguridad.md`](../iterations/iteration-1-base-seguridad.md).
+> **Nota:** ni OpenTelemetry + Jaeger ni RabbitMQ como bus de eventos de dominio aparecen acá — ambos se formalizaron como drivers propios: **QA-4** en la [Iteración 4](../iterations/iteration-4-observabilidad.md) y **QA-5/US40/US41/CRN-5** en la [Iteración 5](../iterations/iteration-5-eventos-dominio.md). Tampoco aparece la blacklist de tokens en Redis, que es una evolución del driver QA-1 (Iteración 1) documentada en [`iteration-1-base-seguridad.md`](../iterations/iteration-1-base-seguridad.md).
+>
+> El único caso de RabbitMQ que sigue siendo "de soporte, no de driver" es que la infraestructura del broker (`docker-compose.yml`) ya existía por QA-3 (Outbox de pagos) antes de que la Iteración 5 la reutilizara como bus de eventos — pero el *bus de eventos de dominio* en sí (los 5 consumidores, el exchange compartido) sí tiene driver propio.
