@@ -14,14 +14,12 @@ namespace IoBuild.Devices.Application.Internal.CommandServices;
 /// <summary>
 /// Handles device creation, update, and deletion commands.
 ///
-/// Extended for the owner-custom-device-type feature:
+/// Extended for owner-added unit devices:
 ///   - When CreateDeviceCommand.UnitId is set, creates the device via Device.ForOwnerCustom.
 ///   - Validates the requesting owner owns the unit (via UnitOwnerProjection).
-///   - Slice 3+: when IDeviceTypeRepository is provided, validates the typeCode against the
-///     global catalog. TypeCode not found → ArgumentException (400). Scope is "floor" only →
-///     ArgumentException (400). Scope is "unit" or "both" → allowed.
-///   - Slice 2 legacy: when IDeviceTypeRepository is null, falls back to validating typeCode
-///     against OwnerCustomDeviceTypes (kept alive for backward compatibility — Slice 4 removes it).
+///   - Validates the typeCode against the global catalog (IDeviceTypeRepository). TypeCode not
+///     found → ArgumentException (400). Scope is "floor" only → ArgumentException (400). Scope is
+///     "unit" or "both" → allowed.
 ///   - Catches DbUpdateException on the composite unique index violation → throws
 ///     DuplicateDeviceTypeOnUnitException (controller maps to 409).
 ///   - Emits DeviceName in DeviceCreatedEvent so Analytics can surface the user-given name.
@@ -58,49 +56,20 @@ public class DeviceCommandService(
                 throw new UnauthorizedAccessException(
                     $"You do not own unit {command.UnitId.Value} or ownership has not yet propagated.");
 
-            // Validate typeCode: Slice 3+ uses catalog; Slice 2 legacy path uses OwnerCustomDeviceTypes.
-            if (deviceTypeRepository is not null)
-            {
-                // Catalog-picker path (Slice 3): typeCode must exist in device_types (scope "unit"
-                // or "both") OR in the owner's custom device types.
-                var catalogEntry = await deviceTypeRepository.FindByCodeAsync(command.Type);
+            // Validate typeCode against the global catalog.
+            if (deviceTypeRepository is null)
+                throw new InvalidOperationException(
+                    "IDeviceTypeRepository is required for owner-custom device creation.");
 
-                if (catalogEntry is not null)
-                {
-                    if (catalogEntry.Scope == "floor")
-                        throw new ArgumentException(
-                            $"Device type '{command.Type}' cannot be added to a unit. " +
-                            "This type is designated for floor-level provisioning only.");
-                }
-                else
-                {
-                    // Fall back: check owner's custom device types before rejecting.
-                    var customType = await db.OwnerCustomDeviceTypes
-                        .AsNoTracking()
-                        .FirstOrDefaultAsync(t =>
-                            t.TypeCode == command.Type &&
-                            t.OwnerUserId == ownerId);
+            var catalogEntry = await deviceTypeRepository.FindByCodeAsync(command.Type)
+                ?? throw new ArgumentException(
+                    $"Device type '{command.Type}' is not in the catalog. " +
+                    "Please select a type from the available catalog.");
 
-                    if (customType is null)
-                        throw new ArgumentException(
-                            $"Device type '{command.Type}' is not in the catalog. " +
-                            "Please select a type from the available catalog.");
-                }
-            }
-            else
-            {
-                // Legacy path (Slice 2 — kept alive for existing OwnerCustom devices and tests
-                // that seed OwnerCustomDeviceTypes). Will be removed in Slice 4.
-                var customType = await db.OwnerCustomDeviceTypes
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(t =>
-                        t.TypeCode == command.Type &&
-                        t.OwnerUserId == ownerId);
-
-                if (customType is null)
-                    throw new UnauthorizedAccessException(
-                        $"Device type '{command.Type}' does not belong to your account.");
-            }
+            if (catalogEntry.Scope == "floor")
+                throw new ArgumentException(
+                    $"Device type '{command.Type}' cannot be added to a unit. " +
+                    "This type is designated for floor-level provisioning only.");
 
             // Pre-check: OwnerCustom devices with same type on same unit (NULL floor_number
             // means the composite unique index won't fire in MySQL/SQLite due to NULL distinctness,

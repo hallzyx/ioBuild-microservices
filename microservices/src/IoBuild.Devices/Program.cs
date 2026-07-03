@@ -98,9 +98,6 @@ builder.Services.AddScoped<IDeviceCommandService, DeviceCommandService>();
 builder.Services.AddScoped<IDeviceQueryService, DeviceQueryService>();
 // ── Device Actuation: owner-gated command handler (T-2.13, ADR-B5) ──
 builder.Services.AddScoped<IDeviceActuationService, DeviceActuationService>();
-// ── Custom device type management (owner-custom-device-type feature) ──
-builder.Services.AddScoped<CustomDeviceTypeCommandService>();
-builder.Services.AddScoped<CustomDeviceTypeQueryService>();
 // ── Device type catalog (device-type-catalog Slice 1, WU-1) ──
 builder.Services.AddScoped<IDeviceTypeRepository, DeviceTypeRepository>();
 builder.Services.AddScoped<DeviceTypeCatalogQueryService>();

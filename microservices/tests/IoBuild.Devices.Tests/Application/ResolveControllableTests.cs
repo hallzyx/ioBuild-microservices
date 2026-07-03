@@ -15,22 +15,14 @@ using Moq;
 namespace IoBuild.Devices.Tests.Application;
 
 /// <summary>
-/// DT-4 (TDD RED-first / WU-2): ResolveControllable — catalog-first (DB device_types),
-/// then owner-custom DB fallback. Static DeviceCapabilityCatalog.ByType branch removed.
-///
-/// Lookup order:
-///   1. device_types catalog (DB, via IDeviceTypeRepository)  ← NEW (WU-2)
-///   2. owner_custom_device_types (DB, per-owner fallback)    ← KEPT (D3 safety)
-///   3. Both miss → null → caller returns 400.
+/// ResolveControllable — resolves a device type's controllable attributes from the global
+/// catalog (device_types table, seeded via the AddDeviceTypeCatalog migration).
 ///
 /// Test matrix:
-///   D-2a (updated) : catalog type AirConditioner resolves via DB catalog (not static branch).
-///   D-2b (regression) : owner-custom type NOT in device_types resolves via owner-custom fallback.
+///   D-2a : catalog type AirConditioner resolves via DB catalog.
 ///   D-2c : unknown type → null → 400 downstream.
-///   D-2d : custom type belonging to different owner → null (isolation guard).
 ///   D-2e : out-of-range number attr rejected via catalog type → 400.
 ///   D-2f : valid number attr accepted via catalog type → 200.
-///   D-2g : valid boolean attr accepted via owner-custom type → 200.
 /// </summary>
 public class ResolveControllableTests : IDisposable
 {
@@ -122,39 +114,7 @@ public class ResolveControllableTests : IDisposable
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // D-2b (regression guard): owner-custom type NOT in device_types catalog
-    // still resolves via owner-custom DB fallback (DESIGN D3 — MUST pass).
-    // DT-4: owner-custom-fallback must survive the static-branch removal.
-    // ─────────────────────────────────────────────────────────────────────────
-
-    [Fact]
-    public async Task ResolveControllable_OwnerCustomType_NotInCatalog_ResolvesViaFallback()
-    {
-        // Arrange — device_types catalog intentionally empty; owner-custom type seeded
-        await using var db = BuildInMemoryContext(nameof(ResolveControllable_OwnerCustomType_NotInCatalog_ResolvesViaFallback));
-
-        var customType = new OwnerCustomDeviceType(
-            ownerUserId: "owner-1",
-            typeCode: "CO2Sensor",
-            displayName: "CO2 Sensor",
-            attributes: [new OwnerCustomDeviceTypeAttribute("co2_ppm", "number", 0, 5000, "ppm")]);
-        db.OwnerCustomDeviceTypes.Add(customType);
-        await db.SaveChangesAsync();
-
-        var svc = BuildService(db);
-
-        // Act
-        var attrs = await svc.ResolveControllable("CO2Sensor", ownerId: "owner-1");
-
-        // Assert — owner-custom fallback must still work (D3 regression guard)
-        attrs.Should().NotBeNull("CO2Sensor is a custom type for owner-1; fallback must resolve it");
-        attrs!.Should().Contain(a => a.Name == "co2_ppm",
-            "owner-custom attribute co2_ppm must be returned via fallback");
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // D-2c: Both catalog and owner-custom miss → null → caller returns 400
-    // DT-4-S2: unknown type → null.
+    // D-2c: Catalog miss → null → caller returns 400
     // ─────────────────────────────────────────────────────────────────────────
 
     [Fact]
@@ -165,29 +125,7 @@ public class ResolveControllableTests : IDisposable
 
         var attrs = await svc.ResolveControllable("GhostDevice", ownerId: "owner-1");
 
-        attrs.Should().BeNull("type not in catalog and not in DB → no capabilities");
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // D-2d: Owner isolation — custom type of another owner must not be returned
-    // ─────────────────────────────────────────────────────────────────────────
-
-    [Fact]
-    public async Task ResolveControllable_CustomType_WrongOwner_ReturnsNull()
-    {
-        await using var db = BuildInMemoryContext(nameof(ResolveControllable_CustomType_WrongOwner_ReturnsNull));
-
-        var customType = new OwnerCustomDeviceType(
-            "owner-A", "CO2Sensor", "CO2 Sensor",
-            [new OwnerCustomDeviceTypeAttribute("co2", "number", 0, 5000, "ppm")]);
-        db.OwnerCustomDeviceTypes.Add(customType);
-        await db.SaveChangesAsync();
-
-        var svc = BuildService(db);
-
-        var attrs = await svc.ResolveControllable("CO2Sensor", ownerId: "owner-B");
-
-        attrs.Should().BeNull("a different owner's custom type must not be returned");
+        attrs.Should().BeNull("type not in catalog → no capabilities");
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -257,40 +195,5 @@ public class ResolveControllableTests : IDisposable
         var result = await svc.Handle(command);
 
         result.StatusCode.Should().Be(200, "value 22 is within [16, 30]");
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // D-2g: Boolean attr accepted (no range validation) via OWNER-CUSTOM type → 200
-    // Keeps verifying the owner-custom path end-to-end through Handle().
-    // ─────────────────────────────────────────────────────────────────────────
-
-    [Fact]
-    public async Task Actuation_OwnerCustomType_BooleanAttr_Returns200()
-    {
-        await using var db = BuildInMemoryContext(nameof(Actuation_OwnerCustomType_BooleanAttr_Returns200));
-
-        var customType = new OwnerCustomDeviceType(
-            "42", "SmartSwitch", "Smart Switch",
-            [new OwnerCustomDeviceTypeAttribute("power", "boolean")]);
-        db.OwnerCustomDeviceTypes.Add(customType);
-
-        var device = Device.ForOwnerCustom("My Switch", "SmartSwitch", "Unit 01",
-            1, "Active", unitId: 30);
-        db.Devices.Add(device);
-
-        db.UnitOwnerProjections.Add(new UnitOwnerProjection
-        {
-            UnitId = 30, OwnerUserId = 42, UpdatedAt = DateTime.UtcNow
-        });
-        await db.SaveChangesAsync();
-
-        var svc = BuildService(db);
-        var command = new SendDeviceCommandCommand(
-            DeviceId: device.Id, Attribute: "power", Value: true,
-            RequestingUserId: 42, RequestingUserRole: "Owner");
-
-        var result = await svc.Handle(command);
-
-        result.StatusCode.Should().Be(200, "boolean attr has no range validation; owner-custom fallback must resolve");
     }
 }

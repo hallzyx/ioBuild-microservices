@@ -26,22 +26,13 @@ const userId = computed(() => iamStore.currentUser?.id ?? null);
 const devices = computed(() => analyticsStore.ownerDashboard?.deviceHealthStatus ?? []);
 
 /**
- * Map deviceType code → controllable attributes array.
- * Sources (merged, custom types take precedence over catalog for same code):
- *  1. Catalog types (deviceStore.deviceTypes) — static, loaded from GET /types
- *  2. Owner custom types (deviceStore.customDeviceTypes) — dynamic, loaded on mount
- *     Shape of customDeviceTypes[i].attributes: [{ name, type, min?, max?, unit?, enumMembers? }]
- *     This matches the ControllableAttribute shape DeviceControlPanel expects.
+ * Map deviceType code → controllable attributes array, sourced from the
+ * global catalog (deviceStore.deviceTypes, loaded from GET /types).
  */
 const controllableAttributesByType = computed(() => {
   const map = {};
-  // Layer 1: catalog types
   (deviceStore.deviceTypes ?? []).forEach((dt) => {
     map[dt.code] = dt.controllableAttributes ?? [];
-  });
-  // Layer 2: owner custom types (override/add on top of catalog)
-  (deviceStore.customDeviceTypes ?? []).forEach((ct) => {
-    map[ct.typeCode] = ct.attributes ?? [];
   });
   return map;
 });
@@ -73,11 +64,6 @@ onMounted(() => {
   // view was never visited this session.
   if (isOwner.value && userId.value != null && !analyticsStore.ownerDashboard) {
     analyticsStore.fetchOwnerDashboard(userId.value);
-  }
-  // Fetch owner custom types so their attributes merge into controllableAttributesByType,
-  // enabling DeviceControlPanel to render custom attribute controls without hardcoding.
-  if (isOwner.value && userId.value != null) {
-    deviceStore.fetchCustomTypes(userId.value);
   }
 });
 </script>

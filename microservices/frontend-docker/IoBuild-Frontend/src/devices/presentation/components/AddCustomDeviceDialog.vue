@@ -1,7 +1,6 @@
 <script setup>
 import { reactive, computed, ref, watch, onMounted } from 'vue';
 import { useAnalyticsStore } from '../../../analytics/application/analytics.store.js';
-import { useDeviceStore } from '../../application/device.store.js';
 import { DeviceApi } from '../../infrastructure/device-api.js';
 
 /**
@@ -23,7 +22,6 @@ const props = defineProps({
 const emit = defineEmits(['update:modelValue', 'created']);
 
 const analyticsStore = useAnalyticsStore();
-const deviceStore = useDeviceStore();
 
 // ── Catalog types ─────────────────────────────────────────────────────────────
 
@@ -47,17 +45,12 @@ async function loadCatalogTypes() {
   }
 }
 
-const typeOptions = computed(() => {
-  const fromCatalog = catalogTypes.value.map((t) => ({
+const typeOptions = computed(() =>
+  catalogTypes.value.map((t) => ({
     label: t.displayName,
     value: t.code,
-  }));
-  const fromCustom = (deviceStore.customDeviceTypes ?? []).map((ct) => ({
-    label: ct.displayName,
-    value: ct.typeCode,
-  }));
-  return [...fromCatalog, ...fromCustom];
-});
+  }))
+);
 
 // ── Unit options ──────────────────────────────────────────────────────────────
 

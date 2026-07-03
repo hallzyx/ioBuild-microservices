@@ -5,6 +5,7 @@ using IoBuild.Devices.Domain.Model.Commands;
 using IoBuild.Devices.Domain.Model.Exceptions;
 using IoBuild.Devices.Infrastructure.Persistence.EFC.DbContext;
 using IoBuild.Devices.Infrastructure.Persistence.EFC.Repositories;
+using IoBuild.Shared.Domain.Model;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 
@@ -49,7 +50,7 @@ public class DeviceOwnerCustomMacCollisionTests : IDisposable
     }
 
     private DeviceCommandService BuildService(DevicesDbContext db) =>
-        new(new DeviceRepository(db), new OutboxMessageRepository(db), db);
+        new(new DeviceRepository(db), new OutboxMessageRepository(db), db, new DeviceTypeRepository(db));
 
     private static void SeedOwnerAndTypes(DevicesDbContext db, int unitId, int ownerId,
         params string[] typeCodes)
@@ -59,9 +60,9 @@ public class DeviceOwnerCustomMacCollisionTests : IDisposable
 
         foreach (var tc in typeCodes)
         {
-            db.OwnerCustomDeviceTypes.Add(new OwnerCustomDeviceType(
-                ownerId.ToString(), tc, $"{tc} Display",
-                [new OwnerCustomDeviceTypeAttribute("attr1", "number", 0, 100, "units")]));
+            db.DeviceTypes.Add(new DeviceType(
+                tc, $"{tc} Display", "unit",
+                [new DeviceCapabilityCatalog.ControllableAttribute("attr1", "number", 0, 100, "units")]));
         }
     }
 

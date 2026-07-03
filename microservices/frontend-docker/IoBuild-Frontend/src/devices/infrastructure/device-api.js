@@ -110,39 +110,4 @@ export class DeviceApi extends BaseApi {
     const response = await this.http.get(`${this.devicesEndpoint}/${deviceId}/status`);
     return response.data;
   }
-
-  // ─── Owner Custom Device Type endpoints ──────────────────────────────────────
-
-  /**
-   * POST /api/v1/devices/types/custom
-   * Owner-only. Creates a new custom device type for the authenticated owner.
-   * OwnerId is derived server-side from the JWT; do not include it in the payload.
-   *
-   * @param {{ typeCode: string, displayName: string, attributes: Array<{name:string, type:string, min?:number, max?:number, unit?:string, enumMembers?:string[]}> }} payload
-   * @returns {Promise<object>} CustomDeviceTypeDto on 201
-   * @throws axios error — caller inspects .response.status (400, 403, 409)
-   */
-  async createCustomType(payload) {
-    const response = await this.http.post(
-      `/custom-device-types`,
-      payload
-    );
-    return response.data;
-  }
-
-  /**
-   * GET /api/v1/custom-device-types?ownerId={ownerId}
-   * Owner-only. Lists all custom device types for the given owner.
-   * The server validates ownerId matches the JWT principal (returns 403 on mismatch).
-   *
-   * @param {string|number} ownerId
-   * @returns {Promise<Array<object>>} Array of CustomDeviceTypeDto
-   */
-  async listCustomTypes(ownerId) {
-    const response = await this.http.get(
-      `/custom-device-types`,
-      { params: { ownerId } }
-    );
-    return response.data;
-  }
 }

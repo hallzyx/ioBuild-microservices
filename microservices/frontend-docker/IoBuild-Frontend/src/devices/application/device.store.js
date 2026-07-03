@@ -5,8 +5,6 @@ export const useDeviceStore = defineStore('device', {
   state: () => ({
     devices: [],
     deviceTypes: [],
-    /** Owner-scoped custom device types (populated by fetchCustomTypes). */
-    customDeviceTypes: [],
     loading: false,
     error: null,
     selectedDevice: null
@@ -143,38 +141,6 @@ export const useDeviceStore = defineStore('device', {
         console.error('Error in loadDeviceTypes:', error);
         this.deviceTypes = [];
       }
-    },
-
-    /**
-     * Fetch owner-scoped custom device types and store them in `customDeviceTypes`.
-     * Called by my-unit-devices.vue on mount so custom attributes flow into DeviceControlPanel.
-     * @param {string|number} ownerId
-     */
-    async fetchCustomTypes(ownerId) {
-      try {
-        const deviceApi = new DeviceApi();
-        this.customDeviceTypes = await deviceApi.listCustomTypes(ownerId);
-        console.log('[DeviceStore] fetchCustomTypes:', this.customDeviceTypes.length, 'types for owner', ownerId);
-      } catch (error) {
-        console.error('Error in fetchCustomTypes:', error);
-        this.customDeviceTypes = [];
-      }
-    },
-
-    /**
-     * Create a new owner-scoped custom device type.
-     * On success, refreshes `customDeviceTypes` for the owner.
-     * On error, re-throws so the caller (dialog) can inspect status codes.
-     * @param {{ typeCode: string, displayName: string, attributes: Array }} payload
-     * @param {string|number} ownerId - used to refresh the list after creation
-     * @returns {Promise<object>} CustomDeviceTypeDto
-     */
-    async createCustomType(payload, ownerId) {
-      const deviceApi = new DeviceApi();
-      const dto = await deviceApi.createCustomType(payload);
-      // Refresh the list so the dialog and my-unit-devices reflect the new type immediately
-      await this.fetchCustomTypes(ownerId);
-      return dto;
     },
 
     setSelectedDevice(device) {

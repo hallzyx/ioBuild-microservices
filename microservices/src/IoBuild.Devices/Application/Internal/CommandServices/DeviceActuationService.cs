@@ -188,50 +188,20 @@ public class DeviceActuationService(
     // ── ResolveControllable ────────────────────────────────────────────────────
 
     /// <summary>
-    /// Resolves the controllable attribute list for a device type.
-    ///
-    /// Strategy (WU-2 — catalog-first, per design D3):
-    ///   1. DB catalog lookup via device_types table (IDeviceTypeRepository.FindByCodeAsync).
-    ///      Known types (AirConditioner, SmartLight, …) are seeded via AddDeviceTypeCatalog
-    ///      migration and resolve here without further DB hops.
-    ///   2. Owner-custom DB fallback (owner_custom_device_types) — kept intact for Slice 3.
-    ///      Owner-custom type codes are NOT in device_types this slice; removing this branch
-    ///      would break owner-custom device actuation (design D3 SAFE decision).
-    ///   3. Both miss → returns null (caller returns 400).
+    /// Resolves the controllable attribute list for a device type from the global catalog
+    /// (device_types table, seeded via the AddDeviceTypeCatalog migration). Returns null when
+    /// the type isn't found (caller returns 400).
     ///
     /// Returns <see cref="DeviceCapabilityCatalog.ControllableAttribute"/> records so the
     /// existing range-validation logic is reused unchanged (design D2).
-    ///
-    /// // Slice 3 will collapse owner-custom fallback once OwnerCustomDeviceType is migrated
-    /// // to catalog — do NOT remove this branch before then.
     /// </summary>
     /// <param name="deviceType">Type code of the device.</param>
     /// <param name="ownerId">Owner's string userId (from JWT, already resolved upstream).</param>
     public async Task<IReadOnlyList<DeviceCapabilityCatalog.ControllableAttribute>?> ResolveControllable(
         string deviceType, string ownerId)
     {
-        // Branch 1: global device-type catalog (DB) — replaces static DeviceCapabilityCatalog.ByType
         var catalogEntry = await deviceTypeRepository.FindByCodeAsync(deviceType);
-        if (catalogEntry is not null)
-            return catalogEntry.GetAttributes();
-
-        // Branch 2: owner-custom type DB fallback (unchanged — design D3 SAFE decision).
-        // Slice 3 will collapse owner-custom fallback once OwnerCustomDeviceType is migrated
-        // to catalog — do NOT remove this branch before then.
-        var customType = await db.OwnerCustomDeviceTypes
-            .AsNoTracking()
-            .FirstOrDefaultAsync(t =>
-                t.TypeCode == deviceType &&
-                t.OwnerUserId == ownerId);
-
-        if (customType is null)
-            return null;
-
-        // Map OwnerCustomDeviceTypeAttribute → ControllableAttribute (same shape, design D2)
-        return customType.GetAttributes()
-            .Select(a => new DeviceCapabilityCatalog.ControllableAttribute(
-                a.Name, a.Type, a.Min, a.Max, a.Unit, a.EnumMembers))
-            .ToList();
+        return catalogEntry?.GetAttributes();
     }
 
     // ── Private helpers ────────────────────────────────────────────────────────
