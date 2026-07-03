@@ -70,6 +70,7 @@ public class ProfileCommandService(IProfileRepository profileRepository, IUnitOf
             command.Age,
             command.PhoneNumber
         );
+        profile.UpdateSecondEmail(command.SecondEmail);
 
         try
         {

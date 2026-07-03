@@ -14,7 +14,6 @@ public class User
         Role = role;
     }
 
-    public void UpdatePasswordHash(string newHash) => PasswordHash = newHash;
     public void UpdateEmail(string email) => Email = email;
     public void UpdateRole(string role) => Role = role;
 }

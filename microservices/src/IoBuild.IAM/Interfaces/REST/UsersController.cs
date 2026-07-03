@@ -10,8 +10,7 @@ namespace IoBuild.IAM.Interfaces.REST;
 [Route("api/v1/[controller]")]
 [Authorize]
 public class UsersController(
-    IUserQueryService userQueryService,
-    IUserCommandService userCommandService) : ControllerBase
+    IUserQueryService userQueryService) : ControllerBase
 {
     [HttpGet("{userId}")]
     public async Task<IActionResult> GetUserById(int userId)
@@ -32,13 +31,5 @@ public class UsersController(
         var users = await userQueryService.Handle(query);
         var resources = UserResourceFromEntityAssembler.ToResourceList(users);
         return Ok(resources);
-    }
-
-    [HttpPatch("{userId}/password")]
-    public async Task<IActionResult> UpdatePassword(int userId, [FromBody] UpdatePasswordResource resource)
-    {
-        var command = UpdatePasswordCommandFromResourceAssembler.ToCommand(userId, resource);
-        await userCommandService.Handle(command);
-        return Ok(new { message = "Password updated successfully." });
     }
 }

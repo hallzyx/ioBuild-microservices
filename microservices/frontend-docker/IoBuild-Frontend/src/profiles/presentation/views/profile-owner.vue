@@ -40,6 +40,10 @@
           <label>{{ $t('profile.address') }}</label>
           <input type="text" v-model="profile.address" :readonly="!isEditing" class="info-input" />
         </div>
+        <div class="info-group">
+          <label>{{ $t('profile.secondEmail') }}</label>
+          <input type="email" v-model="profile.secondEmail" :readonly="!isEditing" class="info-input" />
+        </div>
         <h3 class="card-title">{{ $t('profile.appLanguage') }}</h3>
         <select v-model="$i18n.locale" class="language-select">
           <option value="es">Español</option>

@@ -11,8 +11,7 @@
     "projects-management": "Proyectos",
     "clients": "Clientes",
     "subscription": "Suscripción",
-    "payments": "Pagos",
-    "configuration": "Configuración"
+    "payments": "Pagos"
   },
   "projects": {
     "title": "Proyectos",
@@ -72,6 +71,7 @@
     "email": "Correo electrónico",
     "phoneNumber": "Número de teléfono",
     "address": "Dirección",
+    "secondEmail": "Correo alternativo",
     "appLanguage": "Idioma de la aplicación",
     "languageEnglish": "Inglés",
     "languageSpanish": "Español",
@@ -211,48 +211,6 @@
       "deleteConfirmTitle": "Confirmar Eliminación",
       "deleteConfirmMessage": "¿Estás seguro de que deseas eliminar a {name}?",
       "paginationSummary": "{first} a {last} de {totalRecords}"
-    }
-  },
-  "configuration": {
-    "title": "Configuración",
-    "notifications": {
-      "title": "Notificaciones",
-      "expiration": "Alertas de Vencimiento",
-      "system": "Actualizaciones del Sistema",
-      "customer": "Notificaciones del Cliente",
-      "push": "Push Notifications"
-    },
-    "security": {
-      "title": "Seguridad y Privacidad",
-      "password": "Cambiar Contraseña",
-      "2fa": "Autenticación en dos pasos",
-      "sessions": "Gestión de Sesiones",
-      "alternate": "Agregar dirección de correo alternativa"
-    },
-    "support": {
-      "title": "Soporte y Ayuda",
-      "faqs": "FAQs",
-      "contact": "Contactar con Soporte",
-      "tutorials": "Tutoriales y Guías"
-    },
-    "email-form": {
-      "title": "Agregar dirección de correo alternativa",
-      "description": "Agrega un correo alternativo para poder recuperar tu cuenta si pierdes acceso al principal.",
-      "placeholder": "ejemplo@dominio.com",
-      "emailRequired": "El correo es obligatorio",
-      "emailInvalid": "Por favor ingresa un correo válido",
-      "cancel": "Cancelar",
-      "save": "Guardar",
-      "errorSaving": "Error al guardar. Por favor intenta de nuevo."
-    },
-    "password-form": {
-      "title": "Cambiar Contraseña",
-      "description": "Actualice su contraseña para mantener su cuenta segura.",
-      "current": "Contraseña actual",
-      "new": "Nueva contraseña",
-      "confirm": "Confirmar nueva contraseña",
-      "cancel": "Cancelar",
-      "save": "Guardar"
     }
   },
   "subscriptions": {

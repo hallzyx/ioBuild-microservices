@@ -46,14 +46,4 @@ export class IamApi extends BaseApi {
     getUserById(id) {
         return this.http.get(`${usersEndpoint}/${id}`);
     }
-
-    /**
-     * Change password for a given user
-     * @param {number} userId - User ID
-     * @param {Object} updatePasswordResource - { currentPassword, newPassword, confirmNewPassword }
-     * @returns {Promise} API response
-     */
-    changePassword(userId, updatePasswordResource) {
-        return this.http.patch(`${usersEndpoint}/${userId}/password`, updatePasswordResource);
-    }
 }

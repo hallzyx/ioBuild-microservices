@@ -11,8 +11,7 @@
     "projects-management": "Projects",
     "clients": "Clients",
     "subscription": "Subscription",
-    "payments": "Payments",
-    "configuration": "Configuration"
+    "payments": "Payments"
   },
   "projects": {
     "title": "Projects",
@@ -72,6 +71,7 @@
     "email": "Email",
     "phoneNumber": "Phone Number",
     "address": "Address",
+    "secondEmail": "Alternate Email",
     "appLanguage": "App Language",
     "languageEnglish": "English",
     "languageSpanish": "Spanish",
@@ -211,48 +211,6 @@
       "deleteConfirmTitle": "Delete Confirmation",
       "deleteConfirmMessage": "Are you sure you want to delete {name}?",
       "paginationSummary": "{first} to {last} of {totalRecords}"
-    }
-  },
-  "configuration": {
-    "title": "Configuration",
-    "notifications": {
-      "title": "Notifications",
-      "expiration": "Expiration Alerts",
-      "system": "System Updates",
-      "customer": "Customer Notifications",
-      "push": "Push Notifications"
-    },
-    "security": {
-      "title": "Security and Privacy",
-      "password": "Change Password",
-      "2fa": "Two-Factor Authentication",
-      "sessions": "Session Management",
-      "alternate": "Add Alternate mail address"
-    },
-    "support": {
-      "title": "Support and Help",
-      "faqs": "FAQs",
-      "contact": "Contact Support",
-      "tutorials": "Tutorials and Guides"
-    },
-    "email-form": {
-      "title": "Add Alternate mail address",
-      "description": "Add an alternate email address so you can recover your account if you lose access to your primary one.",
-      "placeholder": "example@domain.com",
-      "emailRequired": "Email is required",
-      "emailInvalid": "Please enter a valid email",
-      "cancel": "Cancel",
-      "save": "Save",
-      "errorSaving": "Failed to save. Please try again."
-    },
-    "password-form": {
-      "title": "Change password",
-      "description": "Update your password to keep your account secure.",
-      "current": "Current password",
-      "new": "New password",
-      "confirm": "Confirm new password",
-      "cancel": "Cancel",
-      "save": "Save"
     }
   },
   "subscriptions": {

@@ -1,7 +1,6 @@
 using System.Net.Mime;
 using IoBuild.Profiles.Domain.Model.Queries;
 using IoBuild.Profiles.Domain.Services;
-using IoBuild.Profiles.Interfaces.ACL;
 using IoBuild.Profiles.Interfaces.REST.Resources;
 using IoBuild.Profiles.Interfaces.REST.Transform;
 using IoBuild.Shared.Infrastructure.ASP.Configuration;
@@ -15,8 +14,7 @@ namespace IoBuild.Profiles.Interfaces.REST;
 [Produces(MediaTypeNames.Application.Json)]
 public class ProfilesController(
     IProfileCommandService profileCommandService,
-    IProfileQueryService profileQueryService,
-    IProfilesContextFacade profilesContextFacade) : ControllerBase
+    IProfileQueryService profileQueryService) : ControllerBase
 {
     [HttpPost]
     [ProducesResponseType(typeof(ProfileResource), 201)]
@@ -58,14 +56,5 @@ public class ProfilesController(
         if (profile is null) return BadRequest();
         var profileResource = ProfileResourceFromEntityAssembler.ToResourceFromEntity(profile);
         return Ok(profileResource);
-    }
-
-    [HttpPost("second-email")]
-    [ProducesResponseType(204)]
-    [ProducesResponseType(404)]
-    public async Task<IActionResult> SetSecondEmail([FromQuery] int userId, [FromBody] SecondEmailResource resource)
-    {
-        await profilesContextFacade.SetSecondEmailByUserId(userId, resource.SecondEmail);
-        return NoContent();
     }
 }

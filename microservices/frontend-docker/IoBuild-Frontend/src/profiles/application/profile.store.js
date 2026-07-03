@@ -67,23 +67,6 @@ export const useProfileStore = defineStore('profile', () => {
         }
     }
 
-    async function setSecondEmail(secondEmail) {
-        isLoading.value = true;
-        errors.value = [];
-
-        try {
-            const userId = JSON.parse(localStorage.getItem('currentUser') || '{}').id;
-            const response = await profileApi.setSecondEmailByUserId(userId, secondEmail);
-            return response;
-        } catch (error) {
-            console.error('Error setting second email:', error);
-            errors.value.push(error.message || 'Error setting second email');
-            throw error;
-        } finally {
-            isLoading.value = false;
-        }
-    }
-
     return {
         profile,
         viewType,
@@ -92,7 +75,6 @@ export const useProfileStore = defineStore('profile', () => {
         errors,
         fetchProfile,
         createProfile,
-        updateProfile,
-        setSecondEmail
+        updateProfile
     };
 });

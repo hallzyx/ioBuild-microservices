@@ -56,18 +56,4 @@ public class UserCommandService(
             JsonSerializer.Serialize(evt)) { EventId = evt.EventId });
         await unitOfWork.CompleteAsync(); // (2) outbox row committed
     }
-
-    public async Task Handle(UpdatePasswordCommand command)
-    {
-        var user = await userRepository.FindByIdAsync(command.UserId);
-        if (user is null)
-            throw new KeyNotFoundException("User not found.");
-
-        if (!hashingService.VerifyPassword(command.CurrentPassword, user.PasswordHash))
-            throw new UnauthorizedAccessException("Current password is incorrect.");
-
-        user.UpdatePasswordHash(hashingService.HashPassword(command.NewPassword));
-        userRepository.Update(user);
-        await unitOfWork.CompleteAsync();
-    }
 }

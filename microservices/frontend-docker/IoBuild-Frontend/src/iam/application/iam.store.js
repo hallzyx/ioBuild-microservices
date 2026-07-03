@@ -172,32 +172,6 @@ export const useIamStore = defineStore('iam', () => {
         }
     }
 
-    /**
-     * Change password for the authenticated user
-     * @param {string} currentPassword - Current password
-     * @param {string} newPassword - New password
-     * @param {string} confirmNewPassword - Confirm new password
-     */
-    async function changePassword(currentPassword, newPassword, confirmNewPassword) {
-        const storedUser = currentUser.value || JSON.parse(localStorage.getItem('currentUser') || 'null');
-        if (!storedUser?.id) {
-            throw new Error('No authenticated user found to change password.');
-        }
-
-        try {
-            const payload = {
-                currentPassword,
-                newPassword,
-                confirmNewPassword
-            };
-            await iamApi.changePassword(storedUser.id, payload);
-        } catch (error) {
-            console.error('Error changing password:', error);
-            errors.value.push(error.response?.data?.message || error.message || 'Error changing password');
-            throw error;
-        }
-    }
-
     // Initialize: load user from storage on store creation
     loadUserFromStorage();
 
@@ -220,7 +194,6 @@ export const useIamStore = defineStore('iam', () => {
         loadUserFromStorage,
         updateUserProfile,
         fetchUsers,
-        fetchUserById,
-        changePassword
+        fetchUserById
     };
 });

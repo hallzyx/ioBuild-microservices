@@ -61,13 +61,6 @@ const routes = [
         children:  subscriptionsRoutes
     },
     {
-        path: '/configuration',
-        name: 'configuration',
-        meta: { title: 'Configuration' },
-        component: () => import('./shared/presentation/views/configuration.vue'),
-    },
-
-    {
         path: '/',
         redirect: '/iam/login'
     },

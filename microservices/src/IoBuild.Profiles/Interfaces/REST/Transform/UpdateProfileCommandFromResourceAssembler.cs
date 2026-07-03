@@ -14,6 +14,7 @@ public static class UpdateProfileCommandFromResourceAssembler
             resource.Username,
             resource.Address,
             resource.Age,
-            resource.PhoneNumber);
+            resource.PhoneNumber,
+            resource.SecondEmail);
     }
 }
