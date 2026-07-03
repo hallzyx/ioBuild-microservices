@@ -44,7 +44,7 @@ _lock = threading.Lock()
 
 def _energy_for_ac(desired: dict) -> float:
     """AirConditioner energy model based on power, mode and targetTemperature."""
-    power = str(desired.get('power', 'on')).lower()
+    power = str(desired.get('power', 'off')).lower()
     if power in ('off', 'false', '0'):
         return round(random.uniform(0.0, 0.05), 3)  # standby draw
 
@@ -69,7 +69,7 @@ def _energy_for_ac(desired: dict) -> float:
 
 def _energy_for_smartlight(desired: dict) -> float:
     """SmartLight energy model: linear with brightness, near-zero when off."""
-    power = str(desired.get('power', 'on')).lower()
+    power = str(desired.get('power', 'off')).lower()
     if power in ('off', 'false', '0'):
         return round(random.uniform(0.0, 0.005), 4)  # LED standby: negligible
 
@@ -95,7 +95,7 @@ def _device_status(desired: dict, device_type: str) -> str:
     """
     dtype = device_type.lower()
     if dtype in ('airconditioner', 'smartlight'):
-        power = str(desired.get('power', 'on')).lower()
+        power = str(desired.get('power', 'off')).lower()
         return 'idle' if power in ('off', 'false', '0') else 'online'
     # Passive sensors (SmartMeter, WaterSensor, SmokeDetector, custom types)
     # are always online — they run continuously.
