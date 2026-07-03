@@ -22,8 +22,8 @@ public class UnitsController : ControllerBase
         _queryService = queryService;
     }
 
-    [HttpGet("/api/v1/projects/{projectId}/units")]
-    public async Task<IActionResult> GetByProjectId(int projectId)
+    [HttpGet]
+    public async Task<IActionResult> GetByProjectId([FromQuery] int projectId)
     {
         var units = await _queryService.Handle(new GetUnitsByProjectIdQuery(projectId));
         var resources = UnitResourceFromEntityAssembler.ToResourceEnumerable(units);

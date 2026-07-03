@@ -38,7 +38,7 @@ export class ProjectApi extends BaseApi {
     }
 
     async getUnitsByProject(projectId) {
-        const response = await this.http.get(`/projects/${projectId}/units`);
+        const response = await this.http.get(unitsEndpointPath, { params: { projectId } });
         return response.data;
     }
 

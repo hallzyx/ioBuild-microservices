@@ -1,12 +1,10 @@
 using IoBuild.Profiles.Application.Internal.CommandServices;
 using IoBuild.Shared.Infrastructure.Observability;
 using IoBuild.Profiles.Application.Internal.QueryServices;
-using IoBuild.Profiles.Application.ACL;
 using IoBuild.Profiles.Domain.Repositories;
 using IoBuild.Profiles.Domain.Services;
 using IoBuild.Profiles.Infrastructure.Persistence.EFC;
 using IoBuild.Profiles.Infrastructure.Persistence.EFC.Repositories;
-using IoBuild.Profiles.Interfaces.ACL;
 using IoBuild.Shared.Domain.Repositories;
 using IoBuild.Shared.Infrastructure.ASP.Configuration;
 using IoBuild.Shared.Infrastructure.Middleware;
@@ -37,6 +35,7 @@ builder.Services.Configure<TokenSettings>(options =>
 builder.Services.AddHealthChecks();
 builder.Services.AddControllers(options =>
 {
+    options.Conventions.Add(new KebabCaseRouteNamingConvention());
 }).AddJsonOptions(options =>
 {
     options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
@@ -78,7 +77,6 @@ builder.Services.AddScoped<IProfileRepository, ProfileRepository>();
 // ── Services ──
 builder.Services.AddScoped<IProfileCommandService, ProfileCommandService>();
 builder.Services.AddScoped<IProfileQueryService, ProfileQueryService>();
-builder.Services.AddScoped<IProfilesContextFacade, ProfilesContextFacade>();
 
 builder.Services.AddCors(options =>
 {

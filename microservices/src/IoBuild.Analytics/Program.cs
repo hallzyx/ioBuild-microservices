@@ -5,6 +5,7 @@ using IoBuild.Analytics.Infrastructure.InfluxDB;
 using IoBuild.Analytics.Infrastructure.Messaging;
 using Microsoft.EntityFrameworkCore;
 using IoBuild.Analytics;
+using IoBuild.Shared.Infrastructure.ASP.Configuration;
 using IoBuild.Shared.Infrastructure.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -18,7 +19,10 @@ var dbPassword = Environment.GetEnvironmentVariable("DB_PASSWORD") ?? "";
 var dbName = Environment.GetEnvironmentVariable("DB_NAME") ?? "iobuild_analytics";
 var connectionString = $"Server={dbHost};Port={dbPort};Database={dbName};User={dbUser};Password={dbPassword};";
 
-builder.Services.AddControllers()
+builder.Services.AddControllers(options =>
+{
+    options.Conventions.Add(new KebabCaseRouteNamingConvention());
+})
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
