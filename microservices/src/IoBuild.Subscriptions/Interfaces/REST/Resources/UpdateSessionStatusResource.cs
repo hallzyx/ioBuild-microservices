@@ -1,6 +1,6 @@
 namespace IoBuild.Subscriptions.Interfaces.REST.Resources;
 
-public record ConfirmPaymentResource(
+public record UpdateSessionStatusResource(
     int BuilderId,
-    string SessionId
+    string Status
 );

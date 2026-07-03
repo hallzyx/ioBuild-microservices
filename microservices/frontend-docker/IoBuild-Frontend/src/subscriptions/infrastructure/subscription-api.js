@@ -14,8 +14,12 @@ export class SubscriptionApi extends BaseApi {
     async getSubscriptionByBuilderId(builderId) {
         const response = await this.#subscriptionsEndpoint.getAll();
         const allSubscriptions = response.data;
-        const filtered = allSubscriptions.find(s => s.builderId === builderId);
-        return { data: filtered };
+        // A builder can accumulate more than one subscription row over time
+        // (e.g. cancel + renew); take the most recently started one.
+        const mostRecent = allSubscriptions
+            .filter(s => s.builderId === builderId)
+            .sort((a, b) => new Date(b.startDate) - new Date(a.startDate))[0];
+        return { data: mostRecent };
     }
 
     getSubscriptionById(id) {
@@ -30,19 +34,8 @@ export class SubscriptionApi extends BaseApi {
         return this.#subscriptionsEndpoint.update(resource.id, resource);
     }
 
-    renewSubscription(subscriptionId) {
-        return this.updateSubscription({
-            id: subscriptionId,
-            status: 'active',
-            endDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
-        });
-    }
-
     cancelSubscription(subscriptionId) {
-        return this.updateSubscription({
-            id: subscriptionId,
-            status: 'cancelled'
-        });
+        return this.http.post(`${subscriptionsEndpointPath}/${subscriptionId}/cancel`);
     }
 
     createCheckoutSession(builderId, planId) {
@@ -61,9 +54,9 @@ export class SubscriptionApi extends BaseApi {
     }
 
     confirmPayment(builderId, sessionId) {
-        return this.http.post(`${subscriptionsEndpointPath}/payments/sessions/confirm`, {
+        return this.http.patch(`${subscriptionsEndpointPath}/payments/sessions/${sessionId}`, {
             builderId,
-            sessionId
+            status: 'confirmed'
         });
     }
 

@@ -60,4 +60,11 @@ public class SubscriptionsController : ControllerBase
         return NoContent();
     }
 
+    [HttpPost("{id}/cancel")]
+    public async Task<IActionResult> CancelSubscription(int id)
+    {
+        await _commandService.CancelAsync(id);
+        return NoContent();
+    }
+
 }

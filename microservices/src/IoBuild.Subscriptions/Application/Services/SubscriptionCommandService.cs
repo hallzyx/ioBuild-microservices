@@ -157,6 +157,18 @@ public class SubscriptionCommandService : ISubscriptionCommandService
         return sub;
     }
 
+    public async Task<Subscription> CancelAsync(int subscriptionId)
+    {
+        var subscription = await _subscriptionRepository.FindByIdAsync(subscriptionId)
+            ?? throw new KeyNotFoundException($"Subscription with id {subscriptionId} not found.");
+
+        subscription.Cancel();
+        _subscriptionRepository.Update(subscription);
+        await _unitOfWork.CompleteAsync();
+
+        return subscription;
+    }
+
     public async Task<bool> ProcessCompletedCheckoutSessionAsync(string eventId, string sessionId, int builderId, int planId)
     {
         // Check idempotency FIRST (before any work)

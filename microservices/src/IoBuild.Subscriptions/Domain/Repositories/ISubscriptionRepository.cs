@@ -8,4 +8,5 @@ public interface ISubscriptionRepository : IBaseRepository<Subscription>
     Task<IEnumerable<Subscription>> FindByBuilderIdAsync(int builderId);
     Task<Subscription?> FindByPlanIdAsync(int planId);
     Task<Subscription?> FindActiveByBuilderIdAsync(int builderId);
+    Task<Subscription?> FindMostRecentByBuilderIdAsync(int builderId);
 }

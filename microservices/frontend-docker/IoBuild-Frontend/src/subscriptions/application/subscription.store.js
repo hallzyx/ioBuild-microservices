@@ -76,23 +76,6 @@ export const useSubscriptionStore = defineStore("subscriptions", () => {
             });
     }
 
-    function renewSubscription() {
-        if (!currentSubscription.value) return Promise.reject('No current subscription');
-
-        isLoading.value = true;
-        return subscriptionApi
-            .renewSubscription(currentSubscription.value.id)
-            .then(() => {
-                // Refresh current subscription
-                return fetchCurrentSubscription();
-            })
-            .catch((error) => {
-                errors.value.push(error);
-                isLoading.value = false;
-                throw error;
-            });
-    }
-
     function cancelSubscription() {
         if (!currentSubscription.value) return Promise.reject('No current subscription');
 
@@ -110,30 +93,6 @@ export const useSubscriptionStore = defineStore("subscriptions", () => {
             });
     }
 
-    function changePlan(newPlan) {
-        if (!currentSubscription.value) return Promise.reject('No current subscription');
-
-        isLoading.value = true;
-        const updatedSubscription = {
-            ...currentSubscription.value,
-            plan: newPlan,
-            status: 'active'
-        };
-
-        return subscriptionApi
-            .updateSubscription(SubscriptionAssembler.toResourceFromEntity(updatedSubscription))
-            .then(() => {
-                // Refresh current subscription
-                return fetchCurrentSubscription();
-            })
-            .catch((error) => {
-                errors.value.push(error);
-                isLoading.value = false;
-                throw error;
-            });
-    }
-
-
     function clearUserSession() {
         currentSubscription.value = null;
         errors.value = [];
@@ -148,9 +107,7 @@ export const useSubscriptionStore = defineStore("subscriptions", () => {
         isLoading,
         fetchCurrentSubscription,
         fetchAvailablePlans,
-        renewSubscription,
         cancelSubscription,
-        changePlan,
         clearUserSession
     };
 });

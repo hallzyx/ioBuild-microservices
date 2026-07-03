@@ -38,12 +38,15 @@ public class PaymentsController : ControllerBase
         return StatusCode(201, response);
     }
 
-    [HttpPost("sessions/confirm")]
-    public async Task<IActionResult> ConfirmPayment([FromBody] ConfirmPaymentResource resource)
+    [HttpPatch("sessions/{sessionId}")]
+    public async Task<IActionResult> UpdateSessionStatus(string sessionId, [FromBody] UpdateSessionStatusResource resource)
     {
+        if (!string.Equals(resource.Status, "confirmed", StringComparison.OrdinalIgnoreCase))
+            return BadRequest(new { message = $"Unsupported session status '{resource.Status}'. Only 'confirmed' is supported." });
+
         var (status, subscriptionId, isNewSubscription) =
             await _stripePaymentService.ConfirmPaymentAsync(
-                resource.BuilderId, resource.SessionId);
+                resource.BuilderId, sessionId);
 
         var response = PaymentAssembler.ToConfirmationResource(
             status, subscriptionId, isNewSubscription);

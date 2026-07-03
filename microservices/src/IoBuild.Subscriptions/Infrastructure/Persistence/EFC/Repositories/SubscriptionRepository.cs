@@ -65,4 +65,13 @@ public class SubscriptionRepository : ISubscriptionRepository
             .OrderByDescending(s => s.EndDate)
             .FirstOrDefaultAsync();
     }
+
+    public async Task<Subscription?> FindMostRecentByBuilderIdAsync(int builderId)
+    {
+        return await _context.Subscriptions
+            .Include(s => s.Plan)
+            .Where(s => s.BuilderId == builderId)
+            .OrderByDescending(s => s.StartDate)
+            .FirstOrDefaultAsync();
+    }
 }

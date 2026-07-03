@@ -121,8 +121,10 @@ public class StripePaymentService
         if (plan == null)
             throw new ArgumentException($"Plan with ID {planId} not found");
 
-        // Check if builder already has an active subscription
-        var existingSubscription = await _subscriptionRepository.FindActiveByBuilderIdAsync(builderId);
+        // Reuse the builder's most recent subscription row (active, expired or
+        // cancelled) so a renew/change-plan payment after a cancellation reactivates
+        // it instead of leaving the cancelled row behind and creating an orphan.
+        var existingSubscription = await _subscriptionRepository.FindMostRecentByBuilderIdAsync(builderId);
 
         bool isNewSubscription = false;
         int subscriptionId;
