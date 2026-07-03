@@ -2,8 +2,10 @@ using FluentAssertions;
 using IoBuild.Analytics.Application.Internal.QueryServices;
 using IoBuild.Analytics.Domain.Model.Projections;
 using IoBuild.Analytics.Domain.Model.Queries;
+using IoBuild.Analytics.Infrastructure.InfluxDB;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 
 namespace IoBuild.Analytics.Tests.Application;
 
@@ -19,6 +21,21 @@ public class AnalyticsQueryServiceTests
             .UseInMemoryDatabase(dbName)
             .Options;
         return new AnalyticsDbContext(options);
+    }
+
+    /// <summary>
+    /// The live-status mock returns no data, so effective status always falls back
+    /// to the projection's static Status — preserving these tests' original intent.
+    /// </summary>
+    private static AnalyticsQueryService CreateService(AnalyticsDbContext db)
+    {
+        var liveStatus = new Mock<ILiveDeviceStatusService>();
+        liveStatus.Setup(s => s.GetLatestStatusesAsync(It.IsAny<IEnumerable<string>>()))
+            .ReturnsAsync(new Dictionary<string, string>());
+
+        return new AnalyticsQueryService(
+            db, NullLogger<AnalyticsQueryService>.Instance,
+            new Mock<ILiveEnergyService>().Object, liveStatus.Object);
     }
 
     // ── T-1.1: Owner Handle must count "Active" device as online ─────────────────
@@ -52,7 +69,7 @@ public class AnalyticsQueryServiceTests
         );
         await db.SaveChangesAsync();
 
-        var svc = new AnalyticsQueryService(db, NullLogger<AnalyticsQueryService>.Instance);
+        var svc = CreateService(db);
 
         // Act
         var result = await svc.Handle(new GetOwnerDashboardQuery(UserId: 1));
@@ -93,7 +110,7 @@ public class AnalyticsQueryServiceTests
         );
         await db.SaveChangesAsync();
 
-        var svc = new AnalyticsQueryService(db, NullLogger<AnalyticsQueryService>.Instance);
+        var svc = CreateService(db);
 
         // Act
         var result = await svc.Handle(new GetBuilderDashboardQuery(UserId: 3));

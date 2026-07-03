@@ -1,5 +1,6 @@
 using IoBuild.Analytics.Domain.Model.Aggregates;
 using IoBuild.Analytics.Domain.Model.Entities;
+using IoBuild.Analytics.Domain.Model.Projections;
 using IoBuild.Analytics.Domain.Model.Queries;
 using IoBuild.Analytics.Domain.Services;
 using IoBuild.Analytics.Infrastructure.InfluxDB;
@@ -26,6 +27,7 @@ public class AnalyticsQueryService : IAnalyticsQueryService
     private readonly AnalyticsDbContext _db;
     private readonly ILogger<AnalyticsQueryService> _logger;
     private readonly ILiveEnergyService _liveEnergyService;
+    private readonly ILiveDeviceStatusService _liveDeviceStatusService;
 
     // ACL facades (IDevicesContextFacade / IProjectsContextFacade) have been removed.
     // All metrics are now computed from the local projection tables populated by
@@ -34,11 +36,29 @@ public class AnalyticsQueryService : IAnalyticsQueryService
     public AnalyticsQueryService(
         AnalyticsDbContext db,
         ILogger<AnalyticsQueryService> logger,
-        ILiveEnergyService liveEnergyService)
+        ILiveEnergyService liveEnergyService,
+        ILiveDeviceStatusService liveDeviceStatusService)
     {
         _db = db;
         _logger = logger;
         _liveEnergyService = liveEnergyService;
+        _liveDeviceStatusService = liveDeviceStatusService;
+    }
+
+    /// <summary>
+    /// Resolves each device's effective status: the live telemetry-reported status when
+    /// available (real power state, per DT-status ADR), falling back to the projection's
+    /// static creation-time Status for devices with no telemetry point yet.
+    /// </summary>
+    private async Task<Dictionary<int, string>> ResolveEffectiveStatusesAsync(
+        IReadOnlyCollection<DeviceProjection> devices)
+    {
+        var liveStatuses = await _liveDeviceStatusService.GetLatestStatusesAsync(
+            devices.Select(d => d.DeviceId.ToString()));
+
+        return devices.ToDictionary(
+            d => d.DeviceId,
+            d => liveStatuses.GetValueOrDefault(d.DeviceId.ToString(), d.Status));
     }
 
     /// <summary>
@@ -67,9 +87,11 @@ public class AnalyticsQueryService : IAnalyticsQueryService
                 .Any(p => p.BuilderUserId == query.UserId && p.ProjectId == d.ProjectId!.Value))
             .ToListAsync();
 
+        var effectiveStatuses = await ResolveEffectiveStatusesAsync(devices);
+
         var totalDevices   = devices.Count;
-        var onlineDevices  = devices.Count(d => IsOnline(d.Status));
-        var offlineDevices = devices.Count(d => !IsOnline(d.Status));
+        var onlineDevices  = devices.Count(d => IsOnline(effectiveStatuses[d.DeviceId]));
+        var offlineDevices = devices.Count(d => !IsOnline(effectiveStatuses[d.DeviceId]));
 
         // Devices by type (for DevicesByType dictionary)
         var devicesByType = devices
@@ -164,9 +186,11 @@ public class AnalyticsQueryService : IAnalyticsQueryService
                 .Any(u => u.OwnerUserId == query.UserId && u.UnitId == d.UnitId!.Value))
             .ToListAsync();
 
+        var effectiveStatuses = await ResolveEffectiveStatusesAsync(devices);
+
         var totalDevices   = devices.Count;
-        var onlineDevices  = devices.Count(d => IsOnline(d.Status));
-        var offlineDevices = devices.Count(d => !IsOnline(d.Status));
+        var onlineDevices  = devices.Count(d => IsOnline(effectiveStatuses[d.DeviceId]));
+        var offlineDevices = devices.Count(d => !IsOnline(effectiveStatuses[d.DeviceId]));
 
         // Device health status list
         var deviceHealthStatus = devices.Select(d => new DeviceHealthStatus
@@ -174,7 +198,7 @@ public class AnalyticsQueryService : IAnalyticsQueryService
             DeviceId   = d.DeviceId,
             DeviceName = d.DeviceName ?? $"{d.DeviceType} #{d.DeviceId}",
             Type       = d.DeviceType,
-            Status     = d.Status,
+            Status     = effectiveStatuses[d.DeviceId],
             LastOnline = d.LastEventAt
         }).ToList();
 

@@ -1,7 +1,9 @@
 using FluentAssertions;
 using IoBuild.Analytics.Application.Internal.QueryServices;
+using IoBuild.Analytics.Infrastructure.InfluxDB;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 
 namespace IoBuild.Analytics.Tests.Application;
 
@@ -32,13 +34,18 @@ public class NoHttpCallQueryTests
     [Fact]
     public void AnalyticsQueryService_can_be_constructed_with_only_db_and_logger()
     {
-        // Proves the new minimal constructor works without any HTTP client dependencies
+        // Proves the constructor works without the old ACL HTTP facades (only
+        // the InfluxDB-backed live-data services remain, both mocked here).
         var options = new DbContextOptionsBuilder<AnalyticsDbContext>()
             .UseInMemoryDatabase(nameof(AnalyticsQueryService_can_be_constructed_with_only_db_and_logger))
             .Options;
         using var db = new AnalyticsDbContext(options);
 
-        var act = () => new AnalyticsQueryService(db, NullLogger<AnalyticsQueryService>.Instance);
+        var act = () => new AnalyticsQueryService(
+            db,
+            NullLogger<AnalyticsQueryService>.Instance,
+            new Mock<ILiveEnergyService>().Object,
+            new Mock<ILiveDeviceStatusService>().Object);
         act.Should().NotThrow();
     }
 }

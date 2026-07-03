@@ -73,6 +73,7 @@ builder.Services.Configure<InfluxDbOptions>(opts =>
     opts.Bucket = "iobuild-telemetry";
 });
 builder.Services.AddSingleton<ILiveEnergyService, LiveEnergyService>();
+builder.Services.AddSingleton<ILiveDeviceStatusService, LiveDeviceStatusService>();
 
 builder.Services.AddScoped<IAnalyticsQueryService, AnalyticsQueryService>();
 

@@ -1,8 +1,10 @@
 using FluentAssertions;
 using IoBuild.Analytics.Application.Internal.QueryServices;
 using IoBuild.Analytics.Domain.Model.Queries;
+using IoBuild.Analytics.Infrastructure.InfluxDB;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 
 namespace IoBuild.Analytics.Tests.Application;
 
@@ -20,12 +22,27 @@ public class EmptyReadModelQueryTests
         return new AnalyticsDbContext(options);
     }
 
+    /// <summary>
+    /// The live-status mock returns no data, so effective status always falls back
+    /// to the projection's static Status — preserving these tests' original intent.
+    /// </summary>
+    private static AnalyticsQueryService CreateService(AnalyticsDbContext db)
+    {
+        var liveStatus = new Mock<ILiveDeviceStatusService>();
+        liveStatus.Setup(s => s.GetLatestStatusesAsync(It.IsAny<IEnumerable<string>>()))
+            .ReturnsAsync(new Dictionary<string, string>());
+
+        return new AnalyticsQueryService(
+            db, NullLogger<AnalyticsQueryService>.Instance,
+            new Mock<ILiveEnergyService>().Object, liveStatus.Object);
+    }
+
     [Fact]
     public async Task GetBuilderDashboard_empty_tables_returns_zeroed_metrics_without_exception()
     {
         // Arrange
         await using var db = BuildContext(nameof(GetBuilderDashboard_empty_tables_returns_zeroed_metrics_without_exception));
-        var svc = new AnalyticsQueryService(db, NullLogger<AnalyticsQueryService>.Instance);
+        var svc = CreateService(db);
 
         // Act
         var result = await svc.Handle(new GetBuilderDashboardQuery(UserId: 1));
@@ -47,7 +64,7 @@ public class EmptyReadModelQueryTests
     {
         // Arrange
         await using var db = BuildContext(nameof(GetOwnerDashboard_empty_tables_returns_zeroed_metrics_without_exception));
-        var svc = new AnalyticsQueryService(db, NullLogger<AnalyticsQueryService>.Instance);
+        var svc = CreateService(db);
 
         // Act
         var result = await svc.Handle(new GetOwnerDashboardQuery(UserId: 2));
@@ -85,7 +102,7 @@ public class EmptyReadModelQueryTests
         );
         await db.SaveChangesAsync();
 
-        var svc = new AnalyticsQueryService(db, NullLogger<AnalyticsQueryService>.Instance);
+        var svc = CreateService(db);
 
         // Act
         var result = await svc.Handle(new GetBuilderDashboardQuery(UserId: 5));

@@ -157,6 +157,7 @@ services:
       - DB_USER=root
       - DB_PASSWORD=${DB_PASSWORD:-iobuild123}
       - DB_NAME=iobuild_analytics
+      - INFLUXDB_TOKEN=${INFLUXDB_TOKEN:-iobuild-telemetry-token}
       - RabbitMq__ConnectionString=amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672/
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
     networks: [iobuild-network]

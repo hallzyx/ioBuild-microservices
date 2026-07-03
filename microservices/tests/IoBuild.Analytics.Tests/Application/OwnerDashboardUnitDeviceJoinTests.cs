@@ -2,8 +2,10 @@ using FluentAssertions;
 using IoBuild.Analytics.Application.Internal.QueryServices;
 using IoBuild.Analytics.Domain.Model.Projections;
 using IoBuild.Analytics.Domain.Model.Queries;
+using IoBuild.Analytics.Infrastructure.InfluxDB;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 
 namespace IoBuild.Analytics.Tests.Application;
 
@@ -24,6 +26,21 @@ public class OwnerDashboardUnitDeviceJoinTests
             .UseInMemoryDatabase(dbName)
             .Options;
         return new AnalyticsDbContext(options);
+    }
+
+    /// <summary>
+    /// The live-status mock returns no data, so effective status always falls back
+    /// to the projection's static Status — preserving these tests' original intent.
+    /// </summary>
+    private static AnalyticsQueryService CreateService(AnalyticsDbContext db)
+    {
+        var liveStatus = new Mock<ILiveDeviceStatusService>();
+        liveStatus.Setup(s => s.GetLatestStatusesAsync(It.IsAny<IEnumerable<string>>()))
+            .ReturnsAsync(new Dictionary<string, string>());
+
+        return new AnalyticsQueryService(
+            db, NullLogger<AnalyticsQueryService>.Instance,
+            new Mock<ILiveEnergyService>().Object, liveStatus.Object);
     }
 
     // ── Scenario 1: owner WITH a matched unit sees their unit's devices ──────────
@@ -47,7 +64,7 @@ public class OwnerDashboardUnitDeviceJoinTests
         );
         await db.SaveChangesAsync();
 
-        var svc = new AnalyticsQueryService(db, NullLogger<AnalyticsQueryService>.Instance);
+        var svc = CreateService(db);
 
         // Act
         var result = await svc.Handle(new GetOwnerDashboardQuery(UserId: 7));
@@ -75,7 +92,7 @@ public class OwnerDashboardUnitDeviceJoinTests
         );
         await db.SaveChangesAsync();
 
-        var svc = new AnalyticsQueryService(db, NullLogger<AnalyticsQueryService>.Instance);
+        var svc = CreateService(db);
 
         // Act
         var result = await svc.Handle(new GetOwnerDashboardQuery(UserId: 7));
@@ -101,7 +118,7 @@ public class OwnerDashboardUnitDeviceJoinTests
         );
         await db.SaveChangesAsync();
 
-        var svc = new AnalyticsQueryService(db, NullLogger<AnalyticsQueryService>.Instance);
+        var svc = CreateService(db);
 
         // Act
         var result = await svc.Handle(new GetOwnerDashboardQuery(UserId: 8));
@@ -136,7 +153,7 @@ public class OwnerDashboardUnitDeviceJoinTests
         );
         await db.SaveChangesAsync();
 
-        var svc = new AnalyticsQueryService(db, NullLogger<AnalyticsQueryService>.Instance);
+        var svc = CreateService(db);
 
         // Act — query as Owner A
         var result = await svc.Handle(new GetOwnerDashboardQuery(UserId: 7));
@@ -166,7 +183,7 @@ public class OwnerDashboardUnitDeviceJoinTests
         );
         await db.SaveChangesAsync();
 
-        var svc = new AnalyticsQueryService(db, NullLogger<AnalyticsQueryService>.Instance);
+        var svc = CreateService(db);
 
         // Act — query as the eventual owner (userId=7) BEFORE the match event arrives
         var result = await svc.Handle(new GetOwnerDashboardQuery(UserId: 7));
