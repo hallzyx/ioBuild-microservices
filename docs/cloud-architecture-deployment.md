@@ -1,6 +1,7 @@
 # Cloud Architecture Deployment Diagram — IoBuild
 
 > Diagrama de despliegue en la nube. Validado por revisión cruzada.
+> Para el log detallado de decisiones de infraestructura, bugs encontrados y fixes durante el deploy, ver [`deploy-flow.md`](../deploy-flow.md).
 
 ```mermaid
 graph TB
